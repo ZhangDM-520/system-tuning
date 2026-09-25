@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+# tests/run: fixture-tree suite for eco. Assertions are on exit codes and report
+# text, plus the byte-level guarantees apply makes (dated .bak sibling, unclaimed
+# foreign bytes preserved, nothing written on a hard line-patch error).
+set -uo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+WORK="$ROOT/tests/work"
+FIX="$ROOT/tests/fixtures"
+STUBS="$ROOT/tests/stubs"
+SNAP="$WORK/.snap"
+ECO="$ROOT/eco"
+export PATH="$STUBS:$PATH"
+
+PASS=0 FAIL=0 OUT='' RC=0
+
+say() { printf '%s\n' "$*"; }
+ok() { PASS=$((PASS + 1)); say "PASS  $1"; }
+bad() { FAIL=$((FAIL + 1)); say "FAIL  $1"; }
+
+assert_eq() {
+  if [[ $2 == "$3" ]]; then ok "$1"; else bad "$1 (got '$2' want '$3')"; fi
+}
+assert_contains() {
+  if grep -qF -- "$2" <<<"$OUT"; then ok "$1"; else bad "$1 (missing '$2')"; fi
+}
+assert_file() {
+  if [[ -f $2 ]]; then ok "$1"; else bad "$1 (missing $2)"; fi
+}
+assert_same() {
+  if cmp -s "$2" "$3"; then ok "$1"; else bad "$1 ($2 != $3)"; fi
+}
+
+run_eco() {
+  local tree=$1
+  shift
+  OUT=$(ECO_ROOT="$tree" "$ECO" "$@" 2>&1)
+  RC=$?
+}
+
+new_tree() {
+  local dest="$WORK/$1"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  cp -a "$FIX/." "$dest/"
+  # pristine means "live mirrors intent": seed owned targets from the current state/
+  cp -a "$ROOT/state/owned/." "$dest/"
+  printf '%s' "$dest"
+}
+
+report_lines() { grep -E '^(OK|ACCEPTED|WARN|DRIFT|SKIPPED) ' <<<"$OUT" || true; }
+
+rm -rf "$WORK"
+mkdir -p "$SNAP"
+
+# --- (1) pristine fixture: exit 0, all 14 IDs present, PPT line is ACCEPTED ---
+t1=$(new_tree pristine)
+run_eco "$t1" report
+assert_eq "case1 pristine report exits 0" "$RC" 0
+ids1=$(report_lines | awk '{print $2}' | sort -u)
+want_ids=$(printf '%s\n' EPP CEIL CO PPT ECO WIFI BT TLP TIMER IO SCHED PROFILE SD MISC | sort)
+assert_eq "case1 all 14 check IDs present" "$ids1" "$want_ids"
+assert_contains "case1 PPT line is ACCEPTED" \
+  "ACCEPTED PPT STAPM 17.000 W, firmware preference quirks#stapm"
+if grep -q '^DRIFT ' <<<"$OUT"; then
+  bad "case1 pristine has no DRIFT"
+else
+  ok "case1 pristine has no DRIFT"
+fi
+
+# --- (2) induced drift (one fixture value): exactly one DRIFT, exit 1 ---
+# Drift note: EPP lives in sysfs, which apply never writes (its convergence path
+# is owned writes + managed edits), so the induced drift is on the TLP owned
+# target, the drift class apply can actually converge.
+t2=$(new_tree drifted)
+printf '# induced drift\n' >>"$t2/etc/tlp.d/01-eco.conf"
+run_eco "$t2" report
+assert_eq "case2 induced drift exits 1" "$RC" 1
+assert_eq "case2 exactly one DRIFT line" "$(grep -c '^DRIFT ' <<<"$OUT")" 1
+assert_contains "case2 the DRIFT is TLP" "DRIFT TLP "
+
+# --- (3) apply converges the drifted fixture; second apply plans nothing ---
+t3=$(new_tree converge)
+printf '# induced drift\n' >>"$t3/etc/tlp.d/01-eco.conf"
+run_eco "$t3" apply
+assert_eq "case3 apply converges (exit 0)" "$RC" 0
+run_eco "$t3" report
+assert_eq "case3 re-report exits 0" "$RC" 0
+run_eco "$t3" apply
+assert_eq "case3 second apply exits 0" "$RC" 0
+assert_contains "case3 second apply plans nothing" "PLAN 0 change"
+
+# --- (4) a written target always has its dated .bak sibling after apply ---
+t4=$(new_tree backup)
+printf '# induced drift\n' >>"$t4/etc/tlp.d/01-eco.conf"
+run_eco "$t4" apply
+assert_eq "case4 apply exits 0" "$RC" 0
+bak="$t4/etc/tlp.d/01-eco.conf.bak-$(date +%Y%m%d)"
+assert_file "case4 dated .bak sibling exists" "$bak"
+if grep -qF '# induced drift' "$bak" 2>/dev/null; then
+  ok "case4 backup holds the pre-write content"
+else
+  bad "case4 backup holds the pre-write content"
+fi
+
+# --- (5) foreign file: unclaimed bytes survive apply byte-for-byte ---
+t5=$(new_tree foreign)
+f5="$t5/etc/scx_loader.toml"
+sed -i 's|^powersave_mode = .*|powersave_mode = ["-m", "powersave"]|' "$f5"
+cp "$f5" "$SNAP/scx.before"
+run_eco "$t5" apply
+assert_eq "case5 apply on drifted foreign file exits 0" "$RC" 0
+n5=$(grep -nF 'powersave_mode = ["-m", "powersave"]' "$SNAP/scx.before" | cut -d: -f1)
+if cmp -s <(head -n "$((n5 - 1))" "$SNAP/scx.before") <(head -n "$((n5 - 1))" "$f5") &&
+  cmp -s <(tail -n "+$((n5 + 1))" "$SNAP/scx.before") <(tail -n "+$((n5 + 1))" "$f5"); then
+  ok "case5 unclaimed bytes preserved exactly around the edited line"
+else
+  bad "case5 unclaimed bytes preserved exactly around the edited line"
+fi
+if grep -qxF 'powersave_mode = ["--powersave"]' "$f5"; then
+  ok "case5 claimed line converged to intent"
+else
+  bad "case5 claimed line converged to intent"
+fi
+
+# --- (6) line-patch with zero matches: exit 3, nothing written ---
+t6=$(new_tree nomatch)
+f6="$t6/etc/scx_loader.toml"
+sed -i 's|^powersave_mode = .*|# powersave_mode removed|' "$f6"
+printf '# induced drift\n' >>"$t6/etc/tlp.d/01-eco.conf"
+cp "$f6" "$SNAP/scx6.before"
+cp "$t6/etc/tlp.d/01-eco.conf" "$SNAP/tlp6.before"
+run_eco "$t6" apply
+assert_eq "case6 zero-match apply exits 3" "$RC" 3
+assert_contains "case6 names the hard error" "0 lines match anchor"
+assert_same "case6 nothing written (foreign file untouched)" "$SNAP/scx6.before" "$f6"
+assert_same "case6 nothing written (owned target untouched)" "$SNAP/tlp6.before" "$t6/etc/tlp.d/01-eco.conf"
+if compgen -G "$t6/etc/tlp.d/*.bak-*" >/dev/null; then
+  bad "case6 no backup created on hard error"
+else
+  ok "case6 no backup created on hard error"
+fi
+
+# --- (7) report IDs are exactly the registry set ---
+t7=$(new_tree ids)
+run_eco "$t7" report
+assert_eq "case7 report exits 0 on pristine tree" "$RC" 0
+ids7=$(report_lines | awk '{print $2}' | sort -u)
+assert_eq "case7 report IDs are exactly the registry set" "$ids7" "$want_ids"
+assert_eq "case7 exactly one line per check" "$(report_lines | wc -l)" 14
+
+# --- (8) lock: held lockfile makes apply exit 2 naming the holder ---
+t8=$(new_tree lock)
+printf '# induced drift\n' >>"$t8/etc/tlp.d/01-eco.conf"
+cp "$t8/etc/tlp.d/01-eco.conf" "$SNAP/tlp8.before"
+lock="$t8/run/lock/eco-power-apply.lock"
+mkdir -p "$(dirname "$lock")"
+printf 'holder=TESTSUITE pid=%s\n' "$$" >"$lock"
+flock "$lock" sleep 30 &
+hold=$!
+sleep 0.3
+run_eco "$t8" apply
+assert_eq "case8 apply under held lock exits 2" "$RC" 2
+assert_contains "case8 names the holder" "TESTSUITE"
+assert_same "case8 nothing written" "$SNAP/tlp8.before" "$t8/etc/tlp.d/01-eco.conf"
+kill "$hold" 2>/dev/null
+wait "$hold" 2>/dev/null
+
+# --- (9) section-scoped patch: two sections with the same anchor, only the
+# claimed section's line changes ---
+t9=$(new_tree section-two)
+f9="$t9/etc/scx_loader.toml"
+cat >"$f9" <<'EOF'
+# two-section foreign file: the same anchor lives in both sections
+[scheds.scx_rusty]
+powersave_mode = ["-m", "powersave"]
+
+[scheds.scx_lavd]
+powersave_mode = ["-m", "powersave"]
+EOF
+run_eco "$t9" report
+assert_contains "case9 same anchor in two sections is not a hard error" \
+  "DRIFT SCHED scx_loader.toml claimed line differs"
+run_eco "$t9" apply
+assert_eq "case9 two-section apply exits 0" "$RC" 0
+assert_eq "case9 lavd line converged to intent" \
+  "$(grep -cFx 'powersave_mode = ["--powersave"]' "$f9")" 1
+assert_eq "case9 rusty line untouched" \
+  "$(grep -cFx 'powersave_mode = ["-m", "powersave"]' "$f9")" 1
+run_eco "$t9" report
+assert_contains "case9 SCHED OK after section patch" "OK SCHED "
+
+# --- (10) 13-match file: section scoping patches the lavd line uniquely ---
+t10=$(new_tree thirteen)
+f10="$t10/etc/scx_loader.toml"
+{
+  printf '# foreign file with one anchor line in each of 13 sched sections\n'
+  for i in $(seq 1 13); do
+    if [[ $i == 5 ]]; then n=scx_lavd; else n=scx_alt$i; fi
+    printf '[scheds.%s]\npowersave_mode = ["drifted"]\n\n' "$n"
+  done
+} >"$f10"
+run_eco "$t10" apply
+assert_eq "case10 13-match apply exits 0" "$RC" 0
+assert_eq "case10 exactly one line converged" \
+  "$(grep -cFx 'powersave_mode = ["--powersave"]' "$f10")" 1
+assert_eq "case10 twelve lines untouched" \
+  "$(grep -cFx 'powersave_mode = ["drifted"]' "$f10")" 12
+conv10=$(grep -nFx 'powersave_mode = ["--powersave"]' "$f10" | cut -d: -f1)
+sec10=$(head -n "$conv10" "$f10" | grep -E '^\[' | tail -1)
+assert_eq "case10 the patched line is the lavd one" "$sec10" "[scheds.scx_lavd]"
+
+# --- (11) zero matches inside the claimed section: exit 3, nothing written ---
+t11=$(new_tree section-nomatch)
+f11="$t11/etc/scx_loader.toml"
+cat >"$f11" <<'EOF'
+# the anchor exists in the file, but only outside the claimed section
+[scheds.scx_lavd]
+default_mode_note = "no powersave_mode line here"
+
+[scheds.scx_rusty]
+powersave_mode = ["-m", "powersave"]
+EOF
+printf '# induced drift\n' >>"$t11/etc/tlp.d/01-eco.conf"
+cp "$f11" "$SNAP/scx11.before"
+cp "$t11/etc/tlp.d/01-eco.conf" "$SNAP/tlp11.before"
+run_eco "$t11" apply
+assert_eq "case11 zero-match-in-section apply exits 3" "$RC" 3
+assert_contains "case11 names the hard error" "0 lines match anchor"
+assert_contains "case11 names the section scope" "in section"
+assert_same "case11 nothing written (foreign file untouched)" "$SNAP/scx11.before" "$f11"
+assert_same "case11 nothing written (owned target untouched)" \
+  "$SNAP/tlp11.before" "$t11/etc/tlp.d/01-eco.conf"
+if find "$t11" -name '*.bak-*' | grep -q .; then
+  bad "case11 no backup created on hard error"
+else
+  ok "case11 no backup created on hard error"
+fi
+
+# --- (12) ERE journald regex: the commented fixture line matches and converges ---
+t12=$(new_tree journald-ere)
+f12="$t12/etc/systemd/journald.conf"
+sed -i 's/^SystemMaxUse=.*/#SystemMaxUse=16M/' "$f12"
+cp "$f12" "$SNAP/journald12.before"
+run_eco "$t12" report
+assert_contains "case12 commented line is anchored by the ERE regex" \
+  "DRIFT IO journald.conf claimed line differs"
+run_eco "$t12" apply
+assert_eq "case12 ERE journald apply exits 0" "$RC" 0
+assert_eq "case12 commented line patched to intent" \
+  "$(grep -cFx 'SystemMaxUse=32M' "$f12")" 1
+assert_eq "case12 commented form gone" "$(grep -cFx '#SystemMaxUse=16M' "$f12")" 0
+if grep -qF '#RateLimitIntervalSec=30s' "$f12" && grep -qF 'SystemMaxFileSize=8M' "$f12"; then
+  ok "case12 unclaimed bytes survive"
+else
+  bad "case12 unclaimed bytes survive"
+fi
+if grep -qF "^#?[[:space:]]*SystemMaxUse=" "$ROOT/state/managed/journald.toml"; then
+  ok "case12 record regex is the unambiguous ERE form"
+else
+  bad "case12 record regex is the unambiguous ERE form"
+fi
+
+# --- (13) niri TAB line: record line equals live bytes exactly, no write needed ---
+t13=$(new_tree niri-tab)
+n13="$t13/home/zhangdm/.config/niri/cfg/autostart.kdl"
+rec13=$(grep -E "^line[[:space:]]*=" "$ROOT/state/managed/niri-autostart.toml" | cut -d"'" -f2)
+fix13=$(grep -F '.reserve/hw-tune.fish' "$n13")
+assert_eq "case13 record line equals live bytes (TAB included)" "$rec13" "$fix13"
+run_eco "$t13" apply
+assert_contains "case13 pristine niri target plans no write" "PLAN 0 change"
+if compgen -G "$t13/home/zhangdm/.config/niri/cfg/*.bak-*" >/dev/null; then
+  bad "case13 no niri backup when strict equality holds"
+else
+  ok "case13 no niri backup when strict equality holds"
+fi
+sed -i 's/^\t//' "$n13"
+run_eco "$t13" apply
+assert_eq "case13 TAB-stripped line converges (exit 0)" "$RC" 0
+assert_eq "case13 strict equality restored byte-for-byte" \
+  "$(grep -F '.reserve/hw-tune.fish' "$n13")" "$rec13"
+
+say ""
+say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
+if (( FAIL )); then exit 1; fi
+exit 0

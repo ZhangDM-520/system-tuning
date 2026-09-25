@@ -1,0 +1,5 @@
+// fixture foreign file: niri autostart. Only the hw-tune line is claimed.
+spawn-at-startup "fcitx5" "-d"
+spawn-at-startup "waybar"
+	spawn-at-startup "fish" ".reserve/hw-tune.fish"
+spawn-at-startup "syncthing" "--no-browser"

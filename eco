@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# eco: eco-power convergence tool. Three verbs (report, apply, harvest), two flags
+# (--json, --dry-run), shared exit codes. See eco --help.
+set -euo pipefail
+
+ECO_HOME=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+for _eco_lib in "$ECO_HOME"/lib/*.sh; do
+  . "$_eco_lib"
+done
+shopt -s nullglob
+
+usage() {
+  cat <<'EOF'
+usage: eco <verb> [flag]
+
+verbs:
+  report    read-only verdict over the 14 power-stack checks (default)
+  apply     converge the live system to repo state (root; idempotent)
+  harvest   print a unified diff proposal from live to intent state (writes nothing)
+
+flags:
+  --json      with report: stable machine-readable output
+  --dry-run   with apply: print the plan, write nothing
+
+exit codes:
+  0  all checks OK / ACCEPTED / WARN
+  1  DRIFT present (report) or persisted after apply
+  2  precondition failure (bad argument, lock held, no root for apply, missing state file)
+  3  apply step failed (partial; applied and not-applied targets listed)
+EOF
+}
+
+usage_err() {
+  printf 'eco: unknown argument: %s\n' "${1:-}" >&2
+  usage >&2
+  exit 2
+}
+
+cmd_report() {
+  local json=$1 id
+  require_state
+  for id in "${CHECK_IDS[@]}"; do
+    "${CHECK_READER[$id]}"
+  done
+  if (( json )); then
+    report_json
+  else
+    report_print
+  fi
+  exit "$(report_exit)"
+}
+
+main() {
+  local cmd=report json=0 dry=0
+  if (( $# > 0 )); then
+    case "$1" in
+      report) cmd=report; shift ;;
+      apply) cmd=apply; shift ;;
+      harvest) cmd=harvest; shift ;;
+      --help | -h) usage; exit 0 ;;
+      --json) json=1; shift ;;
+      *) usage_err "$1" ;;
+    esac
+  fi
+  while (( $# )); do
+    case "$1" in
+      --json) json=1; shift ;;
+      --dry-run) dry=1; shift ;;
+      --help | -h) usage; exit 0 ;;
+      *) usage_err "$1" ;;
+    esac
+  done
+  case "$cmd" in
+    report)
+      (( dry == 0 )) || usage_err "--dry-run"
+      cmd_report "$json"
+      ;;
+    apply)
+      (( json == 0 )) || usage_err "--json"
+      cmd_apply "$dry"
+      ;;
+    harvest)
+      (( json == 0 && dry == 0 )) || usage_err "flag for harvest"
+      cmd_harvest
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# tests/stubs/lspci: canned SD-host listing for the fixture tree (driver unbound).
+cat <<'EOF'
+c2:00.0 SD Host controller [0805]: Genesys Logic, Inc GL9755 SD Host Controller [17a0:9755] (rev 01)
+	Subsystem: ASUSTeK Computer Inc. Device [1043:202f]
+	Kernel modules: sdhci_pci
+EOF
+exit 0

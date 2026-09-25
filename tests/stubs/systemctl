@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# tests/stubs/systemctl: canned unit states for the fixture tree.
+case " $* " in
+  *"is-active eco-power.timer"*)
+    echo active
+    ;;
+  *"is-enabled localsearch-3"*)
+    # live behaviour: masked prints "masked" and exits 1
+    echo masked
+    exit 1
+    ;;
+  *daemon-reload* | *--system*)
+    ;;
+esac
+exit 0

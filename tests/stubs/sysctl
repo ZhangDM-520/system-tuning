@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# tests/stubs/sysctl: canned vm writeback values for the fixture tree.
+for a in "$@"; do
+  case "$a" in
+    -*) ;;
+    vm.dirty_writeback_centisecs) echo 6000 ;;
+    vm.dirty_expire_centisecs) echo 6000 ;;
+    *) echo "sysctl stub: unknown key $a" >&2; exit 1 ;;
+  esac
+done
+exit 0

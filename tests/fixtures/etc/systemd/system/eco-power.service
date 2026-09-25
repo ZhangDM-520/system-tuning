@@ -1,0 +1,8 @@
+[Unit]
+Description=Apply eco power settings (ryzenadj caps + amdgpu dpm state)
+After=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/eco-power.sh
+[Install]
+WantedBy=multi-user.target

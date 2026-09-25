@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# tests/stubs/iw: canned wifi power-save state for the fixture tree.
+echo "Power save: on"
+exit 0

@@ -1,0 +1,4 @@
+target = "/etc/systemd/journald.conf"
+match = '^#?[[:space:]]*SystemMaxUse='
+line = "SystemMaxUse=32M"
+doc = "fleet-findings#io"

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# tests/stubs/ryzenadj: canned SMU readback for the fixture tree.
+case " $* " in
+  *" --info "*)
+    cat <<'EOF'
+| NAME                 | VALUE   |
+| PPT LIMIT FAST       | 31.000  |
+| PPT LIMIT SLOW       | 31.000  |
+| STAPM LIMIT          | 17.000  |
+| StapmTimeConst       | 128.000 |
+EOF
+    ;;
+esac
+exit 0
