@@ -23,7 +23,7 @@ interface from the failure.
 
 | Code | Meaning | Caller action |
 |------|---------|---------------|
-| 0 | green: only OK / ACCEPTED / WARN rows | none |
+| 0 | green: no DRIFT (rows may be SKIPPED where a check needs root or a user session) | none |
 | 1 | DRIFT present (report) or persisted after apply | read the anchored rows; apply or roll back |
 | 2 | precondition failure: bad argument, lock held by the 600s converger, missing state file | fix environment, retry |
 | 3 | apply failed partway | output lists applied and not-applied targets plus rollback anchors |
@@ -36,12 +36,18 @@ interface from the failure.
 - `WARN`: a known quirk or expected transient (for example the SD reader re-bound after a reboot).
   Exit 0, action is a judgment call, anchor explains it.
 - `DRIFT`: actionable mismatch between repo and live.
+- `SKIPPED`: a check that needs root or a user session; counted green, means unverified.
 
 ## Rules of the road
 
-1. **Repo first.** Hand edits to live are reverted by the 600s convergence chain by design. Want
-   it otherwise: change state/, `./eco apply`, commit. Deliberate live experiments: capture them
-   with `./eco harvest` before the converger reverts them.
+1. **Repo first.** Hand edits to live are reverted by the 600s convergence chain by design: the
+   runtime knobs re-converge via eco-power.sh, and file state converges via the `eco apply`
+   appended as the second ExecStart of the same chain (ExecStart=-, so a missing repo or a failed
+   apply can never break the boot-critical path). A manual `sudo ./eco apply` holding the lock
+   makes a chain run skip its apply step safely (the ExecStart=- prefix swallows that exit), while
+   the run still re-asserts the runtime knobs. Want it otherwise: change state/, `./eco apply`,
+   commit. Deliberate live experiments: capture them with `./eco harvest` before the converger
+   reverts them.
 2. **One place per knob.** Each tunable appears exactly once under `state/`. `grep -rn <value> state/`
    must return one hit. If two, the repo is wrong.
 3. **Idempotence.** `./eco apply` twice equals once; the second run plans nothing.

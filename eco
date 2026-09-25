@@ -23,10 +23,14 @@ flags:
   --dry-run   with apply: print the plan, write nothing
 
 exit codes:
-  0  all checks OK / ACCEPTED / WARN
+  0  no DRIFT (rows may be SKIPPED where a check needs root or a user session)
   1  DRIFT present (report) or persisted after apply
-  2  precondition failure (bad argument, lock held, no root for apply, missing state file)
+  2  precondition failure (bad argument, lock held by a real apply, missing state file)
   3  apply step failed (partial; applied and not-applied targets listed)
+
+verdict classes: OK, ACCEPTED (a settled decision where live legitimately differs),
+WARN (known quirk or expected transient), DRIFT (actionable mismatch), SKIPPED
+(a check that needs root or a user session; counted green, means unverified).
 EOF
 }
 

@@ -2,11 +2,11 @@
 # tests/stubs/ryzenadj: canned SMU readback for the fixture tree.
 case " $* " in
   *" --info "*)
-    cat <<'EOF'
+    cat <<EOF
 | NAME                 | VALUE   |
 | PPT LIMIT FAST       | 31.000  |
 | PPT LIMIT SLOW       | 31.000  |
-| STAPM LIMIT          | 17.000  |
+| STAPM LIMIT          | ${RYZENADJ_STAPM:-17.000} |
 | StapmTimeConst       | 128.000 |
 EOF
     ;;

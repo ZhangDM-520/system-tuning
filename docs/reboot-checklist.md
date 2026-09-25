@@ -8,7 +8,8 @@ walk, not a repair session.
 
 1. `./eco report` (unprivileged is fine; `sudo` adds the SMU rows).
    Expect: exit 0 with OK rows, one ACCEPTED row for PPT (STAPM firmware floor, quirks#stapm),
-   and possibly a WARN on SD (reader re-binds at boot: runtime-only unbind, rollback#sd).
+   possibly a WARN on SD (reader re-binds at boot: runtime-only unbind, rollback#sd), and possibly
+   SKIPPED rows where a check needs root or a user session (counted green, means unverified).
 2. `systemctl list-timers eco-power.timer` shows the 600s backstop armed.
 3. AC state sanity: `cat /sys/class/power_supply/AC0/online`. If the state looks wrong versus
    reality, do one physical plug cycle (known EC misread, quirks#ec) before diagnosing anything.

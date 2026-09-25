@@ -51,17 +51,35 @@ lock_release() {
 }
 
 # Plan step: compute every pending change and every hard anomaly. Writes nothing.
+# With dry=1 (the read-only plan) a root-only file that cannot be read degrades to
+# a SKIPPED note instead of a write plan or hard error: a plan never needs root.
+PLAN_SKIP=()
 plan_collect() {
-  PLAN_KIND=() PLAN_TARGET=() PLAN_SRC=() PLAN_ID=() PLAN_ANOMALY=()
+  local dry=${1:-0}
+  PLAN_KIND=() PLAN_TARGET=() PLAN_SRC=() PLAN_ID=() PLAN_ANOMALY=() PLAN_SKIP=()
   local src rel live id lp
   while IFS= read -r src; do
     rel=${src#"$OWNED_DIR"/}
     live=$(live_path "/$rel")
+    if [[ -e $live && ! -r $live ]]; then
+      if (( dry )); then
+        PLAN_SKIP+=("/$rel (unreadable without root)")
+        continue
+      fi
+    fi
     if [[ ! -e $live ]] || ! cmp -s "$src" "$live"; then
       PLAN_KIND+=(owned) PLAN_TARGET+=("$live") PLAN_SRC+=("$src") PLAN_ID+=("/$rel")
     fi
   done < <(owned_state_files)
   for id in "${MANAGED_IDS[@]}"; do
+    managed_load "$id"
+    lp=$(live_path "$MG_TARGET")
+    if [[ -e $lp && ! -r $lp ]]; then
+      if (( dry )); then
+        PLAN_SKIP+=("$MG_LABEL: $MG_TARGET (unreadable without root)")
+        continue
+      fi
+    fi
     managed_probe "$id"
     lp=$MP_LIVE
     case $MP_STATE in
@@ -141,6 +159,9 @@ plan_print() {
       managed) printf '  MANAGED %s %s\n' "${PLAN_ID[$i]}" "${PLAN_TARGET[$i]}" ;;
     esac
   done
+  for i in "${!PLAN_SKIP[@]}"; do
+    printf '  SKIPPED %s\n' "${PLAN_SKIP[$i]}"
+  done
 }
 
 # Backup step: cp -p <file> <file>.bak-YYYYMMDD alongside every target about to be
@@ -164,7 +185,8 @@ backup_step() {
 write_owned() {
   local src=$1 tgt=$2
   assert_in_root "$tgt"
-  cp "$src" "$tgt"
+  cp "$src" "$tgt" || return 1
+  return 0
 }
 
 write_managed() {
@@ -172,7 +194,10 @@ write_managed() {
   managed_probe "$id"
   [[ $MP_STATE == differs ]] || return 0
   assert_in_root "$MP_LIVE"
-  managed_replace_line "$MP_LIVE" "$MP_IDX" "$MG_LINE"
+  # a real failure status must reach the caller so die3_partial can report the
+  # applied/not-applied split and the backup rollback anchors (exit 3)
+  managed_replace_line "$MP_LIVE" "$MP_IDX" "$MG_LINE" || return 1
+  return 0
 }
 
 # Reload step: daemon-reload / sysctl --system only when a target they cover changed.
@@ -205,17 +230,19 @@ reload_step() {
 cmd_apply() {
   local dry=$1 i n_planned n_applied
   require_state
-  if [[ -z $ECO_ROOT && ${EUID:-$(id -u)} -ne 0 ]]; then
+  # --dry-run is a read-only plan: no root escalation, no lock (README contract).
+  # Real apply keeps the sudo re-exec and the apply lock.
+  if (( ! dry )) && [[ -z $ECO_ROOT && ${EUID:-$(id -u)} -ne 0 ]]; then
     command -v sudo >/dev/null 2>&1 || die2 "apply requires root (sudo unavailable)"
-    local args=(apply)
-    (( dry )) && args+=(--dry-run)
-    exec sudo "$ECO_HOME/eco" "${args[@]}"
+    exec sudo "$ECO_HOME/eco" apply
   fi
-  lock_acquire
-  trap lock_release EXIT
+  if (( ! dry )); then
+    lock_acquire
+    trap lock_release EXIT
+  fi
 
   # plan: file targets (plan_collect) plus runtime sysctl drift (runtime_collect)
-  plan_collect
+  plan_collect "$dry"
   plan_print
   runtime_collect
   runtime_print

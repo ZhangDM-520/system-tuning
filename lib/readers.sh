@@ -115,13 +115,28 @@ check_ppt() {
     emit DRIFT PPT "PPT FAST=$fast SLOW=$slow want 31.000"
     return 0
   fi
-  if [[ $stapm != 31.000 ]]; then
-    # Settled decision: firmware re-prefers STAPM; not actionable. StapmTimeConst
-    # readback artifacts (0.000) are likewise expected and never a verdict input.
+  if [[ $stapm == 31.000 ]]; then
+    emit OK PPT "PPT FAST/SLOW/STAPM 31.000"
+    return 0
+  fi
+  # Contract (decisions#ppt): ACCEPTED is scoped to a STAPM readback BELOW 31 W
+  # (firmware floor class, quirks#stapm). Parse numerically: anything above the
+  # 31 W envelope is DRIFT, and an empty or unparseable readback is DRIFT too
+  # (the output format changed and needs eyes). StapmTimeConst readback
+  # artifacts (0.000) are likewise expected and never a verdict input.
+  if [[ ! $stapm =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    emit DRIFT PPT "STAPM readback unparseable: '${stapm:-empty}' (format changed)"
+    return 0
+  fi
+  if awk -v v="$stapm" 'BEGIN{exit !(v < 31)}'; then
     emit ACCEPTED PPT "STAPM $stapm W, firmware preference" "quirks#stapm"
     return 0
   fi
-  emit OK PPT "PPT FAST/SLOW/STAPM 31.000"
+  if awk -v v="$stapm" 'BEGIN{exit !(v > 31)}'; then
+    emit DRIFT PPT "STAPM $stapm W above the 31 W envelope (want 31.000)"
+    return 0
+  fi
+  emit DRIFT PPT "STAPM readback '$stapm' is 31 but not the 31.000 format (want 31.000)"
 }
 
 check_eco() {
@@ -171,15 +186,21 @@ check_tlp() {
 }
 
 check_timer() {
-  local unit out bad=()
+  local unit svc out bad=()
   out=$(systemctl is-active eco-power.timer 2>&1 || true)
   unit=$(live_path "/etc/systemd/system/eco-power.timer")
+  svc=$(live_path "/etc/systemd/system/eco-power.service")
   [[ $(trim "$out") == active ]] || bad+=("eco-power.timer=$(trim "$out")")
   grep -qF 'OnUnitActiveSec=600s' "$unit" 2>/dev/null || bad+=("OnUnitActiveSec=600s missing")
+  # The convergence promise (README rule 1) lives in the service chain: the
+  # second ExecStart must run eco apply after eco-power.sh (ExecStart=- so a
+  # missing repo or apply failure can never fail the boot-critical chain).
+  grep -qF 'ExecStart=-/home/zhangdm/Projects/eco-power/eco apply' "$svc" 2>/dev/null \
+    || bad+=("eco apply ExecStart missing from eco-power.service")
   if (( ${#bad[@]} )); then
     emit DRIFT TIMER "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK TIMER "eco-power.timer active, OnUnitActiveSec=600s"
+    emit OK TIMER "eco-power.timer active, OnUnitActiveSec=600s, service chains eco apply"
   fi
 }
 

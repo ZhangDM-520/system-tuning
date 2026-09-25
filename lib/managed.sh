@@ -27,6 +27,11 @@ managed_match_lines() {
   local file=$1 match=$2 start=${3:-} end=${4:-}
   [[ -f $file ]] || return 0
   if [[ -n $start ]]; then
+    # An empty region (end < start, e.g. a section header immediately followed by
+    # another header) has zero lines and therefore zero matches. Never hand it to
+    # sed: GNU sed's "N,N-1p" prints line N, which would resolve the region to the
+    # NEXT section's header line and patch the wrong line.
+    (( end >= start )) || return 0
     sed -n "${start},${end}p" "$file" \
       | grep -nE -- "$match" 2>/dev/null | cut -d: -f1 \
       | awk -v off="$((start - 1))" '{print $1 + off}' || true
@@ -39,6 +44,9 @@ managed_match_lines() {
 # starting with `[` whose bytes match the record's section ERE) and before the next
 # line starting with `[`. Sets SR_OK (0/1), SR_START, SR_END (1-based inclusive),
 # SR_MSG (why the region is unusable). The header must match exactly one line.
+# A section with no body (next header immediately follows) yields SR_END <
+# SR_START: a valid but EMPTY region, which matches nothing (see
+# managed_match_lines) and thus fails the one-match rule as a hard error.
 managed_section_region() {
   local file=$1 sec=$2
   SR_OK=0 SR_START=0 SR_END=0 SR_MSG=''
@@ -108,8 +116,23 @@ managed_probe() {
   return 0
 }
 
+# Move a verified staging file over the live target, preserving the target's
+# owner and mode. Extracted as its own function so tests can drive
+# managed_replace_line with a failing stub of exactly this step.
+managed_commit_tmp() {
+  local tmp=$1 file=$2
+  chmod --reference="$file" "$tmp" 2>/dev/null || true
+  chown --reference="$file" "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$file"
+}
+
 # Replace exactly one line in place. All other bytes (including a missing final
-# newline and the file's mode/ownership) survive unchanged.
+# newline and the file's mode/ownership) survive unchanged. The new content is
+# built in a staging file and VERIFIED complete (non-empty, same line count as
+# the source) before the live file is touched; the commit is an atomic mv, so a
+# failed write can never leave a truncated or zeroed target. Returns 0 only on
+# success; a real failure status propagates to the caller (never masked by the
+# cleanup rm).
 managed_replace_line() {
   local file=$1 idx=$2 repl=$3 tmp total last_nl=1
   tmp="${file}.eco-tmp.$$"
@@ -117,7 +140,7 @@ managed_replace_line() {
   if [[ -n "$(tail -c1 "$file")" ]]; then
     last_nl=0
   fi
-  {
+  if ! {
     if (( idx > 1 )); then
       head -n "$((idx - 1))" "$file"
     fi
@@ -129,7 +152,19 @@ managed_replace_line() {
     if (( idx < total )); then
       tail -n "+$((idx + 1))" "$file"
     fi
-  } >"$tmp"
-  cat "$tmp" >"$file"
-  rm -f "$tmp"
+  } >"$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  # staging verification: refuse to touch the live file unless the staged copy
+  # is non-empty and holds exactly as many lines as the source
+  if [[ ! -s $tmp ]] || [[ $(grep -c '' "$tmp") -ne $total ]]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! managed_commit_tmp "$tmp" "$file"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  return 0
 }
