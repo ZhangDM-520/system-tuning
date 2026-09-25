@@ -63,10 +63,14 @@ which is exactly the observed 1500/1500 on AC. This also explains why the same f
 `20-xfs-sync-interval.conf` (`xfssyncd_centisecs = 10000`) keeps getting overridden to 1500.
 Convergence consequence: `eco apply` re-asserts the runtime values whenever they drift (even when
 the owned file is unchanged), and `eco-power.sh` re-asserts them on every trigger (boot, resume,
-AC event, 600s timer). Candidate one-shot fix, not applied (would need a fresh owner decision):
-`MAX_LOST_WORK_SECS_ON_AC=0` and `MAX_LOST_WORK_SECS_ON_BAT=0` in `01-eco.conf` makes TLP skip
-`set_dirty_parms` entirely (`cage=0` is its do-nothing path), leaving 99-eco-writeback.conf the
-single writer of those knobs and unblocking the XFS sync interval too.
+AC event, 600s timer).
+
+Fix applied (2026-09-25): `MAX_LOST_WORK_SECS_ON_AC=0` and `MAX_LOST_WORK_SECS_ON_BAT=0` in
+`01-eco.conf` (TLP convention: 0 = do not manage). Verified in source: `set_dirty_parms` computes
+`cage=age*100` and on `cage=0` returns early (its do-nothing path) before any sysctl write, so TLP
+stops rewriting the knobs, `99-eco-writeback.conf` is the single writer of 6000/6000, and the XFS
+sync interval from `20-xfs-sync-interval.conf` is thereby unblocked. Belt: this repo's
+`eco-power.sh` (`state/owned/usr/local/sbin/`) re-asserts 6000/6000 on every trigger.
 
 ## sched
 
