@@ -13,11 +13,12 @@ Reopen: only with measured joules-per-op evidence.
 
 ## ceil
 
-Zen5 cores 4.6 GHz, Zen5c cores 2.9 GHz (per-class scaling_max_freq). Q: owner, during undervolt
-testing ("4.5 GHz is reasonable... the job-power sweet point is before 5.1 GHz", then 4.6 set;
-density cores stepped 3.1 -> 3.0 -> 2.9 while hunting the voltage-sensitive point).
-Why: removes the inefficient boost tail; bursts still reach the ceiling instantly.
-Reopen: a measured job-power curve showing the sweet spot moved. Boost stays ON: the ceiling
+Zen5 cores 4.6 GHz, Zen5c cores 3.0 GHz (per-class scaling_max_freq). Q: owner, voltage-sensitivity
+testing 2026-09-26 (supersedes the earlier 3.1 -> 3.0 -> 2.9 step-down).
+Why: Zen5 5.1 -> 4.6 buys a stable undervolt (avg CO -20 vs -10), a real V/f sweet-spot win. Zen5c
+caps at 3.1/3.0/2.9 were all voltage-sensitive: Zen5c sits near its sweet point, below the V/f hill,
+so lower caps lose real performance for minimal power saving. Settled at 3.0 GHz.
+Reopen: new voltage-sensitivity data showing the Zen5c knee moved. Boost stays ON: the ceiling
 already clips it, and disabling boost would drop the hardware max to ~2.0 GHz base.
 
 ## co

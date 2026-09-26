@@ -33,15 +33,15 @@ apply_cpu_power
   && echo teo > /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null \
   && log "cpuidle governor=teo"
 
-# Per-core-class ceilings (owner 2026-09-23): Zen5 = 4.6 GHz, Zen5c = 3.1 GHz.
+# Per-core-class ceilings (owner 2026-09-23): Zen5 = 4.6 GHz, Zen5c = 3.0 GHz.
 for pol in /sys/devices/system/cpu/cpufreq/policy*; do
   [ -w "$pol/scaling_max_freq" ] || continue
   if [ "$(cat "$pol/cpuinfo_max_freq")" -gt 4400000 ]; then
     echo 4600000 > "$pol/scaling_max_freq" 2>/dev/null \
       && log "$(basename "$pol") scaling_max_freq=4600000"
   else
-    echo 2900000 > "$pol/scaling_max_freq" 2>/dev/null \
-      && log "$(basename "$pol") scaling_max_freq=2900000"
+    echo 3000000 > "$pol/scaling_max_freq" 2>/dev/null \
+      && log "$(basename "$pol") scaling_max_freq=3000000"
   fi
 done
 

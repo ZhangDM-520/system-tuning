@@ -15,7 +15,9 @@ while lowering output proportionally more is a regression wearing a green costum
 2. **No power caps, no forced throttling.** STAPM/PPT caps, thermal-limit lowering, forced
    downclocks, current limits: all "cheating". They bound watts without improving efficiency.
    Ceilings at the V/f sweet spot are legitimate: they remove only the inefficient tail of the
-   curve (5.1+ GHz on Zen5, above 2.9 GHz on Zen5c) while bursts still reach the ceiling instantly.
+   curve (5.1+ GHz on Zen5) while bursts still reach the ceiling instantly. Zen5c is the
+   counter-example: it sits below the V/f hill near its sweet point, so its settled 3.0 GHz
+   ceiling is an owner compromise, not a tail trim.
 3. **Devices must sleep.** Autosuspend, runtime PM, ASPM, radio power-save, audio codec power-down.
    Idle silicon burns watts for zero work. But never break a device to save its watts (see below).
 4. **Reduce wakeups, not capability.** Fewer timer wakeups, fewer flusher runs, fewer daemons

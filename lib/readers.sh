@@ -1,13 +1,13 @@
 # readers.sh: one reader per registry check. Each reader emits exactly one verdict
 # line via emit() and never writes anything.
 
-# Zen 5 = CPUs 0-3,12-15 (ceiling 4600000); Zen 5c = CPUs 4-11,16-23 (ceiling 2900000).
+# Zen 5 = CPUs 0-3,12-15 (ceiling 4600000); Zen 5c = CPUs 4-11,16-23 (ceiling 3000000).
 ceil_for_cpu() {
   local c=$1
   if (( (c >= 0 && c <= 3) || (c >= 12 && c <= 15) )); then
     printf '4600000'
   elif (( c >= 4 && c <= 11 || c >= 16 && c <= 23 )); then
-    printf '2900000'
+    printf '3000000'
   fi
 }
 
@@ -56,15 +56,15 @@ check_ceil() {
       if (( all_zen5 )); then
         exp=4600000
       else
-        exp=2900000
+        exp=3000000
         for cpu in "${cpus[@]}"; do
-          [[ $(ceil_for_cpu "$cpu") == 2900000 ]] || exp=4600000
+          [[ $(ceil_for_cpu "$cpu") == 3000000 ]] || exp=4600000
         done
       fi
     fi
     # Classify by related_cpus; fall back to cpuinfo_max_freq > 4400000 = Zen5.
     if [[ -z $exp ]]; then
-      if [[ -n $imax ]] && (( imax > 4400000 )); then exp=4600000; else exp=2900000; fi
+      if [[ -n $imax ]] && (( imax > 4400000 )); then exp=4600000; else exp=3000000; fi
     fi
     if [[ $smax != "$exp" ]]; then
       bad+=("$(basename "${d%/}")=$smax want $exp")
@@ -75,7 +75,7 @@ check_ceil() {
   elif (( ${#bad[@]} )); then
     emit DRIFT CEIL "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK CEIL "all $n policies capped 4600000 (Zen5) / 2900000 (Zen5c)"
+    emit OK CEIL "all $n policies capped 4600000 (Zen5) / 3000000 (Zen5c)"
   fi
 }
 

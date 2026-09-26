@@ -56,7 +56,7 @@ interface from the failure.
 5. **Backups before writes**: `cp -p <file> <file>.bak-YYYYMMDD`, alongside, never deleted.
 6. **Tty login is the recovery domain.** Nothing here may touch the bootloader, initramfs, or
    anything tty login depends on. A broken stack must still boot to a tty.
-7. **Commit messages carry the check ID** (`CEIL: Zen5c 2.9 -> 2.8GHz`), so `git log --grep CEIL`
+7. **Commit messages carry the check ID** (`CEIL: Zen5c 3.0 -> 2.8GHz`), so `git log --grep CEIL`
    is the history of one knob. Co-author trailer on every commit.
 
 ## Check registry
@@ -64,7 +64,7 @@ interface from the failure.
 | ID | Asserts | Policy | Anchor |
 |----|---------|--------|--------|
 | EPP | energy preference `dynamic` on every policy | tunable | decisions#epp |
-| CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 2.9 GHz (V/f sweet spots) | settled | decisions#ceil |
+| CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | settled | decisions#ceil |
 | CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | settled | decisions#co |
 | PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | settled | decisions#ppt |
 | ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | tunable | decisions#eco |
