@@ -1,0 +1,11 @@
+[Unit]
+Description=Online XFS scrub of root filesystem
+Documentation=man:xfs_scrub(8)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/xfs_scrub -v /
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=infinity

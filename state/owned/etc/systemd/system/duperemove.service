@@ -1,0 +1,12 @@
+[Unit]
+Description=Incremental duperemove dedupe sweep (root XFS, reflink)
+ConditionPathExists=/var/lib/duperemove/root.hash
+Documentation=man:duperemove(8)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/duperemove-daily.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=infinity
