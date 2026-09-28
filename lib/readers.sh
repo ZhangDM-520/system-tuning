@@ -195,7 +195,7 @@ check_timer() {
   # The convergence promise (README rule 1) lives in the service chain: the
   # second ExecStart must run eco apply after eco-power.sh (ExecStart=- so a
   # missing repo or apply failure can never fail the boot-critical chain).
-  grep -qF 'ExecStart=-/home/zhangdm/Projects/eco-power/eco apply' "$svc" 2>/dev/null \
+  grep -qF 'ExecStart=-/home/zhangdm/Projects/system-tuning/eco apply' "$svc" 2>/dev/null \
     || bad+=("eco apply ExecStart missing from eco-power.service")
   if (( ${#bad[@]} )); then
     emit DRIFT TIMER "$(join_by ' ' "${bad[@]}")"

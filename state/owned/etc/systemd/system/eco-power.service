@@ -4,6 +4,6 @@ After=multi-user.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/eco-power.sh
-ExecStart=-/home/zhangdm/Projects/eco-power/eco apply
+ExecStart=-/home/zhangdm/Projects/system-tuning/eco apply
 [Install]
 WantedBy=multi-user.target

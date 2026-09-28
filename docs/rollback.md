@@ -52,4 +52,4 @@ The SD reader (GL9755 on `0000:c2:00.0`, sdhci-pci) was unbound at runtime with 
 - Nuclear reset of a live file: copy its `state/owned` mirror to the live path after reviewing the
   diff, or restore the dated backup next to it.
 - If a change makes the machine sad: it must not block tty login (doctrine). Boot, log in on a
-  tty, `cd ~/Projects/eco-power`, `./eco report`, and work from the anchors it prints.
+  tty, `cd ~/Projects/system-tuning`, `./eco report`, and work from the anchors it prints.

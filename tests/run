@@ -403,20 +403,21 @@ else
 fi
 
 # --- (17) SKIPPED is the documented fifth verdict class (doc-drift guard) ---
-if grep -qF 'SKIPPED' "$ROOT/README.md"; then
-  ok "case17 README documents SKIPPED"
+# The eco contract README moved to docs/eco-power-README.md in the repo merge.
+if grep -qF 'SKIPPED' "$ROOT/docs/eco-power-README.md"; then
+  ok "case17 eco README documents SKIPPED"
 else
-  bad "case17 README documents SKIPPED"
+  bad "case17 eco README documents SKIPPED"
 fi
 if grep -qF 'SKIPPED' "$ROOT/eco"; then
   ok "case17 eco usage documents SKIPPED"
 else
   bad "case17 eco usage documents SKIPPED"
 fi
-if grep -qF 'counted green, means unverified' "$ROOT/README.md"; then
-  ok "case17 README defines SKIPPED semantics"
+if grep -qF 'counted green, means unverified' "$ROOT/docs/eco-power-README.md"; then
+  ok "case17 eco README defines SKIPPED semantics"
 else
-  bad "case17 README defines SKIPPED semantics"
+  bad "case17 eco README defines SKIPPED semantics"
 fi
 t17=$(new_tree verdicts)
 run_eco "$t17" report --json
