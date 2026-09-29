@@ -2,7 +2,8 @@
 
 Written 2026-09-29 during the architecture review. This file names the concepts the docs
 restructure talks about; it is the vocabulary shared by every design dossier and migration wave.
-Status: **design phase** — the modules below are proposed, not yet implemented.
+Status: **implemented 2026-09-29** — the modules below are the live doc set (gated by `./tests/run`
+and the anchor/one-home guards).
 
 ## The domain
 

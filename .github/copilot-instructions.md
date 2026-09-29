@@ -95,8 +95,12 @@ How a change propagates (none of this is visible from a single file):
 - **Project memory**: durable facts go to `docs/MEMORY.md`, session chronology to `docs/NOTE.md`
   (newest entry first); `benchmarks/` keeps its own pair at `benchmarks/docs/` under its stricter
   publication rules. Mine journal entries upward into memory instead of duplicating them.
+  Journal entries are self-contained; anchor insert edits on the entry below, keeping preserved
+  headings out of the edit span.
 - **Cold start**: `docs/eco-power-README.md` `## Cold start and change flow`.
 - **Contract rules have one home and are never restated here**: commands, exit codes, verdict
   classes (including never "fixing" an `ACCEPTED` row), state layout, one place per knob,
   idempotence, backups, foreign-file patching — `docs/eco-power-README.md` + `docs/rollback.md`;
   registry policy labels (`settled`/`tunable`/`habit`/`recovery-only`) — `docs/findings.md`.
+  One place per knob extends to the test seam: fixtures mirror converged live and tests read
+  expectations from the record, never from literals.
