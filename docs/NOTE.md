@@ -5,6 +5,98 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-09-29 — eco tunings restored at resume (owner directive); experiment closed
+
+### What changed
+
+- `state/owned/usr/local/sbin/eco-power.sh`: the resume-path `hw-tune.fish` skip is removed —
+  CO + 31 W envelope + SMU eco flags apply at resume again (owner: "fixed, now restore our
+  former eco tunings" after clean cycles post stale-hook removal). The resume path stays
+  single-pass (no `sleep 5` — that was the stall bug and its fix stands). Fixture re-synced;
+  `./eco apply` planned=1 applied=1; live grep confirms the unconditional hw-tune invocation.
+
+### Findings recorded
+
+- The restore doubles as the A/B "on" arm: the 15:28/18:13 freezes predate the stale `.bak`
+  hook (created 18:59), so the stale hook cannot explain those; hw-tune's SMU writes at resume
+  remain an unexonerated suspect despite the owner's fixed call. Capture tooling (SysRq=1,
+  hung_task_panic=1, efi_pstore, 256M journals) stays armed, and `docs/findings.md`
+  `## suspend-resume` records the contingency ladder (re-skip hw-tune first, then asusd, then
+  TB/USB4) with this restore date-stamped.
+
+### Next action
+
+Routine: if a freeze recurs, press Alt+SysRq+C and re-apply the hw-tune resume skip as the
+first mitigation; the contingency experiments in the findings runbook only then.
+
+## 2026-09-29 — the surviving ~5 s stall: stale .bak hook in the exec dir; writers.sh fixed
+
+### What changed
+
+- Root cause (owner report "stall still but no freeze", 5 cycles): the converger's pre-image
+  `/usr/lib/systemd/system-sleep/eco-power.bak-20260929` sat INSIDE the hooks directory, and
+  systemd-sleep executes every file there regardless of name — so the old full two-pass hook
+  (`sleep 5` + hw-tune, no resume arg) ran on every resume alongside the new one (journal:
+  PIDs 848541 skipped hw-tune at 22:10:57.844 while 848542 applied it at .882). It both kept
+  the stall alive and contaminated experiment #1.
+- Fix: backup moved to `/var/lib/eco-backups/system-sleep-eco-power.bak-20260929` (dated, kept);
+  `lib/writers.sh` `backup_step` now routes pre-images of `system-sleep/` targets to a
+  `system-sleep-backups/` sibling directory (nothing executes it). Rule home:
+  `docs/rollback.md` `## Undo: universal mechanism` (exception added); pitfall in
+  `docs/MEMORY.md`. Other `.bak` files (systemd units, tlp.d, NM conf.d) are inert — those
+  loaders filter by extension; only system-sleep executes everything.
+
+### How it was verified
+
+Forced-drift probe: appended a marker to the live hook → `./eco apply` planned=1 applied=1,
+hook restored, exec dir contains only `eco-power` + `tlp`, pre-image landed in
+`system-sleep-backups/eco-power.bak-20260929`. `bash -n lib/writers.sh`; `./tests/run` 112/112.
+
+### Findings recorded
+
+- Experiment accounting correction: the 5 freeze-free cycles ran with hw-tune STILL writing the
+  SMU at resume (via the stale hook) — encouraging but contaminated. The pure single-variable
+  test of experiment #1 starts with the next cycle. The stall itself should now be gone too
+  (the `sleep 5` second pass had no remaining runner).
+
+### Next action
+
+Owner: one cycle to confirm the stall is gone (expect `Successfully thawed` < 1 s after
+`System returned from sleep`), then ~10 pure cycles (AC + battery) for the experiment #1 verdict.
+
+## 2026-09-29 — recurrence 21:14: SMU no-response evidence; hw-tune off the resume path; SysRq armed
+
+### What changed
+
+- `state/owned/usr/local/sbin/eco-power.sh`: `apply_cpu_power` now takes the mode arg and
+  **skips `hw-tune.fish` at resume** (logs `hw-tune.fish skipped at resume (SMU contention
+  suspect)`); EPP re-assert stays; timer/udev/boot paths keep the full two-pass. Experiment #1
+  per `docs/findings.md` `## suspend-resume` runbook, armed 2026-09-29 ~21:35 after the owner
+  approved on the new evidence. Fixture mirror re-synced; `./eco apply` planned=1 applied=1.
+- `state/owned/etc/sysctl.d/97-sysrq.conf` (new): `kernel.sysrq = 1` — the 21:14 freeze proved
+  the kernel was alive (it logged `sysrq: This sysrq operation is disabled` at the user's
+  keypresses); now Alt+SysRq+C crash-dumps into the armed efi_pstore and Alt+SysRq+T dumps tasks.
+  Undo: delete the state file + `./eco apply` + `sysctl -w kernel.sysrq=16` (pre-image from
+  `/usr/lib/sysctl.d/50-default.conf:19`).
+
+### Findings recorded
+
+- **21:14 freeze signature (richest yet):** resume → cs35l56 DSP reload → `ucsi_acpi
+  GET_CURRENT_CAM failed` → `amdgpu SMU: No response msg_reg: 32 resp_reg: 0` → `Failed to
+  power gate VPE!/JPEG!/VCN` (`DPM disable ... ret = -62`) → `AE_AML_LOOP_TIMEOUT` on
+  `\_SB.A018/A032/ALIB/EC0._QDA` → freeze. Prime suspect chain: SMU mailbox contention —
+  ryzenadj (our hw-tune) + amdgpu DPM + asusd's EC-mediated profile write all talk to the same
+  APU SMU/EC firmware in the wake window.
+- Pitfall: two concurrent `./tests/run` runs clobber each other's `tests/work/` (wiped every
+  run) — a fleet agent's suite run produced 3 false reds in mine; the uncontended re-run was
+  112/112. Never run the gate twice in parallel; re-run before believing reds after a dispatch.
+
+### Next action
+
+Owner runs ~10 suspend/lid cycles (AC + battery) on the armed experiment; report instant /
+~5 s stall / hard freeze per cycle, and press Alt+SysRq+C on any hard freeze. Persistent freezes
+→ next variable is quieting asusd's platform-profile writes.
+
 ## 2026-09-29 — retro landing: journal-merge guard + steering rules
 
 ### What changed

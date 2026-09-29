@@ -68,6 +68,10 @@ Every live write this stack makes takes a pre-image first: `cp -p <file> <file>.
 alongside the target — do this even for a one-line `managed/` edit. The `.bak-YYYYMMDD` suffix is
 the rollback handle and the date is the day of the write, not the day of the file. To undo a file
 change: diff it against its `.bak-*` sibling and copy the sibling back. Backups are never deleted.
+One exception, enforced in `lib/writers.sh` `backup_step`: `/usr/lib/systemd/system-sleep/`
+executes EVERY file it contains regardless of name, so pre-images for targets there go to the
+`system-sleep-backups/` sibling directory instead (burned 2026-09-29: a sibling `.bak` hook ran
+as a stale resume hook for hours).
 
 Whole-file owned targets mirror their live paths under `state/owned/` (naming rule in
 `docs/eco-power-README.md` `## State layout`). Foreign-file edits

@@ -166,12 +166,22 @@ plan_print() {
 
 # Backup step: cp -p <file> <file>.bak-YYYYMMDD alongside every target about to be
 # written. Dated, never deleted: an existing same-day anchor is kept as-is.
+# Exception: systemd-sleep executes EVERY file in system-sleep/ regardless of name,
+# so sibling backups there run on every resume (burned 2026-09-29: a stale .bak hook
+# stalled the thaw and re-ran SMU writes). Those anchors go to a -backups sibling
+# directory instead, which nothing scans.
 backup_step() {
-  local i tgt bak date
+  local i tgt bak date dir base
   date=$(date +%Y%m%d)
   for tgt in "${PLAN_TARGET[@]}"; do
     [[ -e $tgt ]] || continue
-    bak="$tgt.bak-$date"
+    dir=$(dirname "$tgt"); base=$(basename "$tgt")
+    if [[ $dir == */usr/lib/systemd/system-sleep ]]; then
+      bak="$dir-backups/$base.bak-$date"
+      mkdir -p "$dir-backups" || die3_partial "backup dir failed: $dir-backups"
+    else
+      bak="$tgt.bak-$date"
+    fi
     if [[ -e $bak ]]; then
       BACKUPS+=("$bak")
       continue

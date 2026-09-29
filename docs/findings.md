@@ -624,10 +624,12 @@
 
 ## suspend-resume
 
-**Verdict.** OPEN — wake stall fixed (was our resume hook, proven); hard-freeze culprit not yet
-  settled: three evidence vectors point at the resume/suspend transition (EC/AML + Thunderbolt
-  D3, and the cs35l56 audio-amp HDA path), amplified by our own resume-time SMU/EC writes.
-  Two owner-approved experiments pending (quiet asusd profile writes; neutralize TB/USB4 pokes) ·
+**Verdict.** RESOLVED-IN-PRACTICE, causal chain uncertain — owner reports fixed (2026-09-29 23:05)
+  after the stale `.bak` resume hook was removed; `hw-tune.fish` restored to the resume path
+  (single-pass) by owner directive — which also serves as the A/B "on" arm. Capture stays armed
+  (SysRq=1, hung_task_panic=1, efi_pstore, 256M journals). If a freeze recurs, the first
+  mitigation to re-apply is keeping hw-tune out of the resume window (the 21:14 `amdgpu SMU:
+  No response` evidence); quiet asusd / TB-USB4 neutralize are the contingency ladder ·
   **Class:** tunable
 **Why.** Evidence, not hypothesis: (1) every wake stalled 5.1 s because
   `eco-power.sh` ran `hw-tune.fish` twice with `sleep 5` in the systemd-sleep post hook and
@@ -641,12 +643,20 @@
   → azx_get_response` right after a cs35l56 DSP firmware reload; boot -5's freeze cut mid
   cs35l56 reload too. `docs/findings.md` `## asusd` (EC resets SMU/EPP on every platform_profile
   write) and `## capacity` (AC state misread at resume) make the asusd/EC overlap at resume real.
-**Evidence.** `state/owned/usr/local/sbin/eco-power.sh` (resume single-pass guard);
-  `state/owned/usr/lib/systemd/system-sleep/eco-power`; raw journals + decoded pstore in
-  `~/Workspace/suspend-forensics/` (private host path). Check: `journalctl -b -1 -o short-precise
-  | tail`, `sudo ls /sys/fs/pstore`, and on each resume
-  `journalctl -b 0 | grep -E 'System returned from sleep|Successfully thawed'` (delta must stay
-  < 1 s since the fix).
+  (4) The 21:14 recurrence (richest capture) decayed over 48 s from resume T0 in the same
+  template as 15:28: our hw-tune SMU writes at T0+18 ms, asusd profile write at +34 ms,
+  `ucsi_acpi GET_CURRENT_CAM failed` +8.6 s, **`amdgpu SMU: No response` → power-gate failures
+  VPE/JPEG/VCN (`DPM disable … ret = -62`) at +10/+26/+41 s**, `AE_AML_LOOP_TIMEOUT` EC storm
+  +30.6 s, journal cut +48 s while the kernel still serviced SysRq. New markers: thunderbolt
+  ring-interrupt WARN + PCI config-space timeouts (mid-`pci_pm_suspend`). Progressive, fully
+  observable — a wedge race, not an instant crash.
+**Evidence.** `state/owned/usr/local/sbin/eco-power.sh` (resume single-pass guard + hw-tune
+  skip); `state/owned/usr/lib/systemd/system-sleep/eco-power`; `state/owned/etc/sysctl.d/97-sysrq.conf`
+  + `98-hung-task-panic.conf` (capture armed); raw journals + decoded pstore in
+  `~/Workspace/suspend-forensics/` incl. `recurrence-2115/SIGNATURE.md` (21:14 timeline + 15:28
+  signature diff). Check: `journalctl -b 1 -o short-precise | tail`, `sudo ls /sys/fs/pstore`, and
+  on each resume `journalctl -b 0 | grep -E 'System returned from sleep|Successfully thawed|SMU'`
+  (thaw delta must stay < 1 s; `SMU: No response` must be absent).
 **Suspects not yet A/B'd.** `SOUND_POWER_SAVE_ON_AC/BAT=1` (`state/owned/etc/tlp.d/01-eco.conf`)
   vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
   was live during the 09-20 hung_task) vs whole-system freeze. Owner defers all experiments until
