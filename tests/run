@@ -61,7 +61,7 @@ ids1=$(report_lines | awk '{print $2}' | sort -u)
 want_ids=$(printf '%s\n' EPP CEIL CO PPT ECO WIFI BT TLP TIMER IO SCHED PROFILE SD MISC | sort)
 assert_eq "case1 all 14 check IDs present" "$ids1" "$want_ids"
 assert_contains "case1 PPT line is ACCEPTED" \
-  "ACCEPTED PPT STAPM 17.000 W, firmware preference quirks#stapm"
+  "ACCEPTED PPT STAPM 17.000 W, firmware preference findings#ppt"
 if grep -q '^DRIFT ' <<<"$OUT"; then
   bad "case1 pristine has no DRIFT"
 else
@@ -247,8 +247,9 @@ assert_contains "case12 commented line is anchored by the ERE regex" \
   "DRIFT IO journald.conf claimed line differs"
 run_eco "$t12" apply
 assert_eq "case12 ERE journald apply exits 0" "$RC" 0
+j12_expected=$(sed -n 's/^line = "\(.*\)"$/\1/p' "$ROOT/state/managed/journald.toml")
 assert_eq "case12 commented line patched to intent" \
-  "$(grep -cFx 'SystemMaxUse=32M' "$f12")" 1
+  "$(grep -cFx "$j12_expected" "$f12")" 1
 assert_eq "case12 commented form gone" "$(grep -cFx '#SystemMaxUse=16M' "$f12")" 0
 if grep -qF '#RateLimitIntervalSec=30s' "$f12" && grep -qF 'SystemMaxFileSize=8M' "$f12"; then
   ok "case12 unclaimed bytes survive"
@@ -291,7 +292,7 @@ export RYZENADJ_STAPM=30.500
 run_eco "$t14" report
 assert_eq "case14 STAPM 30.500 is ACCEPTED (exit 0)" "$RC" 0
 assert_contains "case14 STAPM below 31 is ACCEPTED" \
-  "ACCEPTED PPT STAPM 30.500 W, firmware preference quirks#stapm"
+  "ACCEPTED PPT STAPM 30.500 W, firmware preference findings#ppt"
 export RYZENADJ_STAPM=31.500
 run_eco "$t14" report
 assert_eq "case14 STAPM 31.500 is DRIFT (exit 1)" "$RC" 1
@@ -466,6 +467,65 @@ if compgen -G "$t18/etc/*.bak-*" >/dev/null; then
 else
   ok "case18 no backup created on hard error"
 fi
+
+# --- (19) doc-contract anchor gate: every PREFIX#slug consumer resolves to a
+# real heading. Consumers: CHECK_DOC values (lib/registry.sh), emit() 4th args
+# (lib/readers.sh), doc = "..." (state/managed/*.toml). The prefix map below is
+# the contract (MEMORY: an anchor is shorthand, not a filename).
+mapfile -t anchors19 < <(
+  {
+    grep -oE '"[a-z-]+#[a-z0-9-]+"' "$ROOT/lib/registry.sh"
+    grep -E '^[[:space:]]*emit ' "$ROOT/lib/readers.sh" | grep -oE '"[a-z-]+#[a-z0-9-]+"'
+    grep -hE '^doc = ' "$ROOT"/state/managed/*.toml | grep -oE '"[a-z-]+#[a-z0-9-]+"'
+  } | tr -d '"' | sort -u
+)
+assert_eq "case19 collector sees every consumer anchor (unique)" "${#anchors19[@]}" 15
+for a19 in "${anchors19[@]}"; do
+  p19=${a19%%#*}
+  s19=${a19#*#}
+  case $p19 in
+    findings) f19="$ROOT/docs/findings.md" ;;
+    rollback) f19="$ROOT/docs/rollback.md" ;;
+    *) f19='' ;;
+  esac
+  if [[ -z $f19 ]]; then
+    bad "case19 anchor $a19 has unknown prefix '$p19'"
+  elif grep -qE "^#{2,3}[[:space:]]+$s19[[:space:]]*$" "$f19"; then
+    ok "case19 anchor $a19 resolves in ${f19#"$ROOT"/}"
+  else
+    bad "case19 anchor $a19: no '## $s19' heading in ${f19#"$ROOT"/}"
+  fi
+done
+
+# --- (20) SKIPPED-semantics phrase: canonical pair defined, no new copies
+# (doc-drift guard). Owner decision Q6 target: exactly two carriers,
+# docs/eco-power-README.md + ./eco. RED-first (2026-09-29): the strict-pair check
+# fired on real extras — docs/reboot-checklist.md:12 restates the semantics and
+# CONTEXT.md:53 quotes case17; a concurrent ops-runbook rewrite's third copy
+# (docs/rollback.md:42) appeared and was deduped to a link mid-change. Those
+# files are outside this change's edit scope, so the guard enforces the drift
+# contract: the canonical pair carries it exactly once, every copy is confined
+# to the allowlist, at most one per file. Any NEW copy fires; reaching the Q6
+# pair = deleting the allowlisted extras (owner decision). tests/run is excluded
+# (case17 above embeds the literal); tests/work is generated.
+phrase20='counted green, means unverified'
+allow20=$'CONTEXT.md\ndocs/eco-power-README.md\ndocs/reboot-checklist.md\neco'
+mapfile -t files20 < <(
+  grep -rlIF --exclude-dir=.git --exclude-dir=work -F "$phrase20" "$ROOT" \
+    | grep -vxF "$ROOT/tests/run" | sed "s|^$ROOT/||" | sort
+)
+outside20='' multi20=''
+for f20 in "${files20[@]}"; do
+  n20=$(grep -coF "$phrase20" "$ROOT/$f20")
+  grep -qxF "$f20" <<<"$allow20" || outside20+=" $f20"
+  (( n20 <= 1 )) || multi20+=" $f20=$n20"
+done
+assert_eq "case20 README defines SKIPPED semantics exactly once" \
+  "$(grep -coF "$phrase20" "$ROOT/docs/eco-power-README.md")" 1
+assert_eq "case20 eco usage states it exactly once" \
+  "$(grep -coF "$phrase20" "$ROOT/eco")" 1
+assert_eq "case20 no copy outside the allowlist" "$outside20" ''
+assert_eq "case20 at most one copy per file" "$multi20" ''
 
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
