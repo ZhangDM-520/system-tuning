@@ -527,6 +527,53 @@ assert_eq "case20 eco usage states it exactly once" \
 assert_eq "case20 no copy outside the allowlist" "$outside20" ''
 assert_eq "case20 at most one copy per file" "$multi20" ''
 
+# --- (21) docs/NOTE.md entry-merge guard: swallowing a `## 20..-.. —` heading
+# fuses two journal entries (burned twice 2026-09-29). Merge signature: one
+# `## ` entry carrying a repeated `### ` section title. Invariants, kept robust
+# to legitimate entry variation (each entry carries its own `###` set: What
+# changed / What landed / Pitfalls / Verification / How it was verified /
+# Next action / Findings recorded / Waves executed / ...):
+#   (a) a `### ` title appears at most once within one `## ` entry;
+#   (b) every `### ` sits under a dated `## 20` entry (a swallowed FIRST-entry
+#       heading leaves orphan sections before the first entry);
+#   (c) every `## ` heading is a dated entry `## 20..-..` (an undated heading
+#       may not host sections: it closes its entry, and (a)+(b) fire below it).
+# Titles compare byte-exact after `### ` (trailing blanks trimmed): a legitimate
+# parenthetical variant ("Verification (impl-verify, ...)") never collides with
+# a plain repeat — only true repeats fire. Deliberately no `---` invariant: the
+# journal's shape is one preamble `---` then bare `## ` entries, so a per-entry
+# `---` rule would false-positive on every entry but the first. The file/entry
+# guards keep the case from passing vacuously on a missing or gutted journal.
+# Totals come from the PASS/FAIL counters above — nothing hardcodes a count.
+note21="$ROOT/docs/NOTE.md"
+assert_file "case21 journal exists" "$note21"
+entries21=0
+viol21='' undated21='' orphan21='' dup21=''
+if [[ -f $note21 ]]; then
+  entries21=$(grep -c '^## 20' "$note21" || true)
+  viol21=$(awk '
+    /^## / {
+      if ($0 ~ /^## 20[0-9][0-9]-[0-9][0-9]/) { ine = 1; split("", seen) }
+      else { ine = 0; print "undated-entry line " NR ": " $0 }
+      next
+    }
+    /^### / {
+      if (!ine) { print "orphan-section line " NR ": " $0; next }
+      t = $0; sub(/^### /, "", t); sub(/[ \t]+$/, "", t)
+      if (t in seen) print "dup-section line " NR ": " t
+      seen[t] = 1
+    }
+  ' "$note21")
+  undated21=$(grep '^undated-entry' <<<"$viol21" || true)
+  orphan21=$(grep '^orphan-section' <<<"$viol21" || true)
+  dup21=$(grep '^dup-section' <<<"$viol21" || true)
+fi
+assert_eq "case21 journal carries dated entries (non-vacuous)" \
+  "$(( entries21 > 0 ))" 1
+assert_eq "case21 every ## heading is a dated 20..-.. entry" "$undated21" ''
+assert_eq "case21 every ### section sits under a dated entry" "$orphan21" ''
+assert_eq "case21 no ### title repeats within one entry (merge signature)" "$dup21" ''
+
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
 if (( FAIL )); then exit 1; fi
