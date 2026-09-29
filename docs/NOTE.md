@@ -5,6 +5,32 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-09-29 — retro landing: journal-merge guard + steering rules
+
+### What changed
+
+- `tests/run` case21 (5 assertions): `docs/NOTE.md` entry-merge guard — per dated `## 20..-..`
+  entry, every `### ` section title appears at most once; every `### ` sits under a dated entry;
+  every `## ` is dated. Catches the twice-burned swallowed-heading merge. Red-first proven on
+  three simulated corruptions (deleted heading → dup-section FAIL; first-entry heading →
+  orphan FAIL; undated heading → FAIL), journal restored byte-identical (`cmp`).
+- `.github/copilot-instructions.md` (landed as `170c7ba`): journal insert discipline (anchor
+  edits on the entry below, preserved headings out of the edit span) and the test-seam clause of
+  one-place-per-knob (fixtures mirror converged live; expectations derive from records).
+- Repaired the pre-existing merge the new guard caught: restored the swallowed heading
+  `## 2026-09-29 — round 2: instructions revised, state/README.md File map completed` at
+  `docs/NOTE.md:223` (provenance `git show HEAD~3:docs/NOTE.md`).
+
+### How it was verified
+
+`./tests/run` → 112 run / 112 passed / 0 failed (was 111/112 with the live merge, i.e. the guard
+caught a real defect on its first run — the failure stayed red until the journal was repaired).
+
+### Next action
+
+Owner decides commit disposition for the two uncommitted files (`docs/NOTE.md` merge fix,
+`tests/run` case21).
+
 
 
 ## 2026-09-29 — docs-unification implementation: 8 sub-waves landed; independent verification green
@@ -219,6 +245,8 @@ unit 'user.slice'"). No commit made (todo FORBADE commits).
 
 Owner answers the grilling round (11 consolidated decisions with recommendations).
 Implementation waves start only after the owner confirms shared understanding.
+
+## 2026-09-29 — round 2: instructions revised, state/README.md File map completed
 
 ### What changed
 
