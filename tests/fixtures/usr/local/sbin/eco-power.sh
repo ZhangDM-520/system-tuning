@@ -5,7 +5,11 @@
 #
 # Ordering note: any platform_profile write (asusd does one per power-source event)
 # makes the EC reset SMU limits and EPP — so the CPU-power block runs twice, with a
-# short delay, to land AFTER such handlers and converge.
+# short delay, to land AFTER such handlers and converge. The resume path (first
+# arg "resume", from the system-sleep hook) runs the block once and returns at
+# once: systemd thaws user.slice only after the hook exits, so the delayed pass
+# would stall every resume (measured 5.1 s). A power-source event around resume
+# still gets the full two-pass via the udev-triggered service.
 log() { echo "eco-power: $*" >&2; }
 
 apply_cpu_power () {
@@ -67,12 +71,14 @@ iw dev wlan0 set power_save on 2>/dev/null && log "wlan0 power_save=on"
 # Dirty writeback timers (intent 6000/6000 from /etc/sysctl.d/99-eco-writeback.conf):
 # TLP's set_dirty_parms rewrites both runtime values on every power-source event
 # from its MAX_LOST_WORK_SECS defaults (15s on AC = 1500cs), so re-assert here
-# (fail-soft, see docs/fleet-findings.md#storage).
+# (fail-soft, see docs/findings.md#writeback).
 sysctl -w vm.dirty_writeback_centisecs=6000 vm.dirty_expire_centisecs=6000 >/dev/null 2>&1 \
   && log "dirty writeback/expire re-asserted=6000"
 
 # Convergence pass: re-apply CPU power after event handlers (asusd resets SMU/EPP
 # whenever the platform profile is touched by a power-source event).
-sleep 5
-apply_cpu_power
+if [ "$1" != resume ]; then
+  sleep 5
+  apply_cpu_power
+fi
 exit 0

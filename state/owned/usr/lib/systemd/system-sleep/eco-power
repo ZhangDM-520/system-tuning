@@ -1,0 +1,4 @@
+#!/bin/bash
+# Re-apply eco power settings after resume (firmware limits are lost over suspend)
+[ "$1" = post ] && /usr/local/sbin/eco-power.sh resume
+exit 0
