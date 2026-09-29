@@ -42,17 +42,25 @@ the date is the day of the write, not the day of the file.
 | state file | live target |
 | --- | --- |
 | `state/owned/usr/local/sbin/eco-power.sh` | `/usr/local/sbin/eco-power.sh` |
+| `state/owned/usr/local/sbin/duperemove-daily.sh` | `/usr/local/sbin/duperemove-daily.sh` |
+| `state/owned/usr/local/sbin/smart-alert.sh` | `/usr/local/sbin/smart-alert.sh` |
 | `state/owned/home/zhangdm/.reserve/hw-tune.fish` | `/home/zhangdm/.reserve/hw-tune.fish` |
 | `state/owned/etc/tlp.d/01-eco.conf` | `/etc/tlp.d/01-eco.conf` |
 | `state/owned/etc/systemd/system/eco-power.service` | `/etc/systemd/system/eco-power.service` |
 | `state/owned/etc/systemd/system/eco-power.timer` | `/etc/systemd/system/eco-power.timer` |
+| `state/owned/etc/systemd/system/duperemove.service` | `/etc/systemd/system/duperemove.service` |
+| `state/owned/etc/systemd/system/duperemove.timer` | `/etc/systemd/system/duperemove.timer` |
+| `state/owned/etc/systemd/system/xfs-scrub.service` | `/etc/systemd/system/xfs-scrub.service` |
+| `state/owned/etc/systemd/system/xfs-scrub.timer` | `/etc/systemd/system/xfs-scrub.timer` |
 | `state/owned/etc/udev/rules.d/81-wifi-powersave.rules` | `/etc/udev/rules.d/81-wifi-powersave.rules` |
 | `state/owned/etc/udev/rules.d/98-bt-autosuspend.rules` | `/etc/udev/rules.d/98-bt-autosuspend.rules` |
 | `state/owned/etc/udev/rules.d/99-eco-power.rules` | `/etc/udev/rules.d/99-eco-power.rules` |
 | `state/owned/etc/modprobe.d/99-bt-autosuspend.conf` | `/etc/modprobe.d/99-bt-autosuspend.conf` |
 | `state/owned/etc/modprobe.d/99-acp-power-gating.conf` | `/etc/modprobe.d/99-acp-power-gating.conf` |
+| `state/owned/etc/sysctl.d/20-xfs-sync-interval.conf` | `/etc/sysctl.d/20-xfs-sync-interval.conf` |
 | `state/owned/etc/sysctl.d/99-eco-writeback.conf` | `/etc/sysctl.d/99-eco-writeback.conf` |
 | `state/owned/etc/NetworkManager/conf.d/99-wifi-powersave.conf` | `/etc/NetworkManager/conf.d/99-wifi-powersave.conf` |
+| `state/owned/etc/smartd.conf` | `/etc/smartd.conf` |
 | `state/managed/scx.toml` | `/etc/scx_loader.toml` (one anchored line) |
 | `state/managed/asusd.toml` | `/etc/asusd/asusd.ron` (one anchored line) |
 | `state/managed/journald.toml` | `/etc/systemd/journald.conf` (one anchored line) |
