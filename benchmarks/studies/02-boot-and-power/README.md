@@ -232,6 +232,8 @@ verification tool.** Any `PASS`/`FAIL`/`PEND` scheme must make unresolved states
 FSLAT_RESULTS=$PWD/data/tuning-results.jsonl \
   python3 tools/perf-stats.py show  mem-swap-150 mem-swap-200      # swappiness 150 vs 200
 FSLAT_RESULTS=$PWD/data/tuning-results.jsonl \
+  python3 tools/perf-stats.py cmp   mem-swap-150 mem-swap-200      # same pair, medians vs the 150 arm
+FSLAT_RESULTS=$PWD/data/tuning-results.jsonl \
   python3 tools/perf-stats.py cmp   mem-minfree-524288 mem-minfree-262144
 FSLAT_RESULTS=$PWD/data/tuning-results.jsonl \
   python3 tools/perf-stats.py cmp   mem-wmark-150 mem-wmark-10 mem-wmark-50

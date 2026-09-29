@@ -25,6 +25,7 @@ RAPL = "/sys/class/powercap/intel-rapl:0/energy_uj"
 RAPL_RANGE = "/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 SYNCD = "/proc/sys/fs/xfs/xfssyncd_centisecs"
 PRELIFE = "/proc/sys/fs/xfs/speculative_prealloc_lifetime"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 NVME_FIELDS = [
     "read_ios", "read_merges", "read_sectors", "read_ticks",
@@ -106,11 +107,12 @@ def main() -> int:
     ap.add_argument("--samples", required=True)
     ap.add_argument("--xstats", required=True)
     ap.add_argument("--results", required=True)
-    ap.add_argument("--big", default=os.path.expanduser("~/.cache/bench-scratch/big.bin"))
+    ap.add_argument("--big", default=os.path.join(
+        os.environ.get("BENCH_SCRATCH", os.path.expanduser("~/.cache/bench-scratch")), "big.bin"))
     ap.add_argument("--target", default="/")
     ap.add_argument("--expect-syncd", type=int, required=True)
     ap.add_argument("--expect-prelife", type=int, required=True)
-    ap.add_argument("--burst", default="/home/zhangdm/Projects/System-Tuning-Benchmarks/tools/wl.sh wbig")
+    ap.add_argument("--burst", default=os.path.join(REPO_ROOT, "tools", "wl.sh") + " wbig")
     ap.add_argument("--trim-first-s", type=int, default=180,
                     help="seconds trimmed from the head of the window for screen-off-only J/min")
     args = ap.parse_args()

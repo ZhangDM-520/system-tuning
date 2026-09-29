@@ -153,7 +153,7 @@ D-Bus, with no reboot, which is what makes this many arms affordable.
 
 That `-m performance` lands exactly on the Zen 5 cluster, while `-m auto` lands on *nothing*, is worth
 its own note: the tool's own topology detection is correct, and the shipped default simply declines to
-use it.
+use it. **Best scheduler and best-configured scheduler are different questions.**
 
 ## 6. The deep pass — BORE vs pandemonium, phase-structured
 
@@ -334,7 +334,8 @@ merely uninformative without adaptivity — they do not exist.
 in response to load — and **behaviourally inert on this machine and these workloads**. That is a
 carefully bounded statement: it does not say the learning layer is useless, and it does not test
 workloads the battery does not represent. It says that on six workload classes, exercised repeatedly,
-with the layer on and off, no benefit was measurable.
+with the layer on and off, no benefit was measurable. **"It adapts" and "adapting helps" are separate
+claims, and they need separate tests.**
 
 Note that this null is *informative* here precisely because §6 crossed workload classes and the
 telemetry in §9.1 proves the tuner was active throughout. The earlier steady-state null was not.

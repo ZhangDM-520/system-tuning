@@ -9,7 +9,7 @@ emit() {
   R_VERDICT+=("$1")
   R_ID+=("$2")
   R_EV+=("$3")
-  R_DOC+=("${4:-}")
+  R_DOC+=("${4:-${CHECK_DOC[$2]:-}}")
 }
 
 report_count() {
@@ -40,7 +40,7 @@ report_summary_line() {
 report_print() {
   local i doc
   for i in "${!R_ID[@]}"; do
-    doc=${R_DOC[$i]}
+    doc=${R_DOC[$i]:-${CHECK_DOC[${R_ID[$i]}]:-}}
     printf '%s %s %s%s\n' "${R_VERDICT[$i]}" "${R_ID[$i]}" "${R_EV[$i]}" "${doc:+ $doc}"
   done
   report_summary_line
@@ -57,12 +57,13 @@ json_escape() {
 }
 
 report_json() {
-  local i sep=''
+  local i doc sep=''
   printf '{\n  "checks": ['
   for i in "${!R_ID[@]}"; do
+    doc=${R_DOC[$i]:-${CHECK_DOC[${R_ID[$i]}]:-}}
     printf '%s\n    {"id": "%s", "verdict": "%s", "evidence": "%s", "doc": "%s"}' \
       "$sep" "$(json_escape "${R_ID[$i]}")" "$(json_escape "${R_VERDICT[$i]}")" \
-      "$(json_escape "${R_EV[$i]}")" "$(json_escape "${R_DOC[$i]}")"
+      "$(json_escape "${R_EV[$i]}")" "$(json_escape "$doc")"
     sep=','
   done
   printf '\n  ],\n'

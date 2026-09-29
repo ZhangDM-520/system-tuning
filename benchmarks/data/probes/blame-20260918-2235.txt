@@ -18,13 +18,13 @@
 4.663s dev-disk-by\x2ddiskseq-1.device
 4.663s dev-disk-by\x2did-nvme\x2dWD_PC_SN560_SDDPNQE\x2d1T00\x2d1202_2422A3400659_1.device
 4.663s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1.device
-4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartuuid-5e2fd654\x2ddf0d\x2d47e0\x2da353\x2de1bb1877ec75.device
-4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2duuid-4274\x2d094A.device
+4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartuuid-<esp-partuuid>.device
+4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2duuid-<esp-uuid>.device
 4.660s dev-disk-by\x2did-nvme\x2dWD_PC_SN560_SDDPNQE\x2d1T00\x2d1202_2422A3400659_1\x2dpart1.device
-4.660s dev-disk-by\x2dpartuuid-5e2fd654\x2ddf0d\x2d47e0\x2da353\x2de1bb1877ec75.device
+4.660s dev-disk-by\x2dpartuuid-<esp-partuuid>.device
 4.660s dev-disk-by\x2ddiskseq-1\x2dpart1.device
 4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartnum-1.device
-4.660s dev-disk-by\x2duuid-4274\x2d094A.device
+4.660s dev-disk-by\x2duuid-<esp-uuid>.device
 4.660s dev-disk-by\x2ddesignator-esp.device
 4.660s sys-devices-pci0000:00-0000:00:02.1-0000:c1:00.0-nvme-nvme0-nvme0n1-nvme0n1p1.device
 4.660s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart1.device
@@ -36,12 +36,12 @@
 4.655s sys-devices-pci0000:00-0000:00:02.1-0000:c1:00.0-nvme-nvme0-nvme0n1-nvme0n1p2.device
 4.655s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2duuid-<root-uuid>.device
 4.655s dev-disk-by\x2dpartlabel-root.device
-4.655s dev-disk-by\x2dpartuuid-e44b243b\x2d0b10\x2d4a39\x2d8e24\x2d7345fd6b0fb0.device
+4.655s dev-disk-by\x2dpartuuid-<root-partuuid>.device
 4.655s dev-disk-by\x2duuid-<root-uuid>.device
 4.655s dev-nvme0n1p2.device
 4.655s dev-disk-by\x2did-nvme\x2dWD_PC_SN560_SDDPNQE\x2d1T00\x2d1202_2422A3400659_1\x2dpart2.device
 4.655s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartnum-2.device
-4.655s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartuuid-e44b243b\x2d0b10\x2d4a39\x2d8e24\x2d7345fd6b0fb0.device
+4.655s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartuuid-<root-partuuid>.device
 4.654s dev-disk-by\x2ddiskseq-1\x2dpart2.device
 4.654s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart2.device
 4.654s dev-disk-by\x2dpath-pci\x2d0000:c1:00.0\x2dnvme\x2d1\x2dpart-by\x2dpartlabel-root.device
@@ -67,7 +67,7 @@
  340ms systemd-oomd.service
  266ms systemd-backlight@backlight:amdgpu_bl1.service
  265ms systemd-zram-setup@zram0.service
- 265ms systemd-fsck@dev-disk-by\x2duuid-4274\x2d094A.service
+ 265ms systemd-fsck@dev-disk-by\x2duuid-<esp-uuid>.service
  257ms cachyos-iw-set-regdomain.service
  250ms dbus-broker.service
  247ms bluetooth.service

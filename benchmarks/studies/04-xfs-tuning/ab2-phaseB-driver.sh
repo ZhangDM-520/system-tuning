@@ -2,9 +2,9 @@
 # Phase B driver: 1 warmup window (discarded) + 10 measured windows, interleaved+rotated.
 # Window = set arm sysctls -> readback -> sampler (drop_caches + wbig burst + 750s idle).
 set -u
-S=/home/zhangdm/.cache/bench-scratch
+S="${BENCH_SCRATCH:-$HOME/.cache/bench-scratch}"
 RES=$S/ab2-idle-20260928.jsonl
-SAMP=$S/ab2-idle-sampler.py
+SAMP="$(dirname "$0")/ab2-idle-sampler.py"
 
 set_arm() {
   sudo sysctl -w fs.xfs.xfssyncd_centisecs="$1" fs.xfs.speculative_prealloc_lifetime="$2" >/dev/null

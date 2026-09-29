@@ -7,11 +7,12 @@ This is a **public** repository. Nothing in `docs/` — or anywhere else here �
 directory, a machine name, a user, a root UUID, an IP or MAC address, a credential, or a private
 host log. Hardware identity is the product; personal identity is not.
 
-Last reviewed: 2026-09-19.
+Last reviewed: 2026-09-29.
 
 ## What this repository is
 
-Three measurement campaigns — scheduler selection, boot and power, filesystem latency — published
+Four measurement campaigns — scheduler selection, boot and power, filesystem latency, XFS tuning —
+published
 together with the raw data that produced them, so the results can be checked and repeated rather
 than believed. Prose and data are CC BY 4.0; `tools/` is MIT.
 
@@ -63,7 +64,7 @@ than believed. Prose and data are CC BY 4.0; `tools/` is MIT.
 | Repository overview and headline results | `README.md` |
 | Protocol, confound catalogue, what the method will not claim | `METHODOLOGY.md` |
 | Machine specification at measurement time | `TEST-BED.md` |
-| The three campaigns | `studies/01-scheduler-selection`, `studies/02-boot-and-power`, `studies/03-filesystem-latency` |
+| The four campaigns | `studies/01-scheduler-selection`, `studies/02-boot-and-power`, `studies/03-filesystem-latency`, `studies/04-xfs-tuning` |
 | Shared data and its dictionary | `data/README.md`, `data/*.jsonl`, `data/traces/`, `data/probes/`, `data/analysis/`, `data/logs/` |
 | The harness | `tools/README.md` and `tools/` |
 | Decisions, changes and incidents | `docs/NOTE.md` |

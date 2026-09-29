@@ -174,4 +174,4 @@ The results should transfer best — and should be re-measured anyway — if:
       study 01 is energy-versus-latency, and it only exists when energy is weighted.
 
 Results that should transfer regardless of hardware, because they are methodological rather than
-platform facts, are collected in the [top-level README](README.md#what-generalises-off-this-machine).
+platform facts, are collected in the [top-level README](README.md#results-worth-reading-even-on-different-hardware).

@@ -15,6 +15,7 @@ change: edit here, apply, commit.
 | `./eco apply --dry-run` | print the convergence plan | no | no |
 | `./eco apply` | converge live to repo, verify, report | yes (dated backups first) | yes |
 | `./eco harvest` | print a proposal: live drift folded into state files | no (proposal only) | no |
+| `./tests/run` | the harness gate (see `tests/run` for the case list) | no | no |
 
 Unknown arguments print this command set and exit 2, so a mistyping cold caller learns the
 interface from the failure.
@@ -45,60 +46,75 @@ interface from the failure.
    appended as the second ExecStart of the same chain (ExecStart=-, so a missing repo or a failed
    apply can never break the boot-critical path). A manual `sudo ./eco apply` holding the lock
    makes a chain run skip its apply step safely (the ExecStart=- prefix swallows that exit), while
-   the run still re-asserts the runtime knobs. Want it otherwise: change state/, `./eco apply`,
-   commit. Deliberate live experiments: capture them with `./eco harvest` before the converger
-   reverts them.
+   the run still re-asserts the runtime knobs. The change flow is `docs/rollback.md`
+   `## Converge a change`; deliberate live experiments: capture them with `./eco harvest` before
+   the converger reverts them.
 2. **One place per knob.** Each tunable appears exactly once under `state/`. `grep -rn <value> state/`
    must return one hit. If two, the repo is wrong.
 3. **Idempotence.** `./eco apply` twice equals once; the second run plans nothing.
 4. **Foreign files are edited by one anchored line**, never whole-file rewritten. Unclaimed bytes
    survive. Zero or multiple anchor matches fails hard before any write.
-5. **Backups before writes**: `cp -p <file> <file>.bak-YYYYMMDD`, alongside, never deleted.
+5. **Backups before writes**: every write gets a dated `cp -p` backup alongside, never deleted —
+   the universal mechanism is `docs/rollback.md` `## Undo: universal mechanism`.
 6. **Tty login is the recovery domain.** Nothing here may touch the bootloader, initramfs, or
    anything tty login depends on. A broken stack must still boot to a tty.
 7. **Commit messages carry the check ID** (`CEIL: Zen5c 3.0 -> 2.8GHz`), so `git log --grep CEIL`
    is the history of one knob. Co-author trailer on every commit.
 
+## State layout
+
+- **Owned** state is whole-file mirrors of foreign config at
+  `state/owned/<live-path-without-leading-slash>` (e.g.
+  `state/owned/etc/systemd/system/eco-power.service`). Byte-identical to live; apply is a
+  full-file rewrite.
+- **Managed** state is one record per anchored edit inside a foreign file
+  (e.g. `state/managed/niri-autostart.toml`). Record keys: `target` (live path),
+  `match` (POSIX ERE whose *first* hit names the exact line to edit), `line` (replacement text),
+  `doc` (anchor), optional `section` (context hint: the record targets a line inside that
+  region). Exactly one match must exist in the file (or within the section region: lines after
+  its header until the next line starting with `[`); zero or multiple matches is a hard error
+  before any write. Multi-line values are not supported inside a record.
+- One place per knob and the backup guarantee are Rules 2 and 5 above — no second copy here.
+
 ## Check registry
 
-| ID | Asserts | Policy | Anchor |
-|----|---------|--------|--------|
-| EPP | energy preference `dynamic` on every policy | tunable | decisions#epp |
-| CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | settled | decisions#ceil |
-| CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | settled | decisions#co |
-| PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | settled | decisions#ppt |
-| ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | tunable | decisions#eco |
-| WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | tunable | fleet-findings#wifi |
-| BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | habit | decisions#bt |
-| TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | tunable | fleet-findings#pcie |
-| TIMER | eco-power backstop at 600s, canary-verified | settled | decisions#timer |
-| IO | dirty writeback/expire 6000/6000, journald cap 32M | tunable | fleet-findings#storage |
-| SCHED | scx_lavd powersave_mode `--powersave` (not the nonexistent `--efficiency`) | tunable | fleet-findings#sched |
-| PROFILE | asusd battery profile maps to a firmware-supported choice | settled | quirks#asusd |
-| SD | SD reader unbound (runtime only, lost at reboot) | recovery-only | rollback#sd |
-| MISC | acp power gating on, localsearch masked, niri autostart spawns hw-tune | mixed | rollback#misc |
+| ID | Asserts | Anchor |
+|----|---------|--------|
+| EPP | energy preference `dynamic` on every policy | findings#epp |
+| CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | findings#ceil |
+| CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | findings#co |
+| PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | findings#ppt |
+| ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | findings#eco |
+| WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | findings#wifi |
+| BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | findings#bt |
+| TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | findings#pcie |
+| TIMER | eco-power backstop at 600s, canary-verified | findings#timer |
+| IO | dirty writeback/expire 6000/6000, journald cap 32M | findings#writeback |
+| SCHED | scx_lavd powersave_mode `--powersave` (not the nonexistent `--efficiency`) | findings#sched |
+| PROFILE | asusd battery profile maps to a firmware-supported choice | findings#asusd |
+| SD | SD reader unbound (runtime only, lost at reboot) | rollback#sd |
+| MISC | acp power gating on, localsearch masked, niri autostart spawns hw-tune | rollback#misc |
 
-Policy: **settled** means do not reopen without new owner validation; **tunable** means change it
-through the repo flow above; **habit** means the human does it by hand and the report only
-observes; **recovery-only** means the entry exists to undo, not to tune.
+Settled/tunable/habit verdicts live in each finding's `Class:` field in `docs/findings.md`.
 
-## Cold start order (a future agent, zero memory)
+## Cold start and change flow
 
-1. This file, top to bottom. Roughly one screen.
+1. This file, top to bottom.
 2. `./eco report`. Facts before prose about facts. Every row names its own doc anchor.
 3. `git log --oneline -n 20` only if the report surprises you.
-4. Exactly one doc, chosen by the question (map below).
-5. Never read `state/` end to end. Grep it.
-6. Ship any change: edit state/ -> `./eco apply --dry-run` -> `./eco apply` -> commit with check ID.
+4. Exactly one doc, chosen by the anchor (below). Never read `state/` end to end — grep it.
+5. Ship any change through `docs/rollback.md` `## Converge a change` (edit -> apply -> commit),
+   which is the single home of that flow.
 
-## Doc map
+## Finding the writeup
 
-| Doc | The one question it answers |
-|-----|------------------------------|
-| docs/doctrine.md | may I make this change at all? |
-| docs/decisions.md | is this settled, and why? |
-| docs/fleet-findings.md | has this been researched, and was it rejected? |
-| docs/hardware-quirks.md | is this readback a bug or the hardware lying? |
-| docs/reboot-checklist.md | what must I verify around a reboot? |
-| docs/rollback.md | how do I undo one target? |
-| docs/measurement.md | how do I measure watts honestly? |
+Anchors are the doc map (there is no map table):
+
+- `findings#<slug>` → entry `## <slug>` in `docs/findings.md` — settled judgments, machine lies,
+  rejected probes, evidence; one entry per knob, the slug is the entry heading.
+- `rollback#sd`, `rollback#misc` → `## sd` / `## misc` in `docs/rollback.md`, the operations
+  runbook (undo, convergence, reboot/suspend habits, storage ops).
+- Methodology and rules: `docs/judgment.md` (cheating vs legitimate variance, derived rules).
+
+If an anchor is missing or wrong, the heading list is the escape hatch:
+`grep -n '^#' docs/*.md`.

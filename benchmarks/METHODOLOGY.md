@@ -160,6 +160,7 @@ happened to be running.
 *Mitigation:* every phase records the backlight level on **both sides** of the phase, and the
 analyser can restrict to a single stable regime (`--bl 0` = panel off, `--bl any` = all rows). The
 first idle-power comparison in the scheduler campaign was **voided** by this and had to be re-run.
+**Measure and record the ambient state, or measure nothing.**
 
 ### 8.2 First-slot contamination
 

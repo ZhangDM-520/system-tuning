@@ -139,27 +139,24 @@ python3 tools/scx_deep.py trace --file deepA2-bore-r1.jsonl
 
 ## 6. Regenerating the analysis
 
-These files are checked in so the analysis is reproducible without re-measuring anything. To regenerate
-`analysis/` from the row files:
+`analysis/` is analyser output over the row files above, checked in so the analysis is reproducible
+without re-measuring anything. The files cannot say where they came from, so the map lives here; the
+commands are the [study 01 §12](../studies/01-scheduler-selection/README.md#12-reproduce-this)
+reproduction contract, and [`tools/README.md`](../tools/README.md) owns the invocation syntax.
+
+| Output in `analysis/` | Produced by | Over |
+|---|---|---|
+| `deep-all.txt`, `deep-display-stable.txt` | `tools/scx_deep_analyse.py` (`--passes deepA,deepA2`; `--bl 0` for the display-stable regime) | `scx-deep.jsonl` |
+| `passA-vs-cake.txt`, `passB-vs-cake.txt` | `tools/perf-stats.py cmp`, cake as control (Pass A / Pass B) | `scx-pass-ab.jsonl` |
+
+One example, the first file:
 
 ```bash
-python3 tools/scx_deep_analyse.py --passes deepA,deepA2 \
-    > data/analysis/deep-all.txt
-python3 tools/scx_deep_analyse.py --bl 0 --passes deepA,deepA2 \
-    > data/analysis/deep-display-stable.txt
-
-FSLAT_RESULTS=$PWD/data/scx-pass-ab.jsonl \
-  python3 tools/perf-stats.py cmp passA:cake passA:bore passA:bpfland passA:pandemonium \
-    > data/analysis/passA-vs-cake.txt
-
-FSLAT_RESULTS=$PWD/data/scx-pass-ab.jsonl \
-  python3 tools/perf-stats.py cmp passB:cake passB:bore passB:pandemonium \
-      'passB:pandemonium[--no-adaptive]' \
-    > data/analysis/passB-vs-cake.txt
+python3 tools/scx_deep_analyse.py --passes deepA,deepA2 > data/analysis/deep-all.txt
 ```
 
-`FSLAT_RESULTS` and the `SCX_*_RESULTS` environment variables override the default data paths; the
-defaults resolve to `data/` relative to the repository root.
+`FSLAT_RESULTS` and the `SCX_*_RESULTS` environment variables override the default data paths — see
+[`tools/README.md` §5](../tools/README.md#5-conventions).
 
 ## 7. Invariants worth asserting on any file here
 

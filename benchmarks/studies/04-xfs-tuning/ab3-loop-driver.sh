@@ -3,12 +3,14 @@
 # Image lives on root fs (which itself has allocsize=1m) -> double-caching caveat.
 # Arms: A=allocsize=1m at mount, B=plain mount (dynamic default).
 set -euo pipefail
-WS=/home/zhangdm/.cache/bench-scratch/ab3-loop
+SCRATCH="${BENCH_SCRATCH:-$HOME/.cache/bench-scratch}"
+WS=$SCRATCH/ab3-loop
 IMG=$WS/img
 MNT=$WS/mnt
-RES=/home/zhangdm/.cache/bench-scratch/ab3-loop-20260928.jsonl
-FSLAT=/home/zhangdm/Projects/System-Tuning-Benchmarks/tools/fslat.py
-WL=/home/zhangdm/Projects/System-Tuning-Benchmarks/tools/wl.sh
+RES=$SCRATCH/ab3-loop-20260928.jsonl
+T="$(cd "$(dirname "$0")/../.." && pwd)"
+FSLAT=$T/tools/fslat.py
+WL=$T/tools/wl.sh
 S='sudo -n'
 
 rm -rf "$WS"; mkdir -p "$MNT"; rm -f "$RES"

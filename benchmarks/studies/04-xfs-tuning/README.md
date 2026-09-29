@@ -45,4 +45,5 @@ data and scratch trees (`~/.cache/bench-scratch/{tree,tree.tar,allocloop,ab3-loo
    reach p<0.05 on Mann-Whitney, and passes are not directly comparable across campaigns.
 
 Full write-ups (baseline, ranked candidates, recipes, per-campaign detail):
-`docs/XFS-TUNING.md` in the repo root; host ops context in `docs/FS-MAINTENANCE.md`.
+`docs/XFS-TUNING.md` in the repo root; host ops context in the runbook (`docs/rollback.md`
+`## Storage ops`).

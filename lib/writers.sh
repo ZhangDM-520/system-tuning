@@ -288,7 +288,7 @@ cmd_apply() {
 
   # runtime re-assert (no file is written; the printed runtime= value is the
   # rollback anchor). Runs even when no owned file changed, because the runtime
-  # drifts independently of the files (see docs/fleet-findings.md#storage).
+  # drifts independently of the files (see docs/findings.md#writeback).
   runtime_apply
   n_applied=$(( ${#APPLIED[@]} + ${#RUNTIME_KEY[@]} ))
 
@@ -374,7 +374,7 @@ cmd_harvest() {
     printf 'harvest: intent state and live agree, nothing to land\n'
     exit 0
   fi
-  printf 'DECISION-RECORD %s harvest: adopt live values for %d intent file(s); record why in docs/decisions.md, land with an ordinary edit and git commit\n' \
+  printf 'DECISION-RECORD %s harvest: adopt live values for %d intent file(s); record why in docs/findings.md, land with an ordinary edit and git commit\n' \
     "$(date +%Y-%m-%d)" "$count"
   exit 1
 }

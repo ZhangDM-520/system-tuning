@@ -119,8 +119,8 @@ check_ppt() {
     emit OK PPT "PPT FAST/SLOW/STAPM 31.000"
     return 0
   fi
-  # Contract (decisions#ppt): ACCEPTED is scoped to a STAPM readback BELOW 31 W
-  # (firmware floor class, quirks#stapm). Parse numerically: anything above the
+  # Contract (findings#ppt): ACCEPTED is scoped to a STAPM readback BELOW 31 W
+  # (firmware floor class, findings#ppt). Parse numerically: anything above the
   # 31 W envelope is DRIFT, and an empty or unparseable readback is DRIFT too
   # (the output format changed and needs eyes). StapmTimeConst readback
   # artifacts (0.000) are likewise expected and never a verdict input.
@@ -129,7 +129,7 @@ check_ppt() {
     return 0
   fi
   if awk -v v="$stapm" 'BEGIN{exit !(v < 31)}'; then
-    emit ACCEPTED PPT "STAPM $stapm W, firmware preference" "quirks#stapm"
+    emit ACCEPTED PPT "STAPM $stapm W, firmware preference" "findings#ppt"
     return 0
   fi
   if awk -v v="$stapm" 'BEGIN{exit !(v > 31)}'; then

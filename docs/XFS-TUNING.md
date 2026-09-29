@@ -2,9 +2,10 @@
 
 *Research-only pass, 2026-09-28. No system state was changed. Sources: kernel
 `Documentation/admin-guide/xfs.rst` + `fs/xfs` sources (7.x-era), xfsprogs `xfs(5)` (7.2.0),
-host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctrine from
-`~/Projects/eco-power` + `~/Projects/System-Tuning-Benchmarks` (both now merged at
-`~/Projects/system-tuning`; referenced as **EP** / **STB**).*
+host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctrine. The two
+pre-merge repos (`eco-power`, `System-Tuning-Benchmarks`) merged into this tree on 2026-09-28;
+citations below use the in-tree paths `docs/…` and `benchmarks/…` (line numbers unchanged by the
+merge).*
 
 ## 1. Baseline (verified 2026-09-28)
 
@@ -14,8 +15,9 @@ host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctr
   metadir=0. 7.38 M inodes.
 - Mount: `rw,relatime,lazytime,inode64,logbufs=8,logbsize=256k,noquota`.
   **⚠ fstab XFS options are dead** — root is mounted in initramfs; effective `logbsize=256k` comes
-  from kernel cmdline `rootflags=logbsize=256k` (STB TEST-BED.md:77-123). XFS **log geometry is
-  chosen at first mount only** — remount "succeeds" and changes nothing (STB studies/03:40-53).
+  from kernel cmdline `rootflags=logbsize=256k` (benchmarks/TEST-BED.md:77-123). XFS **log geometry
+  is chosen at first mount only** — remount "succeeds" and changes nothing
+  (benchmarks/studies/03-filesystem-latency/README.md:40-53).
 - Stack: IO scheduler `none`, nr_requests 1023, read_ahead 256 KiB but **max_sectors_kb=128**
   (drive MDTS — I/Os split at 128 KiB), WBT 2000 µs, vm.swappiness 150 (udev-enforced),
   vfs_cache_pressure 50, dirty 10/5 with writeback/expire 6000/6000 cs, all CPU policies
@@ -24,34 +26,30 @@ host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctr
   `speculative_prealloc_lifetime=300`, `inherit_*=1`, `rotorstep=1`. (7.x has **no**
   `speculative_prealloc_size/_max` keys.)
 
-## 2. Preference constraints (from EP/STB — full profile in those repos)
+## 2. Preference constraints (one home: `docs/judgment.md`)
 
-- Efficiency = **J per unit of work**, race-to-sleep; reduce **wakeups**, never capability;
-  power caps/throttling are forbidden (EP doctrine.md:5-23).
-- Adoption bar (STB METHODOLOGY.md:74-118): interleaved arms, discard warmup rep,
-  n≥5/arm for adoption, Gate 1 (beat control spread) + Gate 2 (Mann-Whitney U p<0.05),
-  medians not means, RAPL `energy_uj` as energy oracle, **no metric significantly worse**,
-  mechanism understood. Verify adopted settings by **readback from the consumer**
-  (`/proc/mounts`, sysfs), never the config file (STB METHODOLOGY.md:64-66).
-- **Two writers per sysfs attribute = silent race.** TLP and the eco converger (600 s) rewrite
-  `vm.dirty_*` and XFS age knobs; live hand edits are reverted. Changes go
-  `~/Projects/system-tuning/state/` → `./eco apply --dry-run` → `./eco apply` (EP README.md:43-92).
+- Doctrine (work per joule, race to sleep, no caps/throttling), the two-gate adoption bar, and the
+  arm-identity/readback rule have one home — `docs/judgment.md` (`## May I change?` /
+  `## May I claim?`) — and are not restated here.
+- **Two writers per sysfs attribute = silent race** (rule: `docs/findings.md` `## recovery`): TLP
+  and the eco converger (600 s) rewrite `vm.dirty_*` and XFS age knobs, so live hand edits here
+  are reverted — converge through `docs/rollback.md` `## Converge a change`.
 - Hard anti-goals: WBT off, swappiness ≥200, NVMe PS5, online `discard`, `noatime`
   (lazytime already covers), anything breaking **reflink sharing** (xfs_fsr/defrag never automated),
   `norecovery`/root-unsafe options, benchmark-fitted tuning.
 - `rm`/`find`-class workloads are serial round-trip bound (QD≈1, device 20-55% busy) —
-  no mount knob fixes those (STB studies/03:106-107).
+  no mount knob fixes those (benchmarks/studies/03-filesystem-latency/README.md:106-107).
 
 ## 3. Ranked candidates
 
 | # | Candidate | Expected effect | Power | Risk | Evidence |
 |---|-----------|-----------------|-------|------|----------|
-| 1 | **`filestreams`** — mount-wide, or surgical first: `xfs_io chattr +S` on `~/Projects` build dirs | Per-directory AG pinning → less AG contention & better locality for parallel creation (builds, package-tree untars, many small files) | ~0 (MRU aging only while streams exist) | Low; placement-only, no reflink interaction. Long-term free-space scatter (anecdotal) | Mechanism: `fs/xfs/xfs_filestream.c` + admin-guide/xfs.rst:57-60. **Benefit claimed/anecdotal — no rigorous public numbers.** Untested on this host (left "deliberately untouched" in STB studies/03:138-141). **MEASURED 2026-09-28 → REJECT, see §8** |
-| 2 | **`fs.xfs.speculative_prealloc_lifetime` 300 → 1800–3600 s** | Fewer `xfs-blockgc` trim runs (post-6.18 this timer also covers COW-staging prealloc shared with duperemove) | Positive (fewer background wakeups) | Space held longer after write bursts; watch free-space dip after duperemove runs | admin-guide/xfs.rst:293-298,373; `xfs_icache.c:219-231`. Must be applied via EP repo-first (converger co-writer) |
-| 3 | **`fs.xfs.xfssyncd_centisecs` 10000 → 30000+** | Fewer periodic metadata-flush wakeups (already raised 30 s→100 s; this is the next step) | Positive | Dirty metadata held longer; umount flush longer. Diminishing returns past 100 s | admin-guide/xfs.rst:284-287; prior raise measured "no latency win" for *lowering* (STB studies/03:83) — raising further is untested. EP repo-first |
+| 1 | **`filestreams`** — mount-wide, or surgical first: `xfs_io chattr +S` on `~/Projects` build dirs | Per-directory AG pinning → less AG contention & better locality for parallel creation (builds, package-tree untars, many small files) | ~0 (MRU aging only while streams exist) | Low; placement-only, no reflink interaction. Long-term free-space scatter (anecdotal) | Mechanism: `fs/xfs/xfs_filestream.c` + admin-guide/xfs.rst:57-60. **Benefit claimed/anecdotal — no rigorous public numbers.** Untested on this host (left "deliberately untouched" in benchmarks/studies/03-filesystem-latency/README.md:138-141). **MEASURED 2026-09-28 → REJECT, see §8** |
+| 2 | **`fs.xfs.speculative_prealloc_lifetime` 300 → 1800–3600 s** | Fewer `xfs-blockgc` trim runs (post-6.18 this timer also covers COW-staging prealloc shared with duperemove) | Positive (fewer background wakeups) | Space held longer after write bursts; watch free-space dip after duperemove runs | admin-guide/xfs.rst:293-298,373; `xfs_icache.c:219-231`. Must be applied repo-first (converger co-writer; `docs/rollback.md` `## Converge a change`) |
+| 3 | **`fs.xfs.xfssyncd_centisecs` 10000 → 30000+** | Fewer periodic metadata-flush wakeups (already raised 30 s→100 s; this is the next step) | Positive | Dirty metadata held longer; umount flush longer. Diminishing returns past 100 s | admin-guide/xfs.rst:284-287; prior raise measured "no latency win" for *lowering* (benchmarks/studies/03-filesystem-latency/README.md:83) — raising further is untested. Repo-first (runbook) |
 | 4 | **`allocsize=1m`** (only if a sequential-growth workload matters) | Fixed EOF prealloc → fewer allocation transactions, better extent contiguity for large files | Fewer allocs = CPU win; oversize on small files = blockgc churn + write amp | Medium: turns OFF dynamic preallocation heuristic; mixed small-file workloads can regress | admin-guide/xfs.rst:24-35 (dynamic default). **No published numbers.** Note 128 KiB max bio — prealloc >128k is about extents, not I/O size |
 | 5 | **XFS workqueue nice/cpumask** (`/sys/bus/workqueue/devices/xfs-*!<dev>/{nice,cpumask}`) — pin GC workers to Zen5c cores, nice +10 | Keeps inodegc/blockgc/reclaim work off the fast cores during interactive use | Positive (race-to-sleep aligned) | **Experimental**: unstable ABI ("may change at any time"); over-throttling delays unlinked-inode freeing | admin-guide/xfs.rst:498-535 (names in the doc are stale — verify actual wq names live before touching) |
-| 6 | `logbsize`/`logbufs` tuning | Bigger iclogs = fewer log writes (19034→1561 forced commits already measured at 256k) | Positive | **Already at the ceiling** (8×256k = 2 MiB, explicit max). Changing requires `rootflags=` + reboot; fstab is dead | STB studies/03:55-57, TEST-BED.md:118. Not a candidate — a closed question |
+| 6 | `logbsize`/`logbufs` tuning | Bigger iclogs = fewer log writes (19034→1561 forced commits already measured at 256k) | Positive | **Already at the ceiling** (8×256k = 2 MiB, explicit max). Changing requires `rootflags=` + reboot; fstab is dead | benchmarks/studies/03-filesystem-latency/README.md:55-57, benchmarks/TEST-BED.md:118. Not a candidate — a closed question |
 
 ## 4. Skip / avoid list
 
@@ -63,7 +61,7 @@ host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctr
   weekly `fstrim.timer` is the right design and already active).
 - **Wrong hardware / inert**: `dax` (SN560 is not a DAX device), `swalloc`/`noalign`/`sunit`/`swidth`
   (single non-striped NVMe), `largeio` (pessimizes st_blksize-trusting apps), `inode32`.
-- **Refuted or forbidden (STB/EP, do not re-propose without new evidence)**: online `discard=async`,
+- **Refuted or forbidden (do not re-propose without new evidence)**: online `discard=async`,
   `noatime`, `io_poll`, bigger `read_ahead_kb`, `nr_requests` changes, `wbt_lat_usec=0`,
   swappiness ≥200, smaller `xfssyncd` intervals (measured worse + wakeups), quota options
   (`noquota` is correct), anything requiring live remount to change **log geometry** (silently dead).
@@ -82,43 +80,57 @@ host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctr
    (`xfs-inodegc/$dev`, `xfs-blockgc/$dev`, …). Verify live before any knob (candidate 5).
 4. Benchmark evidence for `filestreams`/`allocsize`/`lazytime` gains is claimed/anecdotal everywhere;
    the only hard "measured" doc claim is discard-vs-fstrim severity. Everything above must clear
-   the STB two-gate A/B bar before adoption — that is the whole point of this host's methodology.
+   the two-gate A/B bar (`docs/judgment.md` `## May I claim?`) before adoption — that is the whole
+   point of this host's methodology.
 5. Kernel-version drift: 7.3-rc custom (CachyOS-patched) — trust `xfs_fs_parameters[]` of the running
    build over any blog; unknown options fail the mount, so test via `mount -o remount` before reboot.
 
-## 6. Measurement recipe (per STB METHODOLOGY.md)
+## 6. Measurement recipe (protocol home: `docs/judgment.md`)
 
-1. Baseline arm = current config; snapshot every arm's live tunables (`tools/fslat.py` does this).
-2. Interleave arms per repetition, rotate start arm; discard rep 0; n≥5/arm for adoption.
-3. Cache state is part of the arm (cold = drop_caches first); within-pass comparisons only.
-4. Gates: effect > control's own spread % AND Mann-Whitney U p<0.05 on ≥1 relevant metric,
-   no metric significantly worse; report medians; RAPL J/work alongside any speed claim.
-5. Workloads (`tools/wl.sh`): `mkstorm` + untar of package trees (filestreams), `coldmeta`,
-   `rm`, `wbig` (allocsize), `pressure`; work data under `$BENCH_SCRATCH`.
-6. Verify each arm by readback: `/proc/mounts` (mount opts), `cat /proc/sys/fs/xfs/*` (sysctls),
-   XFS `stats/stats` (forced-log-commit counter), workqueue `nice`/`cpumask` reads.
-7. Confounds: eco converger fires every 600 s (avoid short windows spanning it), backlight state,
-   AC/80% cap (RAPL only), kernel flavour changes = new baseline not reproduction.
+Gates, run design (interleave/rotate, discard rep 0, cache state, within-pass), arm identity via
+consumer readback, and recording conditions have one home: `docs/judgment.md` (`## May I claim?`).
+This module contributes only the campaign workload set and the XFS arm-readback points — both in §7.
 
 ## 7. Application & rollback recipe (NOT applied in this pass)
 
+The one change flow is `docs/rollback.md` `## Converge a change` (edit `state/` → apply → commit);
+the mechanics below are XFS-specific.
+
+- **Campaign workload set** (`benchmarks/tools/wl.sh`, work data under `$BENCH_SCRATCH`):
+  `mkstorm` + untar of package trees (filestreams), `coldmeta`, `rm`, `wbig` (allocsize),
+  `pressure`. Snapshot every arm's live tunables with `benchmarks/tools/fslat.py` (`capture_settings()`
+  is the arm-identity enforcement point). XFS arm-readback points: `/proc/mounts` (mount opts),
+  `cat /proc/sys/fs/xfs/*` (sysctls), XFS `stats/stats` (forced-log-commit counter), workqueue
+  `nice`/`cpumask` reads.
 - **filestreams (candidate 1)**: start surgical — `sudo xfs_io -c 'chattr +S' ~/Projects/<build-dir>`
   (removable with `chattr -S`; zero boot risk). ⚠ `chattr +f` is **no-defrag** on current xfsprogs —
   the filestreams flag letter is **`+S`** (verified from `xfs_io help chattr`, 2026-09-28).
   Mount-wide: `mount -o remount,filestreams /` + readback check — **INERT on kernel 7.3-rc4** (see
   §8); roll back `remount,nofilestreams` is itself unimplemented (`nofilestreams` = unknown param).
 - **sysctl candidates 2-3**: edit `~/Projects/system-tuning/state/owned/etc/sysctl.d/` (new file or
-  extend), `./eco apply --dry-run`, `./eco apply`, commit with check ID. Rollback = git revert +
-  re-apply. Never hand-edit live sysctls (converger/TLP race).
+  extend), then converge through `docs/rollback.md` `## Converge a change` — which also owns the
+  never-hand-edit-live rule (converger/TLP race) and the revert path.
 - **allocsize / workqueue (candidates 4-5)**: measure first (§6); apply only with A/B evidence.
   Workqueue knobs are sysfs-per-boot — persist via an eco-power owned udev/tmpfiles rule if adopted.
 - **Never**: fstab edits for XFS options (dead), remount for log geometry (no-op), reboot-free
   assumption for anything on `rootflags=`.
+- **Re-apply recipe for `allocsize=1m`** (prepared 2026-09-28, deliberately unapplied — AB3
+  measured no difference, §8): remount is inert on this kernel, so the only working route is the
+  boot cmdline. Edit **both** `/etc/default/limine` (the durable source — limine-entry-tool
+  regenerates `/boot/limine.conf` from it at every kernel install) and `/boot/limine.conf` (all 3
+  kernel entries; `rootflags=` appears 3× there and 1× in the default file), setting
+  `rootflags=logbsize=256k,allocsize=1m`. Take pre-images first (mechanism:
+  `docs/rollback.md` `## Undo: universal mechanism`; `/rewind` cannot stage /boot). Effective at
+  next boot; verify `grep ' / ' /proc/mounts` → `allocsize=1024k` (boot-time `rootflags=` parsing
+  is proven where remount is inert). Rollback = restore the two pre-images. Glob pitfall:
+  `sudo ls /boot/limine.conf*` expands the glob unprivileged and fails — use
+  `sudo bash -c 'ls /boot/limine.conf*'` or explicit paths. Clean within-pass option A/B on this
+  host = loopback image with mount-time arms (pattern: `benchmarks/tools/loopback-logbsize.sh`).
 
 ## 8. A/B campaign results (2026-09-28, 40-min budget, n=5/arm, cold cache, interleaved+rotated)
 
-Full data: `~/.cache/bench-scratch/ab-xfs-20260928.jsonl` (fslat rows) — stats reproducible with
-`FSLAT_RESULTS=… tools/perf-stats.py test fs-ctrl-mkstorm fs-fstream-S-mkstorm`.
+Full data: `benchmarks/studies/04-xfs-tuning/ab-xfs-20260928.jsonl` (fslat rows) — stats reproducible with
+`FSLAT_RESULTS=… benchmarks/tools/perf-stats.py test fs-ctrl-mkstorm fs-fstream-S-mkstorm`.
 
 ### filestreams → **REJECT** (Pareto trade, not a win)
 - **Mount option is INERT on kernel 7.3-rc4-cachyos-lto**: `mount -o remount,filestreams /` returns
@@ -151,11 +163,11 @@ campaign (powertop/turbostat windows ≥ 15 min/arm).
 `/boot/limine.conf` is **machine-generated by limine-entry-tool from `/etc/default/limine`** —
 editing only limine.conf is silently reverted at next kernel install. A cmdline change must edit
 BOTH (`rootflags=` appears 3× in limine.conf — 3 kernel entries — and 1× in /etc/default/limine),
-with `cp -p` backups first (`/rewind` cannot stage /boot). Full recipe + rollback was prepared
-(2026-09-28 session) but is unapplied since nothing won.
+with `cp -p` backups first (`/rewind` cannot stage /boot). Full recipe + rollback is now in-repo:
+§7 (still unapplied since nothing won).
 
 ### Follow-up campaign AB2 (2026-09-28 PM) — `allocsize` + timer-policy → NOTHING ADOPTED
-Full report: `~/.cache/bench-scratch/ab2-report-20260928.md` (data: `ab2-allocsize-*.jsonl`,
+Full report: `benchmarks/studies/04-xfs-tuning/ab2-report-20260928.md` (data: `ab2-allocsize-*.jsonl`,
 `ab2-idle-*.jsonl`, `idle-w*-samples/xstats.jsonl`).
 - **`allocsize=1m` vs dynamic (wbig, n=5/arm): NOT ADOPTED** — every gate-1 effect inside control
   spread (largest −15.4% PSI vs 36% spread). ⚠ **Arm identity unproven**: treatment rows carry no
@@ -185,4 +197,4 @@ Loopback within-pass A/B: exactly zero (wall/energy/ios/extents). Mechanism fals
 transactions +189% with the setting; same 3 extents; same write request sizes). Over-reservation
 cost stands. Owner-rule outcome: not a win → **rollback performed** (both limine backups restored,
 effective next boot). §4's "allocsize" row is now a measured non-result on this host's big-sequential
-workload class (small/random writes still untested). Re-apply recipe in NOTE.md 2026-09-28.
+workload class (small/random writes still untested). Re-apply recipe: §7.

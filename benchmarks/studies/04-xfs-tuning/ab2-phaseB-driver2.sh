@@ -2,9 +2,9 @@
 # Phase B single-window driver (resume after driver1 tree was killed mid-W5).
 # usage: ab2-phaseB-driver2.sh WNUM
 set -u
-S=/home/zhangdm/.cache/bench-scratch
+S="${BENCH_SCRATCH:-$HOME/.cache/bench-scratch}"
 RES=$S/ab2-idle-20260928.jsonl
-SAMP=$S/ab2-idle-sampler.py
+SAMP="$(dirname "$0")/ab2-idle-sampler.py"
 W=$1
 
 case "$W" in
