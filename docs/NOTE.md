@@ -5,6 +5,8 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+
+
 ## 2026-09-29 — docs-unification implementation: 8 sub-waves landed; independent verification green
 
 ### What landed (module set, deletions, renames, adapter)
