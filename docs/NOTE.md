@@ -5,6 +5,35 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-05 — btrfs tunables research: io-stack drift found and converged
+
+### What changed
+
+- `docs/research/btrfs-tunables.md` (agent-written, 565 lines, primary-sourced): btrfs sysfs,
+  block layer/IO scheduler, VM/sysctl interplay, module params, job caps — mount options
+  excluded by scope. Owner rulings applied the same evening: the io-stack drift converged
+  (live kyber+256 → ledger `none`+1023) and made durable as owned
+  `state/owned/etc/udev/rules.d/61-eco-ioschedulers.rules` via `./eco apply` + udev trigger
+  (verified `none`/1023/256/2000); the tunables-domain refusals (research §7) recorded in
+  `docs/rollback.md` never-run rules; unowned vendor VM state (`dirty_bytes` 256 MiB,
+  `dirty_background_bytes` 64 MiB, `vfs_cache_pressure` 50 — `/usr/lib/sysctl.d/70-cachyos-settings.conf`)
+  recorded as foreign state in `docs/findings.md`, values unchanged.
+
+### Findings recorded
+
+- Drift mechanism: vendor `/usr/lib/udev/rules.d/60-ioschedulers.rules` pins NVMe to kyber;
+  the pre-reinstall `/etc` override was a foreign file and died at the reinstall — the queue
+  silently reverted to kyber/256. The research doc's baseline readback caught it.
+- ionice verified inert under `none`/kyber (kernel doc + mq-deadline/kyber/NVMe source); the
+  `btrfs-scrub(8)` `-c/-n` note has the scheduler claim inverted (recorded §2.1).
+- Async-discard pacing knobs (`discard/{iops_limit,kbps_limit,max_discard_size}`) are the
+  concrete arm design for the deferred `## fstrim` A/B — owner chose to keep it deferred.
+
+### Next action
+
+Watch bees' first heavy scan (no per-directory exclusion); the `## fstrim` async-discard A/B
+stays deferred until the owner reopens it; `adios` elevator semantics remain unresearched.
+
 ## 2026-10-05 — btrfs rulings applied: bees replaces duperemove, scrub + balance policy recorded
 
 ### What changed

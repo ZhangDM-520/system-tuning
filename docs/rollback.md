@@ -208,6 +208,30 @@ evidence (`docs/findings.md` preamble):
   per-file properties are the right tools (§8).
 - **`discard`/`discard=sync`** — already banned (`docs/findings.md` `## fstrim`).
 
+### tunables domain (2026-10-05 — refusals, not tunings)
+
+Primary sourcing in `docs/research/btrfs-tunables.md` §7; each returns only with new evidence
+(`docs/findings.md` preamble):
+
+- **Runtime writes to `/sys/module/{nvme,nvme_core}/parameters/*`** — probe-time/policy state;
+  the APST-adjacent ones share the hazard class of `nvme set-feature -f 0x0c`.
+- **Building on `scrub_speed_max` / `btrfs scrub limit` persistence** — it dies at unmount; a
+  limit that vanishes silently is worse than no limit. Re-read after every mount.
+- **Rate-capping maintenance jobs as an efficiency measure** — caps turn one compact work
+  window into a trickle; a cap may protect interactivity only.
+- **`btrfs scrub start -c/-n` (ionice flags)** — deprecated, and the man page's scheduler claim
+  is contradicted by kernel doc + source (ionice is real only under mq-deadline/bfq).
+- **`allocation/*/chunk_size`, `read_policy`, `quota_override`, fs-wide `bg_reclaim_threshold`,
+  `dynamic_reclaim`, `periodic_reclaim`** — no traced consumer, large blast radius; there is no
+  defect here they would fix.
+- **Disabling `iostats` or `write_cache` "for performance"** — the first blinds the re-check
+  commands, the second changes flush semantics without a durability requirement.
+- **Treating `ionice`/`IOSchedulingClass=idle` as an energy tool** — interactivity-only, and
+  inert under the current elevator (`none`; also under kyber).
+- **Re-proposing settled queue/VM knobs from the research file** — scheduler `none`,
+  `nr_requests=1023`, `read_ahead_kb=256`, `wbt_lat_usec=2000`, `vm.swappiness=150`, writeback
+  centisecs, APST staging are `docs/findings.md` territory with stated reopen conditions.
+
 ## Storage ops — re-check commands
 
 ```

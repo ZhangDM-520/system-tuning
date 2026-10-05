@@ -245,6 +245,12 @@
   `sysctl vm.dirty_writeback_centisecs vm.dirty_expire_centisecs` — read the runtime values, never
   the files alone (TLP was the resetter).
 **Rejected here.** lowering `xfssyncd_centisecs` (measured-worse, more wakeups).
+**Foreign state (observed 2026-10-05, values unchanged).** vendor
+  `/usr/lib/sysctl.d/70-cachyos-settings.conf` also writes `vm.dirty_bytes=256 MiB`,
+  `vm.dirty_background_bytes=64 MiB` and `vm.dirty_writeback_centisecs=1500`; the first two are
+  unowned (recorded here so a clobber is visible), the third loses to `99-eco-writeback.conf`
+  (99 > 70 in sysctl.d order) and to the re-assert belt. Check: `sysctl vm.dirty_bytes
+  vm.dirty_background_bytes vm.dirty_writeback_centisecs`.
 **Open.** no measured J/min confirmation for the whole writeback/wakeup family (6000/6000, xfssyncd,
   `speculative_prealloc_lifetime`): the timer-policy pair (xfssyncd 10000 → 30000, prelife 300 →
   1800) was INCONCLUSIVE at n=2/arm usable (MW-U minimum p = 0.333; one window
@@ -274,8 +280,13 @@
   is zram lz4: pageouts never touch the SSD.
 **Evidence.** `benchmarks/studies/03-filesystem-latency/README.md` (read-ahead, nr_requests
   refusals); `benchmarks/studies/02-boot-and-power/README.md` (WBT 0 refusal + warning, swappiness
-  200, MDTS 128 KB); `docs/archive/XFS-TUNING.md` (stack baseline). Persistence: scheduler `none` is
-  udev-persisted (`/etc/udev/rules.d/60-ioschedulers.rules`, foreign file — not repo-managed);
+  200, MDTS 128 KB); `docs/archive/XFS-TUNING.md` (stack baseline).   Persistence (2026-10-05): the vendor rule
+  `/usr/lib/udev/rules.d/60-ioschedulers.rules` pins NVMe to `kyber`; the pre-reinstall host
+  overrode it with a foreign `/etc/udev/rules.d/60-ioschedulers.rules` that died at the
+  2026-10-05 reinstall (queue drifted to kyber/256 — found via
+  `docs/research/btrfs-tunables.md` §0). Now owned: `state/owned/etc/udev/rules.d/61-eco-ioschedulers.rules`
+  (named 61- so the vendor's sda/mmcblk rules stay live; sets scheduler first, then
+  nr_requests/read_ahead_kb/wbt — elevator switches reset queue depth).
   `vm.swappiness=150` is udev-enforced (`/usr/lib/udev/rules.d/30-zram.rules`, zram0-ready hook).
   Check:
   `cat /sys/block/nvme0n1/queue/{scheduler,nr_requests,read_ahead_kb,max_sectors_kb,wbt_lat_usec}`,
@@ -461,6 +472,9 @@
 **Evidence.** `state/owned/etc/modprobe.d/99-acp-power-gating.conf`;
   `state/managed/niri-autostart.toml`; `docs/rollback.md` (`## misc` — undo commands). Check:
   `./eco report` MISC row; `pgrep -a localsearch` (nothing running).
+**Foreign state (observed 2026-10-05, value unchanged).** `vm.vfs_cache_pressure=50` from vendor
+  `/usr/lib/sysctl.d/70-cachyos-settings.conf` — unowned; recorded so a clobber is visible.
+  Check: `sysctl vm.vfs_cache_pressure`.
 
 ## autosuspend
 
