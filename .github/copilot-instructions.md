@@ -9,9 +9,9 @@ btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of wo
   a change.
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
-- **filesystem maintenance / XFS tuning** — `docs/archive/XFS-TUNING.md` (XFS campaign module) and the
-  storage ops runbook (`docs/rollback.md` `## Storage ops`), plus the `state/owned` units behind
-  them (duperemove and xfs-scrub timers, smartd + `smart-alert.sh`, the XFS sync-interval sysctl)
+- **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS
+  campaign module) and the storage ops runbook (`docs/rollback.md` `## Storage ops`), plus the
+  `state/owned` units behind them (bees and the btrfs scrub timer, smartd + `smart-alert.sh`)
   — converged by the same `eco apply` like every other owned file.
 
 Merged 2026-09-28 from the `eco-power` and `System-Tuning-Benchmarks` repos (both histories

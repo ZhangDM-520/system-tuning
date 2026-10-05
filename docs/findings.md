@@ -325,26 +325,35 @@
   the 2026-09-26 full-filesystem dedupe sweep recovered ~65 GiB, verified by physical-offset
   (`poff`) measurement, not by duperemove's self-report — defrag is therefore never
   automated (it rewrites extents and un-does dedupe; a deliberately defragged file re-materializes
-  private blocks, and duperemove must be re-run if the space matters). duperemove findings the
-  accounting must know: identical-file groups are quadratic-ish (an 87k-member group pegged a core
-  >55 min — such trees are excluded); `dedupe_seq` resume semantics skip files below the config
-  marker permanently, `seq == max` are never processed, and setting all seq=0 hides files *below*
-  the marker.
-**Evidence.** `docs/rollback.md` (`## Storage ops` — duperemove/fstrim operations, automation,
+  private blocks, and the dedupe duty must re-catch them if the space matters). Dedupe-tool
+  findings the accounting must know: identical-file groups are quadratic-ish (an 87k-member
+  group pegged a core >55 min) — the old duperemove script excluded such trees, but **bees
+  (the dedupe duty since 2026-10-05) has no per-directory exclusion**, so that mitigation does
+  not transfer as-is and the hazard is bounded only by bees' shipped throttling (watch it —
+  `docs/rollback.md` `## Storage ops`). duperemove-era hashfile semantics (tool retired
+  2026-10-05, kept for the archived recipe): `dedupe_seq` resume semantics skip files below the
+  config marker permanently, `seq == max` are never processed, and setting all seq=0 hides files
+  *below* the marker.
+**Evidence.** `docs/rollback.md` (`## Storage ops` — dedupe/fstrim operations, automation,
   re-check commands); `docs/archive/XFS-TUNING.md` (reflink / `xfs_fsr` rules);
   `~/docs/NOTE.md:3762-3855` (session chronology behind the 2026-09-26..28 FS/XFS work: dedupe
   semantics, pitfalls, overrides). Dated FS baseline (2026-09-26): `/dev/nvme0n1p2` XFS
   `reflink=1`, 950G total, ~39% used, inodes 2%, pacman pkg cache 0 bytes (XFS-era history —
   root is btrfs since the 2026-10-05 reinstall). Check:
-  `systemctl list-timers fstrim.timer duperemove.timer`, `findmnt -no OPTIONS /` (no `discard`),
-  `df -h /`; duplicates directly via `COUNT(DISTINCT poff)` per digest in
-  `/var/lib/duperemove/root.hash`.
+  `systemctl list-timers fstrim.timer 'btrfs-scrub@*'`, `findmnt -no OPTIONS /`,
+  `df -h /`; duplicates directly via physical-offset (`poff`) measurement or
+  `btrfs filesystem du` deltas — never via a tool's own estimate
+  (`docs/research/btrfs-optimization.md` §9).
 **Rejected here.** mount `discard` (root-unsafe/forbidden; fights APST); post-dedupe fstrim
   automation (the weekly timer suffices).
-**Machine lies.** duperemove silently scans 0 files as non-root (libblkid UUID lookup) and exits 0;
-  `--read-hashes` is a different, non-SQLite hash format and does nothing on a `--hashfile`
-  database; free space keeps drifting down *after* a dedupe sweep (delayed block freeing) — never
-  attribute freed space to dedupe without direct duplicate measurement.
+**Open (deferred 2026-10-05).** the `discard=async` drift (btrfs default since kernel 6.2 vs
+  this verdict's batch-trim design) is deliberately unresolved: settle it by owner ruling or a
+  measured A/B, never by editing this verdict (`docs/research/btrfs-optimization.md` §5).
+**Machine lies.** free space keeps drifting down *after* a dedupe sweep (delayed block
+  freeing) — never attribute freed space to dedupe without direct duplicate measurement.
+  duperemove-era tool lies (tool retired 2026-10-05, kept for the archived recipe): it silently
+  scans 0 files as non-root (libblkid UUID lookup) and exits 0; `--read-hashes` is a different,
+  non-SQLite hash format and does nothing on a `--hashfile` database.
 
 ## xfs-logbsize
 
@@ -622,10 +631,11 @@
   agents, fprintd absent; all inhibitors are delay-mode (swayidle/noctalia lock chain) — nobody
   blocks suspend indefinitely · **Class:** settled
 **Why.** Nothing in the daemon set competes for wakeups or writes (TLP exits after boot; the
-  asusd/PPD two-writer precedent is closed by masking PPD). The scheduled set is maintenance: daily
-  duperemove, weekly fstrim + smartd self-test (xfs-scrub retired 2026-10-05 with the XFS era;
-  detail in
-  `docs/rollback.md` `## Storage ops — what runs automatically`).
+  asusd/PPD two-writer precedent is closed by masking PPD). The scheduled set is maintenance:
+  weekly fstrim + smartd self-test and monthly `btrfs-scrub@-.timer` (stock unit); dedupe is the
+  continuous `beesd@` service (daily duperemove job retired 2026-10-05; xfs-scrub retired with
+  the XFS era). The duty-by-duty record lives in
+  `docs/rollback.md` `## Storage ops — what runs automatically`.
 **Evidence.** `state/owned/etc/systemd/system/*.timer`; `docs/rollback.md`
   (`## Storage ops — what runs automatically`).
   Check: `systemctl list-timers --all`, `cat /sys/class/rtc/rtc0/wakealarm` (empty),

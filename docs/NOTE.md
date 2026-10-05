@@ -5,6 +5,33 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-05 — btrfs rulings applied: bees replaces duperemove, scrub + balance policy recorded
+
+### What changed
+
+- Owner decoded `docs/research/btrfs-optimization.md` into rulings and they are applied:
+  dedupe switched to **bees** (official `extra/bees` 0.11, upstream-default continuous
+  `beesd@<FSUUID>.service` with shipped throttling; config `/etc/bees/beesd.conf`, now an owned
+  state file), duperemove retired entirely (3 state files, live units + script + hashfile with
+  dated pre-images, and the orphaned package), stock `btrfs-scrub@-.timer` enabled as the
+  monthly online-verification duty (verified: instance `-` expands to mountpoint `/`).
+- Policy written into `docs/rollback.md` (bees/scrub rows, trigger-only usage-filtered balance,
+  the btrfs refusal list incl. `autodefrag` and NOCOW-anywhere, scrub-suspend semantics, new
+  re-check block) and `docs/findings.md` (dedupe accounting adapted to bees; the
+  `discard=async` drift recorded as deliberately deferred). Gate: 112/112.
+
+### Decisions recorded
+
+- Left alone on purpose: the `discard=async` vs `## fstrim` drift (deferred, may settle only by
+  owner ruling or measured A/B) and `compress=zstd:1` (upstream default band). NOCOW is banned
+  everywhere — COW stays for checksums + compression + reflink.
+
+### Next action
+
+bees watch-items (findings `## fstrim`): no per-directory exclusion exists, so the old
+87k-member quadratic-group hazard is bounded only by bees' shipped throttling — watch the first
+heavy scan; commit disposition for this wave is the only open ask.
+
 ## 2026-10-05 — post-reinstall reconvergence: XFS retired, stack restored, EPP kernel-locked
 
 ### What changed

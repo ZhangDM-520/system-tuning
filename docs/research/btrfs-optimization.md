@@ -1,5 +1,7 @@
 # Btrfs optimization research — single-NVMe root on CachyOS
 
+> **Status 2026-10-05:** the proposals below were ruled on by the owner — adopted rules now have their one home in `docs/rollback.md` (`## Storage ops`) and `docs/findings.md` (bees replaces the duperemove job; scrub, trigger-only balance and the §8 refusals recorded); this file stays as the evidence base.
+
 *Research-only pass, 2026-10-05. No system state was changed; every live command below was
 read-only. Scope: how to optimize and maintain **btrfs** as the root filesystem of this host
 (ASUS Zenbook S 16 UM5606WA, Ryzen AI 9 HX 370, WD SN560 NVMe, CachyOS, kernel

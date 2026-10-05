@@ -120,18 +120,25 @@ The SD reader (GL9755 on `0000:c2:00.0`, sdhci-pci) was unbound at runtime with 
 
 ## Storage ops — what runs automatically
 
-Installed 2026-09-26 (all verified live, not just installed):
+Installed 2026-09-26; the btrfs-era rows carry their 2026-10-05 date. Verify live with
+`## Storage ops — re-check commands` — this list is the record, not the readback:
 
-- **duperemove.timer** (daily 03:30 + random delay, `Persistent=true`) ->
-  `duperemove.service` -> `/usr/local/sbin/duperemove-daily.sh`. Incremental dedupe (hashfile
-  `/var/lib/duperemove/root.hash` — unchanged files are not re-hashed; logs
-  `/var/lib/duperemove/daily.log*`, keep 7).
+- **beesd@\<FSUUID\>.service** (2026-10-05) — continuous dedupe duty: `bees` (extra repo,
+  "Best-Effort Extent-Same", btrfs extent-scrub daemon), config `/etc/bees/beesd.conf`,
+  upstream-default throttling as shipped in the unit (Nice 19, IOWeight 10,
+  IOSchedulingClass idle). Replaces the retired daily duperemove job. **bees has no
+  per-directory exclusion** — the old script's known-bad-tree exclusions cannot be carried
+  over as-is (`docs/findings.md` `## fstrim`).
 - **fstrim.timer** (weekly, systemd stock) — pre-existing, left as-is.
+- **btrfs-scrub@-.timer** (2026-10-05) — monthly online verification, the stock btrfs-progs
+  unit adopted exactly as shipped (`OnCalendar=monthly`, `RandomizedDelaySec=1w`,
+  `Persistent=true`; instance `-` = mountpoint `/`). It replaces the retired monthly
+  `xfs_scrub` job; its suspend semantics are in `## Storage ops — re-check commands` below.
 - **XFS-era automation retired 2026-10-05** (root moved XFS → btrfs at the reinstall):
   `xfs-scrub.{service,timer}` and the `fs.xfs.xfssyncd_centisecs` sysctl are gone from `state/`
-  (record: `docs/archive/XFS-TUNING.md`). A btrfs online-verification schedule is pending
-  `docs/research/btrfs-optimization.md`; everything else on this list is filesystem-agnostic and
-  stays.
+  (record: `docs/archive/XFS-TUNING.md`), as are the daily `duperemove.{service,timer}` +
+  `duperemove-daily.sh` (dedupe duty now the bees row above). The btrfs online-verification
+  duty is the scrub row above; everything else on this list is filesystem-agnostic and stays.
 - **smartd.service** (enabled + active) — `/etc/smartd.conf`: `DEVICESCAN -a -o on -S on
   -n standby,q -s (S/../../7/04) -W 5,45,55 -m /dev/null -M exec
   /usr/local/sbin/smart-alert.sh`. Weekly short self-test Sunday 04:00 (`7` = Sunday;
@@ -152,29 +159,75 @@ Installed 2026-09-26 (all verified live, not just installed):
 
 ### filesystem repair: offline only
 
-- Online verification on a *mounted* filesystem is fine (the XFS-era scheduled one,
-  `xfs_scrub`, was retired with its timer on 2026-10-05 — `docs/archive/XFS-TUNING.md`).
+- Online verification on a *mounted* filesystem is fine (now `btrfs scrub` — the scrub row in
+  `## Storage ops — what runs automatically`; the XFS-era `xfs_scrub` was retired with its timer
+  on 2026-10-05 — `docs/archive/XFS-TUNING.md`).
 - Filesystem **repair** is offline/rescue-media territory only: never run `xfs_repair` or
-  `btrfs check --repair` on the mounted root — they can destroy data.
+  `btrfs check --repair` on the mounted root — they can destroy data. Read-only `btrfs check`
+  on the mounted root is verification, not repair; `--repair` even unmounted only under expert
+  guidance (`docs/research/btrfs-optimization.md` §8).
 
 ### defrag: never automated (it un-does dedupe)
 
 - Defrag (`xfs_fsr` in the XFS era, `btrfs filesystem defrag` on btrfs) reworks file data
   into fresh contiguous extents. That **destroys reflink sharing**: every defragged file
   re-materializes its own private
-  blocks, undoing exactly what duperemove bought. Defrag-after-dedupe is self-defeating.
-- Policy: no automatic defrag, ever. If one specific file is *measured* to be badly
-  fragmented and that matters (rare on NVMe), defrag it deliberately and accept that its
-  shared extents go away; re-run duperemove afterwards if the space matters.
+  blocks, undoing exactly what dedupe bought. Defrag-after-dedupe is self-defeating.
+- Policy: no automatic defrag, ever — 2026-10-05 this explicitly includes the `autodefrag`
+  mount option: it is structurally a scheduled defrag the repo cannot scope or audit, with the
+  same snapshot/dedupe sharing damage (`docs/research/btrfs-optimization.md` §6). If one
+  specific file is *measured* to be badly fragmented and that matters (rare on NVMe), defrag it
+  deliberately and accept that its shared extents go away; the dedupe duty re-catches them over
+  time if the space matters (bees row in `## Storage ops — what runs automatically`).
+
+### balance: trigger-only, never scheduled (2026-10-05)
+
+- Balance preserves reflink sharing (unlike defrag), so it is *allowed*; but on a single device
+  there is nothing to spread and an unfiltered pass is a whole-filesystem rewrite (IO + CPU +
+  write amplification — `docs/research/btrfs-optimization.md` §4).
+- Policy: maintenance trigger only — `btrfs filesystem usage /` showing stranded chunks or
+  ENOSPC pressure despite reported free space — and then usage-filtered and chunk-limited
+  (`usage=`/`limit=`). Never on a timer. When used, record before/after
+  `btrfs filesystem usage` and the job's wall time.
+
+### btrfs refusals (2026-10-05 — refusals, not tunings)
+
+Primary sourcing in `docs/research/btrfs-optimization.md` §4–§8; each returns only with new
+evidence (`docs/findings.md` preamble):
+
+- **`autodefrag`** — joins the defrag rule above verbatim (§6).
+- **Unfiltered or scheduled `btrfs balance`** — see the balance rule above (§4).
+- **RAID5/RAID6 profiles** — upstream's own warning: not production-safe (power-failure write
+  hole); moot on one device today, never convert (§8).
+- **NOCOW anywhere** — owner ruling 2026-10-05: COW everywhere (checksums + compression +
+  reflink), so mount-wide `nodatacow`/`nodatasum` *and* per-file `chattr +C` islands are both
+  out (§2, §8).
+- **qgroups (`btrfs quota enable`) by default** — quota bookkeeping taxes all extent
+  processing; return only for a real limit the owner wants, measured first (§8).
+- **`compress-force` as the default** — upstream advises against; `compress` heuristics plus
+  per-file properties are the right tools (§8).
+- **`discard`/`discard=sync`** — already banned (`docs/findings.md` `## fstrim`).
 
 ## Storage ops — re-check commands
 
 ```
-df -h / ; df -i /                     # capacity + inodes
+df -h / ; df -i /                     # capacity + inodes (df lags after dedupe)
+btrfs filesystem usage /              # chunk-level truth: unallocated vs usable (balance trigger)
+btrfs filesystem df /                 # profile totals (Data single / Metadata DUP)
+sudo btrfs scrub status /             # last run, errors, unfinished/cancelled state
+sudo btrfs device stats -c /          # all-zero check (exit 64+ if nonzero)
+sudo btrfs subvolume list /           # layout + snapshot inventory drift
+findmnt -no OPTIONS /                 # compress + no autodefrag (never-run rules above)
+systemctl list-timers --all | grep -E 'btrfs|fstrim|smartd'
+systemctl status 'beesd@*'            # dedupe duty alive on the right FSUUID
 nvme smart-log /dev/nvme0 | grep -iE 'percentage_used|available_spare|media_errors|temperature'
 smartctl -H /dev/nvme0                # overall health
-systemctl list-timers --all | grep -E 'duperemove|fstrim|smartd'
 journalctl --disk-usage
-# btrfs re-check block: pending docs/research/btrfs-optimization.md (XFS-era block:
-# docs/archive/XFS-TUNING.md)
 ```
+
+Scrub suspend semantics (2026-10-05, `docs/research/btrfs-optimization.md` §3): since kernel
+6.19 a running scrub is **cancelled** by suspend/hibernate and does not continue on its own —
+`btrfs scrub status /` shows a non-completed pass, and only `btrfs scrub resume` (or a re-run)
+finishes the verification. Check it after any suspend that overlapped a maintenance window.
+Dedupe accounting (`docs/findings.md` `## fstrim`): judge savings by physical offsets /
+`btrfs filesystem du` deltas, never by tool self-reports.
