@@ -5,6 +5,46 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-05 — post-reinstall reconvergence: XFS retired, stack restored, EPP kernel-locked
+
+### What changed
+
+- Root FS is now btrfs (was XFS; all hardware unchanged). XFS-era state retired per owner
+  ("archive the XFS docs, retire it from our live docs"): deleted
+  `state/owned/etc/sysctl.d/20-xfs-sync-interval.conf` and the `xfs-scrub.{service,timer}` units,
+  moved `docs/XFS-TUNING.md` to `docs/archive/XFS-TUNING.md` behind a retirement banner, and
+  scrubbed XFS framing from `docs/rollback.md` (storage ops, never-run rules now FS-agnostic),
+  `docs/findings.md` and `docs/MEMORY.md`.
+- Post-reinstall package restore (owner: install ALL missing, official+AUR): tlp 1.10.2,
+  duperemove 0.15.2, asusctl 6.5.0, ryzenadj 0.19.0, ryzen_smu-dkms-git 191.d298366-1; PPD
+  masked; `/var/lib/duperemove/root.hash` seeded; `scx_loader.toml` rebuilt from the test
+  fixture with a provenance comment (scx_loader 1.1.3 reads `/etc/scx_loader/config.toml` >
+  `/etc/scx_loader.toml` > `/usr/share/…`). `./eco apply` SUMMARY planned=24 applied=24
+  failed=0, with dated pre-images.
+- Exec-bit defect fixed in the repo (git had `eco-power.sh` and `hw-tune.fish` at 100644, so a
+  fresh deploy ran a 203/EXEC service and hw-tune gated on `[ -x ]`): mode 755 on the state
+  files and their fixture mirrors, plus explicit `chmod` on live (`cp` preserves the
+  destination mode on existing targets).
+
+### Findings recorded
+
+- EPP `dynamic` is kernel-branch-locked, not a state defect: the running 7.2.9-1-cachyos
+  rejects `echo dynamic` (EINVAL) while vmlinux string tables show the `dynamic(profile:…)`
+  mode present in 7.3.0-rc5-1-cachyos-bore-lto and absent from 7.2.9 (the old readback
+  `dynamic(profile:performance)` came from that mode). The knob cannot converge on the running
+  kernel; bootloader choice stays in the recovery domain and is the owner's call.
+- PPT readback now works end-to-end (ryzen_smu interface `/sys/kernel/ryzen_smu_drv`), so the
+  report is ok=11 / accepted=1 (PPT — the STAPM firmware floor) / warn=1 (SD, expected) /
+  drift=1 (EPP).
+- btrfs tuning research landed at `docs/research/btrfs-optimization.md` (proposals only, no
+  state changes); it flags owner decisions: live `discard=async` vs `findings##fstrim`,
+  duperemove AC-gating, adopting `btrfs-scrub@.timer` over a repo unit, and NOCOW islands.
+
+### Next action
+
+Owner decisions: EPP path (boot 7.3.0-rc5-bore-lto, reopen `findings#epp`, or leave the DRIFT),
+and the four btrfs-research questions; then commit disposition for this wave.
+
 ## 2026-09-29 — eco tunings restored at resume (owner directive); experiment closed
 
 ### What changed

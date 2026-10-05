@@ -1,23 +1,25 @@
 # Findings — one entry per knob
 
 **Purpose.** The only knob-truth home for this host (ASUS Zenbook S 16 UM5606WA, Ryzen AI 9 HX 370,
-  CachyOS, XFS root on WD SN560). One `##` entry per knob; each entry answers, with nothing else
+  CachyOS, btrfs root on WD SN560 — XFS until the 2026-10-05 reinstall). One `##` entry per knob; each entry answers, with nothing else
   read: what is true/applied and why (mechanism, owner rulings with their grilling-Q trail,
   superseded claims with their scope); what backs it and how to check it live; what has been
   refused; and what would reopen it. Operational modules keep their own depth: undo commands in
   `docs/rollback.md` (rollback#sd, rollback#misc), storage operations in `docs/rollback.md`
-  (`## Storage ops`), campaigns and recipes in `docs/XFS-TUNING.md`, measurement protocol in
+  (`## Storage ops`), campaigns and recipes in `docs/archive/XFS-TUNING.md`, measurement protocol in
   `benchmarks/METHODOLOGY.md`, judgment rules in `docs/judgment.md`. A few entries name the `./eco report`
   check that observes the knob; the check registry itself stays in the eco contract module.
 
 **How to read Evidence.** Handles name surviving artifacts (`state/owned/…`, `state/managed/…`,
-  `benchmarks/studies/…`, `benchmarks/METHODOLOGY.md`, `docs/XFS-TUNING.md`,
+  `benchmarks/studies/…`, `benchmarks/METHODOLOGY.md`, `docs/archive/XFS-TUNING.md`,
   `docs/rollback.md`, `./tests/run`) plus the live readback command that settles the claim on
   this host — you verify with the command, never with a log line. Kernel-scoped claims per
   `benchmarks/docs/MEMORY.md`: benchmark numbers are stamped to the campaign kernel
   `7.2.5-1-cachyos-rt-bore-lto` and the host has since moved on; a re-run on a different kernel is a
-  new baseline, not a reproduction, and historical figures are never edited to match. XFS
-  mount-option behaviour is kernel-version-specific.
+  new baseline, not a reproduction, and historical figures are never edited to match. XFS-era
+  mount-option behaviour was kernel-version-specific; the `## xfs-*` entries below are XFS-era
+  history (root moved to btrfs 2026-10-05, campaign archived at `docs/archive/XFS-TUNING.md`)
+  and no longer describe anything operative.
 
 **Do not re-propose without new evidence.** Every `Rejected here` line is a refusal with its scope;
   the same candidate returns only with new evidence (usually a measurement on the current kernel).
@@ -228,14 +230,15 @@
   runtime values drifted to 1500/1500 despite the owned sysctl file. Fix:
   `MAX_LOST_WORK_SECS_ON_AC=0` and `MAX_LOST_WORK_SECS_ON_BAT=0` (TLP convention 0 = do not manage;
   `set_dirty_parms` returns early before any sysctl write), so `99-eco-writeback.conf` is the single
-  writer of 6000/6000 and the XFS sync interval is unblocked. Belt: `eco-power.sh` re-asserts
+  writer of 6000/6000 and (in the XFS era) the sync interval was unblocked. Belt: `eco-power.sh` re-asserts
   6000/6000 on every trigger (boot, resume, AC event, 600s timer). Before persistence (Q2/Q3/Q11)
   the values were lost at every sysctl load. Superseded with scope: the 1500/1500 drift state and
   the 30-second-class default (the TLP-clobbered class) are gone; `fs.xfs.xfssyncd_centisecs=10000`
-  stays live from the same single-writer fix (lowering it to 10 s is measured-worse: 8.35 s vs 8.16
+  was live from the same single-writer fix until the XFS era ended — retired 2026-10-05 with the
+  btrfs reinstall (lowering it to 10 s had been measured-worse: 8.35 s vs 8.16
   s, log forces 135 vs 191, more wakeups).
 **Evidence.** `state/owned/etc/sysctl.d/99-eco-writeback.conf`; `state/owned/etc/tlp.d/01-eco.conf`
-  (`MAX_LOST_WORK_SECS_ON_AC/BAT=0`); `state/owned/etc/sysctl.d/20-xfs-sync-interval.conf`;
+  (`MAX_LOST_WORK_SECS_ON_AC/BAT=0`);
   `state/owned/usr/local/sbin/eco-power.sh` (re-assert belt). The resetter's source:
   `/usr/share/tlp/func.d/15-tlp-func-disk` (`set_dirty_parms()`) with the shipped defaults in
   `/usr/share/tlp/defaults.conf` (15 s AC / 60 s BAT). Check:
@@ -271,7 +274,7 @@
   is zram lz4: pageouts never touch the SSD.
 **Evidence.** `benchmarks/studies/03-filesystem-latency/README.md` (read-ahead, nr_requests
   refusals); `benchmarks/studies/02-boot-and-power/README.md` (WBT 0 refusal + warning, swappiness
-  200, MDTS 128 KB); `docs/XFS-TUNING.md` (stack baseline). Persistence: scheduler `none` is
+  200, MDTS 128 KB); `docs/archive/XFS-TUNING.md` (stack baseline). Persistence: scheduler `none` is
   udev-persisted (`/etc/udev/rules.d/60-ioschedulers.rules`, foreign file — not repo-managed);
   `vm.swappiness=150` is udev-enforced (`/usr/lib/udev/rules.d/30-zram.rules`, zram0-ready hook).
   Check:
@@ -320,7 +323,7 @@
   busy and fight APST. A one-off `sudo fstrim -av` after very large deletions is acceptable;
   post-dedupe fstrim is not automated (the weekly timer suffices). Reflink sharing is load-bearing:
   the 2026-09-26 full-filesystem dedupe sweep recovered ~65 GiB, verified by physical-offset
-  (`poff`) measurement, not by duperemove's self-report — `xfs_fsr`/defrag is therefore never
+  (`poff`) measurement, not by duperemove's self-report — defrag is therefore never
   automated (it rewrites extents and un-does dedupe; a deliberately defragged file re-materializes
   private blocks, and duperemove must be re-run if the space matters). duperemove findings the
   accounting must know: identical-file groups are quadratic-ish (an 87k-member group pegged a core
@@ -328,10 +331,11 @@
   marker permanently, `seq == max` are never processed, and setting all seq=0 hides files *below*
   the marker.
 **Evidence.** `docs/rollback.md` (`## Storage ops` — duperemove/fstrim operations, automation,
-  re-check commands); `docs/XFS-TUNING.md` (reflink / `xfs_fsr` rules);
+  re-check commands); `docs/archive/XFS-TUNING.md` (reflink / `xfs_fsr` rules);
   `~/docs/NOTE.md:3762-3855` (session chronology behind the 2026-09-26..28 FS/XFS work: dedupe
   semantics, pitfalls, overrides). Dated FS baseline (2026-09-26): `/dev/nvme0n1p2` XFS
-  `reflink=1`, 950G total, ~39% used, inodes 2%, pacman pkg cache 0 bytes. Check:
+  `reflink=1`, 950G total, ~39% used, inodes 2%, pacman pkg cache 0 bytes (XFS-era history —
+  root is btrfs since the 2026-10-05 reinstall). Check:
   `systemctl list-timers fstrim.timer duperemove.timer`, `findmnt -no OPTIONS /` (no `discard`),
   `df -h /`; duplicates directly via `COUNT(DISTINCT poff)` per digest in
   `/var/lib/duperemove/root.hash`.
@@ -363,7 +367,7 @@
   "ikeep/attr2 removed in v6.18" reading loses to observed parser behaviour (still accepted with a
   warning, deprecation postponed to 2030) — the practical answer is identical (root is XFS V5 with
   `reflink=1`; `attr2` is immutable on V5 anyway).
-**Evidence.** `docs/XFS-TUNING.md` (baseline, skip/avoid list, campaign results);
+**Evidence.** `docs/archive/XFS-TUNING.md` (baseline, skip/avoid list, campaign results);
   `benchmarks/studies/03-filesystem-latency/README.md` (first-mount-only log geometry; the 19034 →
   ~1561 mechanism; benefit NOT established); `benchmarks/tools/fslat.py` (per-row tunable snapshot —
   the 32k-vs-256k proof) and `benchmarks/tools/verify-adopted-settings.sh` (adoption readback).
@@ -385,7 +389,7 @@
   write ios (32,819 vs 32,861) and identical request sizes. Arm identity: AB3 read `allocsize=1024k`
   back in 6/6 rows from the boot cmdline (a remount would have been silently inert — see
   `## xfs-logbsize`); the AB3-era limine backups stay on disk for rollback/re-apply.
-**Evidence.** `docs/XFS-TUNING.md` (AB2 → nothing adopted; AB3 verdict → rolled back);
+**Evidence.** `docs/archive/XFS-TUNING.md` (AB2 → nothing adopted; AB3 verdict → rolled back);
   `benchmarks/studies/04-xfs-tuning/` (AB3 root/loopback rows); `benchmarks/tools/fslat.py` and
   `benchmarks/tools/verify-adopted-settings.sh` (arm identity / adoption readback). Check:
   `grep -o 'rootflags=[^ ]*' /proc/cmdline` (no `allocsize` after rollback),
@@ -412,7 +416,7 @@
   io-full +114.3%, cpu-some +91.1%, mean queue latency +86.9% (all p = 0.009, beyond control
   spread). It fails the "nothing significantly worse" rule; the owner override nonetheless accepted
   the ~2× stall trade deliberately, where wall time dominates and stall is invisible.
-**Evidence.** `docs/XFS-TUNING.md` (filestreams REJECT with numbers + ftrace proof 118800 lookups /
+**Evidence.** `docs/archive/XFS-TUNING.md` (filestreams REJECT with numbers + ftrace proof 118800 lookups /
   1200 picks vs 0/0; owner override; arm-identity lesson); `benchmarks/studies/04-xfs-tuning/`
   (mkstorm rows); `benchmarks/tools/fslat.py` and `benchmarks/tools/verify-adopted-settings.sh` (arm
   identity). Check: `xfs_io help chattr` (flag letters), `xfs_io -c 'lsattr' -d ~/Projects` (repeat
@@ -480,21 +484,25 @@
   edited by exactly one anchored line. **TTY login is the recovery domain** — nothing may touch the
   bootloader, initramfs, or
   anything tty login depends on from inside the eco stack; a broken stack must still boot to a tty.
-  (5) **Filesystem recovery domain.** `xfs_repair` is offline/rescue-media only — never on the
-  mounted root (it can destroy data); `xfs_scrub` is the scheduled online check (monthly
-  `xfs-scrub.timer`, see `docs/rollback.md` `## Storage ops`). Owner process ruling Q12: changes
+  (5) **Filesystem recovery domain.** Filesystem repair (`xfs_repair`, `btrfs check --repair`) is
+  offline/rescue-media only — never on the
+  mounted root (it can destroy data); online verification is the only mounted-fs check (the
+  XFS-era monthly `xfs-scrub.timer` retired 2026-10-05; btrfs schedule pending
+  `docs/research/btrfs-optimization.md` — see `docs/rollback.md` `## Storage ops`). Owner process ruling Q12: changes
   land in waves
   with dated `cp -p` backups before every write, verified after each wave — no blind parallel bursts
   onto a live system.
 **Evidence.** `docs/rollback.md` (`## Undo: universal mechanism` — the backup mechanism home);
-  `docs/XFS-TUNING.md` (persistence pitfall + dual-file rule); `docs/eco-power-README.md`
+  `docs/archive/XFS-TUNING.md` (persistence pitfall + dual-file rule); `docs/eco-power-README.md`
   (repo-first flow, exit-code contract); `benchmarks/README.md` (two-writer race lesson). Check:
   `sudo bash -c 'ls /boot/limine.conf*'`; `grep -c rootflags /boot/limine.conf /etc/default/limine`;
   `grep -rn <value> state/` (exactly one hit).
-**Open.** backup gap: no borg/restic/snapper/partclone installed and XFS has no snapshots — dedupe,
+**Open.** backup gap (assessed 2026-09-28 on XFS, which has no snapshots): no
+  borg/restic/snapper/partclone installed — dedupe,
   TRIM and scrub protect against none of the failure modes backups protect against; the
   recommendation (borg or restic to off-host or external storage) stands for the next maintenance
-  window.
+  window (the 2026-10-05 btrfs move added local snapshot capability — re-assess alongside
+  `docs/research/btrfs-optimization.md`).
 
 ## cpu
 
@@ -615,7 +623,8 @@
   blocks suspend indefinitely · **Class:** settled
 **Why.** Nothing in the daemon set competes for wakeups or writes (TLP exits after boot; the
   asusd/PPD two-writer precedent is closed by masking PPD). The scheduled set is maintenance: daily
-  duperemove, weekly fstrim, monthly xfs-scrub + smartd self-test (detail in
+  duperemove, weekly fstrim + smartd self-test (xfs-scrub retired 2026-10-05 with the XFS era;
+  detail in
   `docs/rollback.md` `## Storage ops — what runs automatically`).
 **Evidence.** `state/owned/etc/systemd/system/*.timer`; `docs/rollback.md`
   (`## Storage ops — what runs automatically`).

@@ -89,7 +89,7 @@ interface from the failure.
 | BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | findings#bt |
 | TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | findings#pcie |
 | TIMER | eco-power backstop at 600s, canary-verified | findings#timer |
-| IO | dirty writeback/expire 6000/6000, journald cap 32M | findings#writeback |
+| IO | dirty writeback/expire 6000/6000, journald cap 256M | findings#writeback |
 | SCHED | scx_lavd powersave_mode `--powersave` (not the nonexistent `--efficiency`) | findings#sched |
 | PROFILE | asusd battery profile maps to a firmware-supported choice | findings#asusd |
 | SD | SD reader unbound (runtime only, lost at reboot) | rollback#sd |

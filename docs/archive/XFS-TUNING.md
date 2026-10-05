@@ -1,5 +1,13 @@
 # XFS advanced/experimental tuning research — root NVMe XFS
 
+> **ARCHIVED 2026-10-05 — not operative.** Historical record of the XFS campaign as of 2026-09-28.
+> The host's root filesystem moved from XFS to btrfs at the 2026-10-05 OS reinstall; the XFS-era
+> live state (`state/owned/etc/sysctl.d/20-xfs-sync-interval.conf`,
+> `state/owned/etc/systemd/system/xfs-scrub.{service,timer}`) was retired from the repo in the same
+> wave. Filesystem-agnostic storage policy stays in `docs/rollback.md` `## Storage ops`; the btrfs
+> successor research starts at `docs/research/btrfs-optimization.md`. Measured numbers stand as
+> history per the `docs/findings.md` preamble (never edited to match later reality).
+
 *Research-only pass, 2026-09-28. No system state was changed. Sources: kernel
 `Documentation/admin-guide/xfs.rst` + `fs/xfs` sources (7.x-era), xfsprogs `xfs(5)` (7.2.0),
 host recon (`xfs_info`, sysfs, `/proc/sys/fs/xfs`), and the owner's tuning doctrine. The two

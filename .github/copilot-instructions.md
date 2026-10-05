@@ -1,7 +1,7 @@
 # system-tuning — Copilot instructions
 
 Single-host system tuning for this machine (CachyOS, Ryzen AI 9 HX 370, hybrid Zen 5 / Zen 5c,
-XFS on NVMe). Three bodies of work in one tree:
+btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of work in one tree:
 
 - **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
   gate). The live system converges to this repo every 600 s (`eco-power.timer`; `eco apply` runs as
@@ -9,7 +9,7 @@ XFS on NVMe). Three bodies of work in one tree:
   a change.
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
-- **filesystem maintenance / XFS tuning** — `docs/XFS-TUNING.md` (XFS campaign module) and the
+- **filesystem maintenance / XFS tuning** — `docs/archive/XFS-TUNING.md` (XFS campaign module) and the
   storage ops runbook (`docs/rollback.md` `## Storage ops`), plus the `state/owned` units behind
   them (duperemove and xfs-scrub timers, smartd + `smart-alert.sh`, the XFS sync-interval sysctl)
   — converged by the same `eco apply` like every other owned file.

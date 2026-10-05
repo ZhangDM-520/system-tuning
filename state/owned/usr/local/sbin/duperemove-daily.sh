@@ -1,5 +1,6 @@
 #!/bin/bash
-# duperemove-daily.sh - incremental dedupe sweep of the root XFS filesystem (reflink=1).
+# duperemove-daily.sh - incremental dedupe sweep of the root filesystem (reflink-capable:
+# XFS reflink=1 until the 2026-10-05 reinstall, btrfs since).
 # Installed 2026-09-26 at the owner's request (daily systemd timer).
 #
 # Design notes (see ~/docs/NOTE.md for the full write-up):

@@ -1,5 +1,5 @@
 [Unit]
-Description=Incremental duperemove dedupe sweep (root XFS, reflink)
+Description=Incremental duperemove dedupe sweep (root filesystem, reflink)
 ConditionPathExists=/var/lib/duperemove/root.hash
 Documentation=man:duperemove(8)
 

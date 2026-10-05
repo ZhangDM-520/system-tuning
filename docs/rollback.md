@@ -127,10 +127,11 @@ Installed 2026-09-26 (all verified live, not just installed):
   `/var/lib/duperemove/root.hash` — unchanged files are not re-hashed; logs
   `/var/lib/duperemove/daily.log*`, keep 7).
 - **fstrim.timer** (weekly, systemd stock) — pre-existing, left as-is.
-- **xfs-scrub.timer** (`OnCalendar=*-*-01..07 05:00:00`, `RandomizedDelaySec=2h`,
-  `Persistent=true`) -> `xfs-scrub.service` -> `xfs_scrub -v /`, `Nice=10` +
-  best-effort/ionice 7. Monthly online verification; nonzero exit fails the unit so
-  `systemctl --failed` shows it. Units: `/etc/systemd/system/xfs-scrub.{service,timer}`.
+- **XFS-era automation retired 2026-10-05** (root moved XFS → btrfs at the reinstall):
+  `xfs-scrub.{service,timer}` and the `fs.xfs.xfssyncd_centisecs` sysctl are gone from `state/`
+  (record: `docs/archive/XFS-TUNING.md`). A btrfs online-verification schedule is pending
+  `docs/research/btrfs-optimization.md`; everything else on this list is filesystem-agnostic and
+  stays.
 - **smartd.service** (enabled + active) — `/etc/smartd.conf`: `DEVICESCAN -a -o on -S on
   -n standby,q -s (S/../../7/04) -W 5,45,55 -m /dev/null -M exec
   /usr/local/sbin/smart-alert.sh`. Weekly short self-test Sunday 04:00 (`7` = Sunday;
@@ -144,22 +145,23 @@ Installed 2026-09-26 (all verified live, not just installed):
   `/etc/smartd.conf.bak-20260926-pre-smartd-replace`.
 - Note: smartd 7.5 rejects `smartd -qone`; the config-query flag is `-qonecheck`.
 - Not automated on purpose: monthly health report (declined), backups (known gap — see the
-  findings ledger), xfs_fsr (policy: `## Storage ops — never-run rules`), post-dedupe fstrim
+  findings ledger), defrag (policy: `## Storage ops — never-run rules`), post-dedupe fstrim
   (weekly timer suffices).
 
 ## Storage ops — never-run rules
 
-### xfs_scrub vs xfs_repair
+### filesystem repair: offline only
 
-- `xfs_scrub`: **online** verification of metadata and data checksums, safe on a mounted
-  filesystem. This is the scheduled one (`## Storage ops — what runs automatically`).
-- `xfs_repair`: **offline only**. Never run it on the mounted root — it can destroy data.
-  Rescue-media territory only.
+- Online verification on a *mounted* filesystem is fine (the XFS-era scheduled one,
+  `xfs_scrub`, was retired with its timer on 2026-10-05 — `docs/archive/XFS-TUNING.md`).
+- Filesystem **repair** is offline/rescue-media territory only: never run `xfs_repair` or
+  `btrfs check --repair` on the mounted root — they can destroy data.
 
-### xfs_fsr: never auto-defrag (it un-does dedupe)
+### defrag: never automated (it un-does dedupe)
 
-- `xfs_fsr` defragments by rewriting file data into fresh contiguous extents. That
-  **destroys reflink sharing**: every defragged file re-materializes its own private
+- Defrag (`xfs_fsr` in the XFS era, `btrfs filesystem defrag` on btrfs) reworks file data
+  into fresh contiguous extents. That **destroys reflink sharing**: every defragged file
+  re-materializes its own private
   blocks, undoing exactly what duperemove bought. Defrag-after-dedupe is self-defeating.
 - Policy: no automatic defrag, ever. If one specific file is *measured* to be badly
   fragmented and that matters (rare on NVMe), defrag it deliberately and accept that its
@@ -171,7 +173,8 @@ Installed 2026-09-26 (all verified live, not just installed):
 df -h / ; df -i /                     # capacity + inodes
 nvme smart-log /dev/nvme0 | grep -iE 'percentage_used|available_spare|media_errors|temperature'
 smartctl -H /dev/nvme0                # overall health
-systemctl list-timers --all | grep -E 'duperemove|fstrim|xfs-scrub|smartd'
+systemctl list-timers --all | grep -E 'duperemove|fstrim|smartd'
 journalctl --disk-usage
-xfs_info / | tr ' ' '\n' | grep reflink   # must stay 1
+# btrfs re-check block: pending docs/research/btrfs-optimization.md (XFS-era block:
+# docs/archive/XFS-TUNING.md)
 ```
