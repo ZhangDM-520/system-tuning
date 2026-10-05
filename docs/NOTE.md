@@ -42,8 +42,9 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ### Next action
 
-Owner decisions: EPP path (boot 7.3.0-rc5-bore-lto, reopen `findings#epp`, or leave the DRIFT),
-and the four btrfs-research questions; then commit disposition for this wave.
+Owner decisions (2026-10-05): EPP stays a known DRIFT on 7.2.9 (no boot change); wave committed
+and pushed as `a291aa0`. Remaining open: the four btrfs-research questions (live `discard=async`
+vs `findings##fstrim`, duperemove AC-gating, `btrfs-scrub@.timer` vs a repo unit, NOCOW islands).
 
 ## 2026-09-29 — eco tunings restored at resume (owner directive); experiment closed
 
