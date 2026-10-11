@@ -26,7 +26,8 @@ vs managed/ record semantics and the state layout are in `docs/eco-power-README.
 
 ## Before a reboot
 
-The convergence chain (boot -> eco-power.service, plus the 600s backstop) re-asserts nearly
+The convergence run (boot -> eco-power.service; the 600s backstop timer and AC-event trigger were
+dropped 2026-10-11) re-asserts nearly
 everything, so this is a confirmation walk, not a repair session.
 
 1. Nothing to do for the power stack: everything durable is in repo state/ and re-applied at boot.
@@ -42,7 +43,7 @@ everything, so this is a confirmation walk, not a repair session.
    possibly a WARN on SD (reader re-binds at boot: runtime-only unbind, rollback#sd), and possibly
    SKIPPED rows where a check needs root or a user session (SKIPPED semantics live in
    `docs/eco-power-README.md`, not here).
-2. `systemctl list-timers eco-power.timer` shows the 600s backstop armed.
+2. `systemctl is-enabled eco-power.service` shows the boot run armed (timer dropped 2026-10-11).
 3. AC state sanity: `cat /sys/class/power_supply/AC0/online`. If the state looks wrong versus
    reality, do one physical plug cycle (known EC misread, findings#input-i2c) before diagnosing anything.
 4. Only if PPT shows DRIFT instead of ACCEPTED: run `sudo ./eco apply` and re-report.
@@ -51,7 +52,8 @@ everything, so this is a confirmation walk, not a repair session.
 
 ## Verify after suspend/resume
 
-Resume re-triggers eco-power via the sleep hook and the udev rule. Expected resume anomalies, all
+Resume re-triggers eco-power via the sleep hook (the udev power-event trigger was dropped
+2026-10-11). Expected resume anomalies, all
 documented and harmless: the freesync VRR warning (cosmetic), asusd WARN lines (only if the
 profile mapping is broken again), and a transient STAPM readback while the envelope re-converges.
 
@@ -110,9 +112,9 @@ The SD reader (GL9755 on `0000:c2:00.0`, sdhci-pci) was unbound at runtime with 
 
 ## Stack-wide escape hatches
 
-- Stop convergence entirely: `sudo systemctl stop eco-power.timer` (and disable eco-power.service
-  if needed). Everything already applied stays applied; nothing reverts on its own except the
-  udev/power-event path, which can be disabled by removing `/etc/udev/rules.d/99-eco-power.rules`.
+- Stop convergence entirely: `sudo systemctl disable eco-power.service`. Everything already applied
+  stays applied; nothing reverts on its own except the resume hook
+  (`/usr/lib/systemd/system-sleep/eco-power`, SMU runtime knobs only), removable the same way.
 - Nuclear reset of a live file: copy its `state/owned` mirror to the live path after reviewing the
   diff, or restore the dated backup next to it.
 - If a change makes the machine sad: it must not block tty login (doctrine). Boot, log in on a

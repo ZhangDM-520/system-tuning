@@ -4,9 +4,10 @@ Single-host system tuning for this machine (CachyOS, Ryzen AI 9 HX 370, hybrid Z
 btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of work in one tree:
 
 - **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
-  gate). The live system converges to this repo every 600 s (`eco-power.timer`; `eco apply` runs as
-  the second, failure-tolerant `ExecStart=-` of the same chain), so live is never the place to make
-  a change.
+  gate). The live system converges to this repo at boot (`eco-power.service`; `eco apply` runs as
+  the second, failure-tolerant `ExecStart=-` of the same chain), and the resume hook re-asserts the
+  SMU runtime knobs — the 600 s backstop timer and the AC-event trigger were dropped 2026-10-11 —
+  so live is never the place to make a change.
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
 - **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS
@@ -90,7 +91,7 @@ How a change propagates (none of this is visible from a single file):
   machine name, user, UUID, IP, or private host log. The repo root is private by design and holds
   live paths such as `state/owned/home/...`.
 - **Hybrid CPU topology is hardcoded**: `ceil_for_cpu` in `lib/readers.sh` maps Zen 5 =
-  CPUs 0–3,12–15 (4.6 GHz ceiling) and Zen 5c = 4–11,16–23 (3.0 GHz). Per-CPU logic must reuse
+  CPUs 0–3,12–15 (4.7 GHz ceiling) and Zen 5c = 4–11,16–23 (3.2 GHz). Per-CPU logic must reuse
   that mapping; `benchmarks/TEST-BED.md` has the fuller machine picture.
 - **Project memory**: durable facts go to `docs/MEMORY.md`, session chronology to `docs/NOTE.md`
   (newest entry first); `benchmarks/` keeps its own pair at `benchmarks/docs/` under its stricter

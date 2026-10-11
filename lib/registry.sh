@@ -40,7 +40,5 @@ declare -A CHECK_DOC=(
 # Checks that assert a managed (foreign-file line-patch) record.
 declare -A CHECK_MANAGED=(
   [IO]=journald
-  [SCHED]=scx
-  [PROFILE]=asusd
   [MISC]=niri-autostart
 )

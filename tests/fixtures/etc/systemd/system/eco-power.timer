@@ -1,8 +1,0 @@
-[Unit]
-Description=Backstop: re-apply eco power settings (converges SMU limits)
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=600s
-AccuracySec=30s
-[Install]
-WantedBy=timers.target

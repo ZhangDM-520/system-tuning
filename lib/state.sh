@@ -12,11 +12,11 @@ OWNED_DIR="$STATE_DIR/owned"
 MANAGED_DIR="$STATE_DIR/managed"
 
 # state/managed/<file>.toml basename (load key) and the record ID the spec names it by.
-MANAGED_IDS=(scx asusd journald niri-autostart)
+# scx dropped 2026-10-10 (scx-tools-git layout change; rework deferred) — restore with its record.
+# asusd dropped 2026-10-11 (owner manages asusd config; excluded from the converge backstop).
+MANAGED_IDS=(journald niri-autostart)
 managed_label() {
   case "$1" in
-    scx) printf 'scx_loader.toml' ;;
-    asusd) printf 'asusd.ron' ;;
     journald) printf 'journald.conf' ;;
     niri-autostart) printf 'niri-autostart.kdl' ;;
     *) printf '%s' "$1" ;;

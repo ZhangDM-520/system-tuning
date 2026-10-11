@@ -195,6 +195,10 @@ backup_step() {
 write_owned() {
   local src=$1 tgt=$2
   assert_in_root "$tgt"
+  # state/ paths may nest (e.g. unit drop-in dirs) where live has no parent yet;
+  # cp alone fails there. mkdir -p keeps cp's mode semantics (source mode wins on a
+  # new target; an existing target keeps its mode) — see docs/MEMORY.md mode lesson.
+  mkdir -p "$(dirname "$tgt")" || return 1
   cp "$src" "$tgt" || return 1
   return 0
 }

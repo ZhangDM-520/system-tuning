@@ -5,7 +5,7 @@ none of it should need re-derivation. Session chronology lives in `docs/NOTE.md`
 standing decisions stay in their original home at `benchmarks/docs/MEMORY.md` (pointer, not copy —
 one fact, one home).
 
-Last reviewed: 2026-10-05.
+Last reviewed: 2026-10-08.
 
 ## What this repository is
 
@@ -20,7 +20,7 @@ publication privacy rule (see `benchmarks/docs/MEMORY.md`).
 
 | Fact | How to check / why it matters |
 | --- | --- |
-| The test gate is `./tests/run` — one sequential bash script, 21 cases / 112 assertions (as of 2026-10-05), no case selector | Run and filter labelled output (`./tests/run \| grep 'case3'`); `tests/work/` is wiped and regenerated every run |
+| The test gate is `./tests/run` — one sequential bash script, 17 cases / 92 assertions (as of 2026-10-10; four section-scoping cases retired with the scx record — `docs/findings.md` `## sched`), no case selector | Run and filter labelled output (`./tests/run \| grep 'case3'`); `tests/work/` is wiped and regenerated every run |
 | No build, no lint config, no CI | `bash -n` / ad-hoc `shellcheck`; the suite is the only gate |
 | Report IDs are locked to `lib/registry.sh` *and* hardcoded in `tests/run` (case1/case7) | Changing the check set means registry + reader + doc anchor + test list in one change |
 | `CHECK_DOC` anchors are shorthand, not filenames: `findings#asusd` lives in `docs/findings.md` | Follow the string from `lib/registry.sh` to the `##` heading, not from the filename |
@@ -44,3 +44,6 @@ publication privacy rule (see `benchmarks/docs/MEMORY.md`).
 | Persistence outside `state/` dies silently at reinstall and is invisible to the repo: the NVMe queue drifted to vendor `kyber`/256 because the ledger's "foreign file" `/etc/udev/rules.d/60-ioschedulers.rules` was never owned | Burned 2026-10-05 (found by `docs/research/btrfs-tunables.md` §0). Now owned `state/owned/etc/udev/rules.d/61-eco-ioschedulers.rules` (61- keeps vendor sda/mmcblk rules; scheduler line first — elevator switches reset queue depth). Any knob whose persistence is "a foreign file" is a future repeat: check `docs/findings.md` Evidence lines for non-`state/` persistence |
 | `ionice`/`IOSchedulingClass=idle` is dispatch-inert unless the elevator is mq-deadline or bfq (kernel doc `Documentation/block/ioprio.rst` + `block/mq-deadline.c`; zero `ioprio` use in kyber/NVMe driver) | Dated 2026-10-05, evidence in `docs/research/btrfs-tunables.md` §2.1. The installed `btrfs-scrub(8)` `-c/-n` deprecation note claims the opposite — man page is wrong; the flags are deprecated anyway |
 | Git file modes are load-bearing for deploy: `lib/writers.sh` `write_owned` is `cp src tgt` — source mode wins when the target is new, old mode is kept when it exists | Burned 2026-10-05: `eco-power.sh`/`hw-tune.fish` sat at 100644 in git; a fresh deploy made them non-executable (service 203/EXEC; hw-tune's `[ -x ]` gate skips silently). Exec-bit drift is invisible to the suite and masked while the old live file pre-exists |
+| `kernel.sysrq` bitmask: the task-dump group (p/t/m/l) is 0x08 — the popular "safe" value 438 omits it | Read the bitmask table in `Documentation/admin-guide/sysrq.rst` before choosing a mask; the repo's capture+rescue mask and its rationale live in `state/owned/etc/sysctl.d/97-sysrq.conf` (dated 2026-10-08) |
+| A "knob is inert" claim needs the installed entrypoint and clean stderr: the 2026-10-08 claim "TLP never calls `set_sound_power_mode`" came from grepping `/usr/share/tlp/tlp` (does not exist) with `2>/dev/null`, which hid the error — the entrypoint is `/usr/sbin/tlp:47` and the knob is live | Burned 2026-10-08, caught by an independent diff review. Grep call sites in the real entrypoint (`grep -n <fn> /usr/sbin/tlp`), never silence stderr when searching for absence, and read the consumer (`cat /sys/module/snd_hda_intel/parameters/power_save{,_controller}`) before declaring any knob decorative |
+| A managed foreign file dies silently when its owning package changes layout (scx_loader → scx-tools-git, 2026-10-10: `/etc/scx_loader.toml` removed) — and a missing managed target hard-fails **all** of `./eco apply`, so every wave stops, not just the scx one | Burned 2026-10-10: convergence halted ~10 h and live silently kept old values (it looked like "the daemon restored my edits"). After any package update run `./eco apply --dry-run`; `pacman -Qo <target>` names the owner of a foreign file; verify live == state by consumer readback, never by assumption |

@@ -1,7 +1,0 @@
-// fixture foreign file: asusd config. Only platform_profile_on_battery is claimed.
-(
-    platform_profile_on_ac: Performance,
-    platform_profile_on_battery: Balanced,
-    change_platform_profile_on_battery: true,
-    enable_platform_profile_notification: true,
-)

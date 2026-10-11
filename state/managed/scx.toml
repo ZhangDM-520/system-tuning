@@ -1,5 +1,0 @@
-target = "/etc/scx_loader.toml"
-section = '\[scheds\.scx_lavd\]'
-match = '^\s*powersave_mode\s*='
-line = 'powersave_mode = ["--powersave"]'
-doc = "findings#sched"

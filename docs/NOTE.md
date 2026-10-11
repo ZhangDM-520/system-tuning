@@ -5,6 +5,252 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-11 — asusd config excluded from the backstop (owner-managed)
+
+### What changed
+
+- `state/managed/asusd.toml` + `tests/fixtures/etc/asusd/asusd.ron` deleted (owner: "leave the asusd
+  config to me, exclude it from our backstop"); `CHECK_MANAGED[PROFILE]` and the `asusd` arm of
+  `managed_label`/`MANAGED_IDS` removed. `check_profile` now emits **ACCEPTED** with the observed
+  `platform_profile` value only — accepted-class semantics: never "fix" this row.
+- `docs/eco-power-README.md` PROFILE row + `docs/findings.md` `## asusd` rewritten; a stale trigger
+  comment in `hw-tune.fish` (record + fixture) now matches the boot-only reality.
+- The line the repo previously claimed (`platform_profile_on_battery: Balanced,`) stays in the live
+  `asusd.ron` untouched — the file is the owner's from here.
+
+### Findings recorded
+
+- With asusd out of the backstop and the backstop itself boot-only, the whole `platform_profile`
+  domain — which resets SMU limits and EPP through the EC on every write — is owner-controlled.
+  The 2026-10-11 `performance` profile's `balance_performance` EPP write is exactly that, and now
+  stands until the owner or a boot changes it.
+
+### Open
+
+- Unchanged: scx rework later; freeze attribution window (now also boot-only + CO step 3); commit
+  disposition ask-first — all waves uncommitted.
+
+## 2026-10-11 — eco-power.service goes boot-only; undervolt loosened 2 units
+
+### What changed
+
+- **Boot-only service (owner ruling)**: deleted `state/owned/etc/systemd/system/eco-power.timer`
+  and `state/owned/etc/udev/rules.d/99-eco-power.rules` (state + fixtures + the live copies, dated
+  `.bak-YYYYMMDD` pre-images taken beside each live file first; `systemctl daemon-reload`,
+  `udevadm control --reload`). `eco-power.service` now runs at boot only and still chains
+  `eco-power.sh` + `eco apply`; the resume hook keeps re-asserting the SMU runtime knobs
+  (`eco-power.sh resume` — it never started the service). `check_timer` was re-purposed under the
+  frozen TIMER id to guard the boot-only contract (timer + udev trigger absent, service
+  boot-enabled, eco apply chained). Contract docs updated: `docs/eco-power-README.md`
+  (convergence promise + TIMER row), `docs/rollback.md`, `docs/findings.md` `## timer`, and the
+  instruction file's convergence bullet.
+- **Undervolt loosened 2 units (owner ruling)**: `coall -6 → -4`; per-core
+  `-20 -20 -17 -17 -8 -10 -7 -5 → -18 -18 -15 -15 -6 -8 -5 -3` — `hw-tune.fish` record + fixture +
+  `check_co` + `## co`. SMU write acks decode exactly (65532 = −4; 65518/1114094 = −18/−18;
+  2162673/3211249 = −15/−15; then −6/−8/−5/−3).
+
+### Findings recorded
+
+- The boot-only trade surfaces immediately: after asusd applied its **performance** profile
+  (platform_profile=performance — an owner toggle since yesterday's `custom`), all 24 policies read
+  `balance_performance` EPP. asusd's static EPP write used to be re-asserted to `dynamic` by the
+  udev/timer paths; now it persists until the next boot or a manual
+  `sudo ./eco apply` / `eco-power.sh` run. This is the recorded cost of the ruling
+  (`findings.md` `## timer`), not drift to fix silently.
+- `./tests/run` 92/92 after the change. `./eco report`: TIMER OK (boot-only), CO OK (new vector),
+  PROFILE OK, and the EPP row above as the only DRIFT.
+
+### Open
+
+- scx rework later (unchanged).
+- Freeze investigation: the attribution window now also carries the boot-only change (far fewer
+  SMU re-asserts/wakeups) and CO step 3.
+- Commit disposition: ask-first — all waves sit uncommitted.
+
+## 2026-10-10 — ceilings raised to 4.7/3.2, CO step two, scx dropped (convergence outage)
+
+### What changed
+
+- Per-class ceilings raised (owner ruling): Zen 5 4.6 → 4.7 GHz (4600000 → 4700000), Zen 5c 3.0 →
+  3.2 GHz (3000000 → 3200000) — `state/owned/usr/local/sbin/eco-power.sh` + fixture mirror +
+  `lib/readers.sh` `ceil_for_cpu`/`check_ceil` pins + `docs/findings.md` `## ceil` +
+  `.github/copilot-instructions.md`. Applied live and verified: all 24 policies read back
+  4700000 (Zen 5 = 0–3,12–15) / 3200000 (Zen 5c = 4–11,16–23), both under the hardware max
+  readback (5157895 / 3289474).
+- CO second loosening step (owner ruling): per-core `-21 -21 -18 -18 -8 -10 -7 -5` →
+  `-20 -20 -17 -17 -8 -10 -7 -5` (cores 0–3 one step looser to carry the higher ceilings), coall
+  stays −6 — `hw-tune.fish` record + fixture + `check_co` + `## co`. SMU write acks decode exactly
+  (65516/1114092 = −20/−20; 2162671/3211247 = −17/−17; then −8/−10/−7/−5).
+- **scx dropped entirely** (owner: "drop the scx part entirely, it needs updates later"):
+  `state/managed/scx.toml` and `tests/fixtures/etc/scx_loader.toml` deleted; `CHECK_MANAGED[SCHED]`
+  and the `scx` arm of `managed_label`/`MANAGED_IDS` removed; `check_sched` now emits `SKIPPED`
+  (the 14-ID contract is untouched); `tests/run` cases 5/6/15/16b ported to the journald record and
+  cases 9–11 (section scoping) retired with the record — `docs/findings.md` `## sched` holds the
+  full account and the restore path.
+
+### Findings recorded
+
+- **Convergence outage (~10 h, 2026-10-10)**: the `scx-tools-git` 1:1.1.3 install at 07:17 removed
+  `/etc/scx_loader.toml`; the managed record's missing target made every `./eco apply` hard-fail
+  ("foreign file is never created") and write nothing. Live therefore kept the 2026-10-08
+  `hw-tune.fish` while the repo record moved on 10-10 — which is exactly what looked like "the
+  daemon restored my edits". Lesson (→ `docs/MEMORY.md`): the record is intent; live follows only
+  when apply succeeds.
+- Live sched_ext is `pandemonium_5.20.0` (`enabled+all`) — unmanaged and drifting from the
+  documented `scx_lavd`; a freeze-hypothesis input (2026-10-08 H5).
+- Observed after the wave: `./eco report` PROFILE reads `platform_profile=custom` (DRIFT). This
+  wave only converged `asusd.ron`'s `platform_profile_on_battery: Balanced`, so the custom profile
+  is most likely a manual toggle — owner to confirm before anything treats it as tuning.
+
+### Open
+
+- scx rework later (new scx-tools-git config layout): rebuild the record, restore the
+  section-scoping test block from git history, re-run the scheduler A/B.
+- Freeze investigation continues; arm (f) (ASPM `performance`) is still live from 2026-10-08 and
+  the attribution window now also carries the 4.7/3.2 + CO-step-2 pair.
+- Commit disposition: ask-first — all waves sit uncommitted.
+
+## 2026-10-08 — CO loosened one step (freeze suspect); freeze investigation opened
+
+### What changed
+
+- Curve Optimizer loosened one step (owner ruling): `coall -7` → `-6`; per-core
+  `-24 -24 -21 -21 -9 -11 -8 -6` → `-21 -21 -18 -18 -8 -10 -7 -5`. Single writer
+  `state/owned/home/zhangdm/.reserve/hw-tune.fish` (fixture mirrored), policy pinned in
+  `lib/readers.sh` `check_co`, ledger `docs/findings.md` `## co`. Converged via `./eco apply`, then
+  applied to the SMU at once (write acks: coall 65530 = −6; per-core 65515/65515/65518/65518/
+  65528/65526/65529/65531 = −21/−21/−18/−18/−8/−10/−7/−5).
+- Experiment arm (f) applied (freeze investigation, owner suspect "ACPI powersave"):
+  `PCIE_ASPM_ON_AC/BAT/SAV` `powersave` → `performance` (= ASPM off) in
+  `state/owned/etc/tlp.d/01-eco.conf` + fixture mirror, converged, `systemctl restart tlp`;
+  consumer readback `/sys/module/pcie_aspm/parameters/policy` = `[performance]`. Revert = git
+  back to `powersave` + restart tlp. Kept only if freezes stop and the owner accepts the
+  idle-watts cost.
+- Owner rationale: CPU stalls at too-low voltage are a hard-freeze suspect and can explain the
+  `ryzen_smu` "out of sync" symptoms; loosening is the stability direction.
+- Third wave (evidence protection): beesd journal bleed stopped — owned drop-in
+  `state/owned/etc/systemd/system/beesd@.service.d/10-log-rate-limit.conf`
+  (`LogRateLimitIntervalSec=30s`, `LogRateLimitBurst=300`), converged via `./eco apply` +
+  `systemctl restart beesd@…` (property verified live: `LogRateLimitBurst=300`). The limit is on
+  the unit's log intake only; bees' work is untouched.
+- `lib/writers.sh` `write_owned` now `mkdir -p`s the target's parent before `cp` — the drop-in path
+  exposed the gap (nested state path with no live parent → `cp` failed and the wave aborted with
+  `applied: none`). cp mode semantics unchanged (source mode wins on a new target).
+
+### Findings recorded
+
+- Machine truth: `ryzenadj --info` on Strix Point (0.19, SMU IF 21) exposes **no CO fields** —
+  there is no consumer-side readback for CO, so the evidence is the SMU write ack only and the
+  `## co` check line is aspirational (dated 2026-10-08).
+- Attribution caveat: the freeze-attribution window now carries two changes — arm (d) sound power
+  save 0 (01:46) and CO one step looser (~07:50). If freezes stop, the credit is shared; a clean
+  one-variable attribution would need reverting one of them on purpose.
+
+### Ranked freeze hypotheses (falsifiable)
+
+1. **CO undervolt too deep → CPU stall** (owner's theory): explains `ryzen_smu` "out of sync" and
+   silent wedges that survive kernel changes + reinstall. Prediction: with CO one step looser the
+   stall/freeze class stops recurring; if it recurs, H1 loses weight. Mitigation applied today.
+2. **ACPI/PCIe power save → D3 transition wedge** (owner's second suspect): ASPM `powersave`
+   (L1 on 30/35 links) + runtime PM `auto` + wake disarms. Matches vector A
+   (`Refused D0→D3hot`, `pci_pm_suspend` timeouts). Prediction: probe markers/freeze stop with
+   `PCIE_ASPM=performance` (or runbook arm (c) TB/USB4 neutralize) while nothing else changes.
+3. **Resume-window SMU contention** (ours + asusd + amdgpu at T0): the documented 21:14 timeline.
+   Prediction: keeping hw-tune out of the resume window stops it — the runbook's own first
+   mitigation.
+4. **Audio codec reload** (vector B, `azx_get_response` after cs35l56 DSP reload): arm (d) applied
+   01:46 today. Prediction: no recurrence while `power_save=0`.
+5. **sched_ext scx_lavd** (out-of-tree BPF scheduler, `enabled+all`): the 09-20 hung_task happened
+   with an out-of-tree scheduler live. Prediction: freeze stops under EEVDF.
+
+Attribution caveat stands: H1 and H4 mitigations landed the same day, so a clean attribution needs
+a deliberate revert of one of them if freezes stop.
+
+### Open
+
+- Freeze root cause still open. Evidence state: all pre-reinstall captures are gone with the
+  2026-10-05 reinstall (`~/Workspace/suspend-forensics/`, pstore now empty) and the current boot
+  has no hard freeze — only two 9 s f2fs checkpoint stalls on the external USB f2fs disk
+  (03:21, 05:37, informational f2fs stack dumps) and five clean s2idle rehearsals through the
+  new loop (`~/Workspace/freeze-probe/probe.sh`, pm_test stages freezer/devices/platform: green).
+  journald has been losing kernel lines today (beesd progress spam, ~34 msg/s) — snapshot `dmesg`
+  before any reboot, and never trust the journal alone for kernel markers.
+- Probe gap closed: `pmtest` drives `/sys/power/state` directly and bypasses the systemd-sleep
+  hooks; the new `hook` mode (logind `systemctl suspend` + RTC wake) exercises the documented
+  resume window including the repo's hw-tune writes at T0 — verified by journal readback
+  (`System returned from sleep` → `eco-power: hw-tune.fish applied` → `Successfully thawed`,
+  thaw 183 ms). Three `hook` cycles green so far with the loosened CO (thaw assert ≤ 1.5 s).
+- Probe status: `pmtest` 8 rehearsals clean (freezer/devices/platform), `hook` 3 cycles clean
+  before the arm and **5/5 clean under arm (f)** (thaw 119–130 ms, no wedge markers). The freeze
+  does not reproduce in short-cycle rehearsal — consistent with a rare, condition-dependent
+  failure (documented fires came after long idle/AC-flap/lid sequences), so the arm now needs
+  real-use observation (and 5 battery-side cycles) rather than more short loops.
+- Commit disposition: ask-first; all waves today sit uncommitted.
+
+## 2026-10-08 — risk pass: three tuning knobs narrowed to safer values
+
+### What changed
+
+- `kernel.sysrq` 1 → 190 (`state/owned/etc/sysctl.d/97-sysrq.conf`): keeps console-log, keyboard, the
+  p/t/m/l dump group and the s/u/b rescue path; drops bit 64 (e/i/f mass process signalling) so one
+  accidental chord cannot kill the session.
+- hung-task panic bar 120 s (default) → 300 s (`state/owned/etc/sysctl.d/98-hung-task-panic.conf`,
+  new `kernel.hung_task_timeout_secs=300`): `kernel.hung_task_panic=1` stays, so the pstore capture
+  intent is unchanged — a slow-but-alive stall just cannot be panicked into a data-losing reset.
+- `SOUND_POWER_SAVE_ON_AC/BAT` 1 → 0 (`state/owned/etc/tlp.d/01-eco.conf`, fixture mirrored at
+  `tests/fixtures/etc/tlp.d/01-eco.conf`): runbook arm (d) applied prospectively — codec power-down
+  cycles the cs35l56 DSP firmware reload that freeze vector B wedged in.
+- `docs/findings.md` `## suspend-resume` updated to match (capture set, arm (d), machine truth).
+
+### Findings recorded
+
+- The 2026-09-20 hung_task pstore record fired at 122 s of D-state — on the 120 s default line. The
+  panic knob was the riskiest armed parameter in the repo (any long D-state = whole-machine panic +
+  dirty loss); the 300 s bar keeps the forensics and raises the certainty requirement.
+- `kernel.sysrq` bitmask: the task-dump group is 0x08, which the popular "safe" value 438 omits —
+  that is why this file historically pinned 1. 190 = 2|4|8|16|32|128 keeps dumps + rescue, drops
+  signalling (64) and nice-RT (256).
+- Correction (same day, independent diff review): the sound knob is **live**, not decorative —
+  `/usr/sbin/tlp:47` calls `set_sound_power_mode` from `apply_common_settings`, and the module
+  default is 10 s (`CONFIG_SND_HDA_POWER_SAVE_DEFAULT=10`), so the runtime `power_save=0` was a
+  write, not a default. The original "TLP 1.10.2 never calls it" claim came from grepping the
+  non-existent `/usr/share/tlp/tlp` with stderr silenced (pitfall → `docs/MEMORY.md`); the
+  `## gpu-display` `power_save=1s` note is the old value's `(1, Y)` TLP outcome, not stale. Arm (d)
+  therefore has real runtime effect. Open: an unidentified second boot-time writer of `power_save`
+  (01:14:17.218, 0.7 s after TLP's write; observed `(0, Y)` matches no single TLP outcome) — it
+  writes 0, the safe value, but breaks the one-writer rule (`docs/findings.md` `## suspend-resume`).
+
+### Assessed and kept
+
+- `USB_AUTOSUSPEND=1`: doctrine rule 3 lists autosuspend under "devices must sleep"; built-in input is
+  i8042/PS2 (`## input-i2c`) so tty login is not in the blast radius, and the current device set
+  suspends cleanly (`## gpu-display`: camera + 7/8 xHCI hubs, no `control=on` offenders). Future
+  caveat: a USB HID or USB-serial recovery console would need a targeted exclusion (TLP
+  `USB_ALLOWLIST`), the same pattern as the targeted BT rule.
+- Curve Optimizer per-core offsets: CoreCycler-validated and frozen (`## co` — "never opportunistically").
+- `vm.dirty_*` 6000/6000: exposure is bounded by btrfs's ~30 s transaction commits on the current
+  root; the single-writer design is measured (`## writeback`).
+- Flat 31 W envelope, `--power-saving`, scx_lavd `--powersave`: settled owner rulings (`## ppt`,
+  `## eco`, `## sched`) — nothing here introduces a power cap.
+
+### Live + gate evidence
+
+- The 600 s converger tick at 01:46:43 applied the wave itself: `SUMMARY planned=5 applied=5 failed=0
+  exit=0`; both sources agree afterwards (owned file + `sysctl -n`): `kernel.sysrq=190`,
+  `kernel.hung_task_timeout_secs=300`, `kernel.hung_task_panic=1`, `SOUND_POWER_SAVE_ON_*=0`.
+  Arm (d) verified at the consumer after `sudo systemctl restart tlp` + `sudo ./eco apply` (the
+  comment correction): `snd_hda_intel` `power_save=0`, `power_save_controller=N` — TLP's `(0, N)`
+  outcome, no codec suspend/wake reload cycle armed (before the restart: `(0, Y)`).
+- `./tests/run`: 112 run / 112 passed, 0 failed (re-run after the review corrections).
+
+### Open
+
+- Commit disposition not taken (ask-first rule): the wave sits uncommitted for owner review.
+- If a freeze recurs, the ladder continues at (b) quiet asusd / (c) TB-USB4 neutralize / (e) kernel A/B
+  (`docs/findings.md` `## suspend-resume`); arm (d) is now permanently applied.
+
+---
+
 ## 2026-10-05 — btrfs tunables research: io-stack drift found and converged
 
 ### What changed

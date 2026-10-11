@@ -104,20 +104,21 @@ else
 fi
 
 # --- (5) foreign file: unclaimed bytes survive apply byte-for-byte ---
+# (ported 2026-10-10 from the retired scx record to the journald record — same engine path)
 t5=$(new_tree foreign)
-f5="$t5/etc/scx_loader.toml"
-sed -i 's|^powersave_mode = .*|powersave_mode = ["-m", "powersave"]|' "$f5"
-cp "$f5" "$SNAP/scx.before"
+f5="$t5/etc/systemd/journald.conf"
+sed -i 's|^SystemMaxUse=.*|SystemMaxUse=32M|' "$f5"
+cp "$f5" "$SNAP/journald5.before"
 run_eco "$t5" apply
 assert_eq "case5 apply on drifted foreign file exits 0" "$RC" 0
-n5=$(grep -nF 'powersave_mode = ["-m", "powersave"]' "$SNAP/scx.before" | cut -d: -f1)
-if cmp -s <(head -n "$((n5 - 1))" "$SNAP/scx.before") <(head -n "$((n5 - 1))" "$f5") &&
-  cmp -s <(tail -n "+$((n5 + 1))" "$SNAP/scx.before") <(tail -n "+$((n5 + 1))" "$f5"); then
+n5=$(grep -nF 'SystemMaxUse=32M' "$SNAP/journald5.before" | cut -d: -f1)
+if cmp -s <(head -n "$((n5 - 1))" "$SNAP/journald5.before") <(head -n "$((n5 - 1))" "$f5") &&
+  cmp -s <(tail -n "+$((n5 + 1))" "$SNAP/journald5.before") <(tail -n "+$((n5 + 1))" "$f5"); then
   ok "case5 unclaimed bytes preserved exactly around the edited line"
 else
   bad "case5 unclaimed bytes preserved exactly around the edited line"
 fi
-if grep -qxF 'powersave_mode = ["--powersave"]' "$f5"; then
+if grep -qxF 'SystemMaxUse=256M' "$f5"; then
   ok "case5 claimed line converged to intent"
 else
   bad "case5 claimed line converged to intent"
@@ -125,15 +126,15 @@ fi
 
 # --- (6) line-patch with zero matches: exit 3, nothing written ---
 t6=$(new_tree nomatch)
-f6="$t6/etc/scx_loader.toml"
-sed -i 's|^powersave_mode = .*|# powersave_mode removed|' "$f6"
+f6="$t6/etc/systemd/journald.conf"
+sed -i 's|^#*[[:space:]]*SystemMaxUse=.*|# SystemMaxUse anchor removed|' "$f6"
 printf '# induced drift\n' >>"$t6/etc/tlp.d/01-eco.conf"
-cp "$f6" "$SNAP/scx6.before"
+cp "$f6" "$SNAP/journald6.before"
 cp "$t6/etc/tlp.d/01-eco.conf" "$SNAP/tlp6.before"
 run_eco "$t6" apply
 assert_eq "case6 zero-match apply exits 3" "$RC" 3
 assert_contains "case6 names the hard error" "0 lines match anchor"
-assert_same "case6 nothing written (foreign file untouched)" "$SNAP/scx6.before" "$f6"
+assert_same "case6 nothing written (foreign file untouched)" "$SNAP/journald6.before" "$f6"
 assert_same "case6 nothing written (owned target untouched)" "$SNAP/tlp6.before" "$t6/etc/tlp.d/01-eco.conf"
 if compgen -G "$t6/etc/tlp.d/*.bak-*" >/dev/null; then
   bad "case6 no backup created on hard error"
@@ -166,76 +167,12 @@ assert_same "case8 nothing written" "$SNAP/tlp8.before" "$t8/etc/tlp.d/01-eco.co
 kill "$hold" 2>/dev/null
 wait "$hold" 2>/dev/null
 
-# --- (9) section-scoped patch: two sections with the same anchor, only the
-# claimed section's line changes ---
-t9=$(new_tree section-two)
-f9="$t9/etc/scx_loader.toml"
-cat >"$f9" <<'EOF'
-# two-section foreign file: the same anchor lives in both sections
-[scheds.scx_rusty]
-powersave_mode = ["-m", "powersave"]
-
-[scheds.scx_lavd]
-powersave_mode = ["-m", "powersave"]
-EOF
-run_eco "$t9" report
-assert_contains "case9 same anchor in two sections is not a hard error" \
-  "DRIFT SCHED scx_loader.toml claimed line differs"
-run_eco "$t9" apply
-assert_eq "case9 two-section apply exits 0" "$RC" 0
-assert_eq "case9 lavd line converged to intent" \
-  "$(grep -cFx 'powersave_mode = ["--powersave"]' "$f9")" 1
-assert_eq "case9 rusty line untouched" \
-  "$(grep -cFx 'powersave_mode = ["-m", "powersave"]' "$f9")" 1
-run_eco "$t9" report
-assert_contains "case9 SCHED OK after section patch" "OK SCHED "
-
-# --- (10) 13-match file: section scoping patches the lavd line uniquely ---
-t10=$(new_tree thirteen)
-f10="$t10/etc/scx_loader.toml"
-{
-  printf '# foreign file with one anchor line in each of 13 sched sections\n'
-  for i in $(seq 1 13); do
-    if [[ $i == 5 ]]; then n=scx_lavd; else n=scx_alt$i; fi
-    printf '[scheds.%s]\npowersave_mode = ["drifted"]\n\n' "$n"
-  done
-} >"$f10"
-run_eco "$t10" apply
-assert_eq "case10 13-match apply exits 0" "$RC" 0
-assert_eq "case10 exactly one line converged" \
-  "$(grep -cFx 'powersave_mode = ["--powersave"]' "$f10")" 1
-assert_eq "case10 twelve lines untouched" \
-  "$(grep -cFx 'powersave_mode = ["drifted"]' "$f10")" 12
-conv10=$(grep -nFx 'powersave_mode = ["--powersave"]' "$f10" | cut -d: -f1)
-sec10=$(head -n "$conv10" "$f10" | grep -E '^\[' | tail -1)
-assert_eq "case10 the patched line is the lavd one" "$sec10" "[scheds.scx_lavd]"
-
-# --- (11) zero matches inside the claimed section: exit 3, nothing written ---
-t11=$(new_tree section-nomatch)
-f11="$t11/etc/scx_loader.toml"
-cat >"$f11" <<'EOF'
-# the anchor exists in the file, but only outside the claimed section
-[scheds.scx_lavd]
-default_mode_note = "no powersave_mode line here"
-
-[scheds.scx_rusty]
-powersave_mode = ["-m", "powersave"]
-EOF
-printf '# induced drift\n' >>"$t11/etc/tlp.d/01-eco.conf"
-cp "$f11" "$SNAP/scx11.before"
-cp "$t11/etc/tlp.d/01-eco.conf" "$SNAP/tlp11.before"
-run_eco "$t11" apply
-assert_eq "case11 zero-match-in-section apply exits 3" "$RC" 3
-assert_contains "case11 names the hard error" "0 lines match anchor"
-assert_contains "case11 names the section scope" "in section"
-assert_same "case11 nothing written (foreign file untouched)" "$SNAP/scx11.before" "$f11"
-assert_same "case11 nothing written (owned target untouched)" \
-  "$SNAP/tlp11.before" "$t11/etc/tlp.d/01-eco.conf"
-if find "$t11" -name '*.bak-*' | grep -q .; then
-  bad "case11 no backup created on hard error"
-else
-  ok "case11 no backup created on hard error"
-fi
+# --- (9)-(11) RETIRED 2026-10-10 with the scx managed record ---
+# These three cases exercised lib/managed.sh section scoping through the scx record
+# (two-section disambiguation, 13-match uniqueness, zero-match-in-section). The owner dropped
+# scx management entirely (scx-tools-git layout change; rework deferred), so the sectioned
+# record is gone. The `section` engine stays in lib/managed.sh for the scx rework; its test
+# coverage returns with the record (restore this block from git history then).
 
 # --- (12) ERE journald regex: the commented fixture line matches and converges ---
 t12=$(new_tree journald-ere)
@@ -326,16 +263,16 @@ assert_contains "case15 live file byte-identical after failure" "file-same"
 assert_contains "case15 staging file cleaned up on failure" "tmp-clean"
 
 t15=$(new_tree writefail)
-f15="$t15/etc/scx_loader.toml"
-sed -i 's|^powersave_mode = .*|powersave_mode = ["-m", "powersave"]|' "$f15"
-cp "$f15" "$SNAP/scx15.before"
+f15="$t15/etc/systemd/journald.conf"
+sed -i 's|^SystemMaxUse=.*|SystemMaxUse=32M|' "$f15"
+cp "$f15" "$SNAP/journald15.before"
 bak15="$f15.bak-$(date +%Y%m%d)"
 cp -p "$f15" "$bak15"
 attr15=0
 if (( EUID == 0 )); then
   chattr +i "$f15" 2>/dev/null && attr15=1
 else
-  chmod a-w "$t15/etc"
+  chmod a-w "$t15/etc/systemd"
 fi
 if (( EUID == 0 && attr15 == 0 )); then
   say "note: case15 e2e write-fault skipped (root cannot be fenced)"
@@ -345,9 +282,9 @@ else
   assert_contains "case15 die3_partial names the failing step" "step failed: managed edit failed"
   assert_contains "case15 die3_partial lists applied/not-applied" "applied: none"
   assert_contains "case15 die3_partial lists the backup rollback anchor" "rollback anchors: $bak15"
-  assert_same "case15 live fixture file byte-identical after failure" "$SNAP/scx15.before" "$f15"
+  assert_same "case15 live fixture file byte-identical after failure" "$SNAP/journald15.before" "$f15"
 fi
-if (( EUID == 0 )); then (( attr15 )) && chattr -i "$f15" 2>/dev/null; else chmod u+w "$t15/etc"; fi
+if (( EUID == 0 )); then (( attr15 )) && chattr -i "$f15" 2>/dev/null; else chmod u+w "$t15/etc/systemd"; fi
 
 # --- (16) apply --dry-run is a read-only plan: no lock, no sudo, root-only
 # read failures degrade to SKIPPED notes (README is the contract) ---
@@ -396,11 +333,11 @@ if (( EUID == 0 )); then
   say "note: case16 unreadable-target degrade skipped (root reads anything)"
 else
   t16b=$(new_tree dryrun-unreadable)
-  chmod 000 "$t16b/etc/scx_loader.toml"
+  chmod 000 "$t16b/etc/systemd/journald.conf"
   run_eco "$t16b" apply --dry-run
   assert_eq "case16 dry-run with unreadable target exits 0" "$RC" 0
   assert_contains "case16 unreadable root-only file degrades to SKIPPED note" "SKIPPED"
-  chmod 644 "$t16b/etc/scx_loader.toml"
+  chmod 644 "$t16b/etc/systemd/journald.conf"
 fi
 
 # --- (17) SKIPPED is the documented fifth verdict class (doc-drift guard) ---
@@ -424,49 +361,8 @@ t17=$(new_tree verdicts)
 run_eco "$t17" report --json
 assert_contains "case17 --json summary carries skipped" '"skipped":'
 
-# --- (18) empty claimed section (header followed by header): zero matches is a
-# hard error exit 3, nothing written, even with a loose anchor that could match
-# the next section's header line ---
-t18=$(new_tree empty-section)
-f18="$t18/etc/scx_loader.toml"
-cat >"$f18" <<'EOF'
-# foreign file whose claimed section is empty: header immediately followed by
-# another header, with a loose anchor waiting in the next section
-[scheds.scx_lavd]
-[scheds.scx_rusty]
-powersave_mode = ["-m", "powersave"]
-EOF
-cp "$f18" "$SNAP/scx18.before"
-OUT=$(bash -c '
-  set -uo pipefail
-  ECO_HOME="'"$ROOT"'"
-  ECO_ROOT="'"$t18"'"
-  for l in "'"$ROOT"'/lib"/*.sh; do . "$l"; done
-  # loosen ONLY the scx anchor so it can match a section header line: the buggy
-  # empty-region resolution would find the next header and patch it
-  __real_load=$(declare -f managed_load)
-  eval "${__real_load/managed_load/__managed_load_real}"
-  managed_load() {
-    __managed_load_real "$@"
-    if [[ $1 == scx ]]; then MG_MATCH=".*"; fi
-    return 0
-  }
-  cmd_apply 0
-' 2>&1)
-RC=$?
-assert_eq "case18 empty section with loose anchor exits 3" "$RC" 3
-assert_contains "case18 names zero matches in the section" "0 lines match anchor in section"
-assert_same "case18 nothing written (byte-identical)" "$SNAP/scx18.before" "$f18"
-if compgen -G "$t18/etc/*.eco-tmp.*" >/dev/null; then
-  bad "case18 no staging file left behind"
-else
-  ok "case18 no staging file left behind"
-fi
-if compgen -G "$t18/etc/*.bak-*" >/dev/null; then
-  bad "case18 no backup created on hard error"
-else
-  ok "case18 no backup created on hard error"
-fi
+# --- (18) RETIRED 2026-10-10 with the scx managed record (see the (9)-(11) note above) ---
+# It monkey-patched managed_load for the `scx` record to test empty-section resolution.
 
 # --- (19) doc-contract anchor gate: every PREFIX#slug consumer resolves to a
 # real heading. Consumers: CHECK_DOC values (lib/registry.sh), emit() 4th args

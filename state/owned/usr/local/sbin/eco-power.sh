@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Convergence + eco settings (doctrine v2: work-per-joule, race-to-sleep).
-# Triggers: boot (eco-power.service), resume (system-sleep hook), power-source udev,
-# eco-power.timer backstop.
+# Triggers: boot (eco-power.service) and resume (system-sleep hook). Owner 2026-10-11: the
+# 600 s backstop timer and the power-source udev trigger are dropped — the service is boot-only.
 #
 # Ordering note: any platform_profile write (asusd does one per power-source event)
 # makes the EC reset SMU limits and EPP — so the CPU-power block runs twice, with a
@@ -37,15 +37,17 @@ apply_cpu_power
   && echo teo > /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null \
   && log "cpuidle governor=teo"
 
-# Per-core-class ceilings (owner 2026-09-23): Zen5 = 4.6 GHz, Zen5c = 3.0 GHz.
+# Per-core-class ceilings (owner 2026-10-10): Zen5 = 4.7 GHz, Zen5c = 3.2 GHz. Raised from
+# 4.6/3.0 together with the second CO loosening step — the extra voltage headroom buys the
+# higher ceilings (docs/findings.md ## ceil).
 for pol in /sys/devices/system/cpu/cpufreq/policy*; do
   [ -w "$pol/scaling_max_freq" ] || continue
   if [ "$(cat "$pol/cpuinfo_max_freq")" -gt 4400000 ]; then
-    echo 4600000 > "$pol/scaling_max_freq" 2>/dev/null \
-      && log "$(basename "$pol") scaling_max_freq=4600000"
+    echo 4700000 > "$pol/scaling_max_freq" 2>/dev/null \
+      && log "$(basename "$pol") scaling_max_freq=4700000"
   else
-    echo 3000000 > "$pol/scaling_max_freq" 2>/dev/null \
-      && log "$(basename "$pol") scaling_max_freq=3000000"
+    echo 3200000 > "$pol/scaling_max_freq" 2>/dev/null \
+      && log "$(basename "$pol") scaling_max_freq=3200000"
   fi
 done
 

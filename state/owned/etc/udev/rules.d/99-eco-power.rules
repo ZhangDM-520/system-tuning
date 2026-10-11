@@ -1,3 +1,0 @@
-# Re-apply eco power settings whenever the power source changes (AC events can
-# flap and reset SMU limits via platform_profile reapplication).
-SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/bin/systemctl --no-block start eco-power.service"

@@ -3,7 +3,8 @@
 Source of truth for the power-efficiency stack of this machine (ASUS Zenbook S 16 UM5606WA,
 CachyOS, Ryzen AI 9 HX 370). **Doctrine: efficiency is work per joule. Race to sleep. Never power
 caps or throttling; V/f sweet-spot ceilings are legitimate.** The live system converges to this
-repo every 600 seconds and after boot, resume, and AC events. Live is never the place to make a
+repo at boot (the resume hook re-asserts the SMU runtime knobs; the 600 s backstop timer and the
+AC-event trigger were dropped 2026-10-11). Live is never the place to make a
 change: edit here, apply, commit.
 
 ## Commands
@@ -26,7 +27,7 @@ interface from the failure.
 |------|---------|---------------|
 | 0 | green: no DRIFT (rows may be SKIPPED where a check needs root or a user session) | none |
 | 1 | DRIFT present (report) or persisted after apply | read the anchored rows; apply or roll back |
-| 2 | precondition failure: bad argument, lock held by the 600s converger, missing state file | fix environment, retry |
+| 2 | precondition failure: bad argument, lock held by a concurrent converge run, missing state file | fix environment, retry |
 | 3 | apply failed partway | output lists applied and not-applied targets plus rollback anchors |
 
 ## Verdict classes
@@ -41,7 +42,7 @@ interface from the failure.
 
 ## Rules of the road
 
-1. **Repo first.** Hand edits to live are reverted by the 600s convergence chain by design: the
+1. **Repo first.** Hand edits to live are reverted at the next convergence run (boot) by design: the
    runtime knobs re-converge via eco-power.sh, and file state converges via the `eco apply`
    appended as the second ExecStart of the same chain (ExecStart=-, so a missing repo or a failed
    apply can never break the boot-critical path). A manual `sudo ./eco apply` holding the lock
@@ -88,10 +89,10 @@ interface from the failure.
 | WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | findings#wifi |
 | BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | findings#bt |
 | TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | findings#pcie |
-| TIMER | eco-power backstop at 600s, canary-verified | findings#timer |
+| TIMER | eco-power.service boot-only (backstop timer + AC trigger dropped 2026-10-11), chains eco apply | findings#timer |
 | IO | dirty writeback/expire 6000/6000, journald cap 256M | findings#writeback |
-| SCHED | scx_lavd powersave_mode `--powersave` (not the nonexistent `--efficiency`) | findings#sched |
-| PROFILE | asusd battery profile maps to a firmware-supported choice | findings#asusd |
+| SCHED | scx management dropped 2026-10-10 (scx-tools layout change, rework deferred) — reports `SKIPPED`, scheduling is owner-managed | findings#sched |
+| PROFILE | asusd config owner-managed (excluded 2026-10-11) — reports `ACCEPTED` with the observed profile, never "fixed" | findings#asusd |
 | SD | SD reader unbound (runtime only, lost at reboot) | rollback#sd |
 | MISC | acp power gating on, localsearch masked, niri autostart spawns hw-tune | rollback#misc |
 

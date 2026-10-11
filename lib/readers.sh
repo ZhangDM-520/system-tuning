@@ -1,13 +1,13 @@
 # readers.sh: one reader per registry check. Each reader emits exactly one verdict
 # line via emit() and never writes anything.
 
-# Zen 5 = CPUs 0-3,12-15 (ceiling 4600000); Zen 5c = CPUs 4-11,16-23 (ceiling 3000000).
+# Zen 5 = CPUs 0-3,12-15 (ceiling 4700000); Zen 5c = CPUs 4-11,16-23 (ceiling 3200000).
 ceil_for_cpu() {
   local c=$1
   if (( (c >= 0 && c <= 3) || (c >= 12 && c <= 15) )); then
-    printf '4600000'
+    printf '4700000'
   elif (( c >= 4 && c <= 11 || c >= 16 && c <= 23 )); then
-    printf '3000000'
+    printf '3200000'
   fi
 }
 
@@ -51,20 +51,20 @@ check_ceil() {
       read -ra cpus <<<"$raw"
       all_zen5=1
       for cpu in "${cpus[@]}"; do
-        [[ $(ceil_for_cpu "$cpu") == 4600000 ]] || all_zen5=0
+        [[ $(ceil_for_cpu "$cpu") == 4700000 ]] || all_zen5=0
       done
       if (( all_zen5 )); then
-        exp=4600000
+        exp=4700000
       else
-        exp=3000000
+        exp=3200000
         for cpu in "${cpus[@]}"; do
-          [[ $(ceil_for_cpu "$cpu") == 3000000 ]] || exp=4600000
+          [[ $(ceil_for_cpu "$cpu") == 3200000 ]] || exp=4700000
         done
       fi
     fi
     # Classify by related_cpus; fall back to cpuinfo_max_freq > 4400000 = Zen5.
     if [[ -z $exp ]]; then
-      if [[ -n $imax ]] && (( imax > 4400000 )); then exp=4600000; else exp=3000000; fi
+      if [[ -n $imax ]] && (( imax > 4400000 )); then exp=4700000; else exp=3200000; fi
     fi
     if [[ $smax != "$exp" ]]; then
       bad+=("$(basename "${d%/}")=$smax want $exp")
@@ -75,20 +75,20 @@ check_ceil() {
   elif (( ${#bad[@]} )); then
     emit DRIFT CEIL "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK CEIL "all $n policies capped 4600000 (Zen5) / 3000000 (Zen5c)"
+    emit OK CEIL "all $n policies capped 4700000 (Zen5) / 3200000 (Zen5c)"
   fi
 }
 
 check_co() {
   local f missing=()
   f=$(owned_state_file "/home/zhangdm/.reserve/hw-tune.fish")
-  grep -qF 'set -l coall -7' "$f" 2>/dev/null || missing+=("set -l coall -7")
-  grep -qF 'set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6' "$f" 2>/dev/null \
-    || missing+=("set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6")
+  grep -qF 'set -l coall -4' "$f" 2>/dev/null || missing+=("set -l coall -4")
+  grep -qF 'set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3' "$f" 2>/dev/null \
+    || missing+=("set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3")
   if (( ${#missing[@]} )); then
     emit DRIFT CO "state/owned hw-tune.fish missing: $(join_by ', ' "${missing[@]}")"
   else
-    emit OK CO "state/owned hw-tune.fish has coall -7 and the 8 per-core offsets"
+    emit OK CO "state/owned hw-tune.fish has coall -4 and the 8 per-core offsets"
   fi
 }
 
@@ -186,12 +186,17 @@ check_tlp() {
 }
 
 check_timer() {
-  local unit svc out bad=()
-  out=$(systemctl is-active eco-power.timer 2>&1 || true)
-  unit=$(live_path "/etc/systemd/system/eco-power.timer")
+  # Boot-only service (owner 2026-10-11): the 600 s backstop timer and the AC-event udev
+  # trigger are both dropped, so eco-power.service runs at boot only. The frozen TIMER id now
+  # guards that contract instead of the cadence.
+  local svc bad=()
   svc=$(live_path "/etc/systemd/system/eco-power.service")
-  [[ $(trim "$out") == active ]] || bad+=("eco-power.timer=$(trim "$out")")
-  grep -qF 'OnUnitActiveSec=600s' "$unit" 2>/dev/null || bad+=("OnUnitActiveSec=600s missing")
+  [[ -e $(live_path "/etc/systemd/system/eco-power.timer") ]] \
+    && bad+=("eco-power.timer present (dropped 2026-10-11)")
+  [[ -e $(live_path "/etc/udev/rules.d/99-eco-power.rules") ]] \
+    && bad+=("udev power trigger present (dropped 2026-10-11)")
+  grep -qF 'WantedBy=multi-user.target' "$svc" 2>/dev/null \
+    || bad+=("eco-power.service not boot-enabled")
   # The convergence promise (README rule 1) lives in the service chain: the
   # second ExecStart must run eco apply after eco-power.sh (ExecStart=- so a
   # missing repo or apply failure can never fail the boot-critical chain).
@@ -200,7 +205,7 @@ check_timer() {
   if (( ${#bad[@]} )); then
     emit DRIFT TIMER "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK TIMER "eco-power.timer active, OnUnitActiveSec=600s, service chains eco apply"
+    emit OK TIMER "eco-power.service boot-only (timer + AC trigger dropped), chains eco apply"
   fi
 }
 
@@ -225,44 +230,19 @@ check_io() {
 }
 
 check_sched() {
-  local live bad=()
-  live=$(live_path "/etc/scx_loader.toml")
-  managed_probe scx
-  case $MP_STATE in
-    ok) ;;
-    differs) bad+=("$(managed_label scx) claimed line differs") ;;
-    nomatch | multimatch) bad+=("$(managed_label scx) $MP_MSG") ;;
-    missing-target) bad+=("$(managed_label scx) target missing") ;;
-  esac
-  if grep -qF -- '--efficiency' "$live" 2>/dev/null; then
-    bad+=("--efficiency present in /etc/scx_loader.toml")
-  fi
-  if (( ${#bad[@]} )); then
-    emit DRIFT SCHED "$(join_by ' ' "${bad[@]}")"
-  else
-    emit OK SCHED "scx record matches, no --efficiency"
-  fi
+  # scx management dropped 2026-10-10 (owner: drop it entirely, update later): the scx-tools-git
+  # 1:1.1.3 layout change removed /etc/scx_loader.toml and the missing managed target hard-failed
+  # every apply. Scheduling is owner-managed until the scx rework lands (findings#sched).
+  emit SKIPPED SCHED "scx record dropped 2026-10-10 — scx tooling rework pending"
 }
 
 check_profile() {
-  local pf bad=()
+  # asusd config is owner-managed — excluded from the converge backstop by owner ruling
+  # 2026-10-11 ("leave the asusd config to me"). The row only reports the observed profile;
+  # ACCEPTED semantics apply: never "fix" it.
+  local pf
   pf=$(trim "$(cat "$(live_path "/sys/firmware/acpi/platform_profile")" 2>/dev/null || true)")
-  managed_probe asusd
-  case $MP_STATE in
-    ok) ;;
-    differs) bad+=("$(managed_label asusd) claimed line differs") ;;
-    nomatch | multimatch) bad+=("$(managed_label asusd) $MP_MSG") ;;
-    missing-target) bad+=("$(managed_label asusd) target missing") ;;
-  esac
-  case $pf in
-    balanced | performance) ;;
-    *) bad+=("platform_profile=${pf:-unreadable}") ;;
-  esac
-  if (( ${#bad[@]} )); then
-    emit DRIFT PROFILE "$(join_by ' ' "${bad[@]}")"
-  else
-    emit OK PROFILE "asusd record matches, platform_profile=$pf"
-  fi
+  emit ACCEPTED PROFILE "platform_profile=${pf:-unreadable} — asusd owner-managed, excluded from convergence"
 }
 
 check_sd() {

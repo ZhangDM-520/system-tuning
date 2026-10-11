@@ -50,33 +50,46 @@
 
 ## ceil
 
-**Verdict.** Per-class `scaling_max_freq` ceilings: Zen 5 4.6 GHz, Zen 5c 3.0 GHz; boost stays ON —
+**Verdict.** Per-class `scaling_max_freq` ceilings: Zen 5 4.7 GHz, Zen 5c 3.2 GHz; boost stays ON —
   applied (check CEIL) · **Class:** settled
 **Why.** Zen 5 5.1 → 4.6 buys a stable undervolt (avg CO −20 vs −10): a real V/f sweet-spot win, not
   a cap. Zen 5c caps at 3.1/3.0/2.9 were all voltage-sensitive — Zen 5c sits near its sweet point,
   below the V/f hill, so lower caps lose real performance for minimal power saving; settled at 3.0
   GHz (owner, voltage-sensitivity testing 2026-09-26 — supersedes the earlier 3.1 → 3.0 → 2.9
-  step-down). Boost stays ON because the ceiling already clips it; disabling boost would drop the
-  hardware max to ~2.0 GHz base.
-**Evidence.** `state/owned/usr/local/sbin/eco-power.sh` (re-asserts 4.6/3.0 per policy by
+  step-down). Superseded with scope: the 4.6/3.0 pair was the settlement at the deeper CO list;
+  owner ruling 2026-10-10 raised both ceilings (4.6 → 4.7, 3.0 → 3.2) together with the second CO
+  loosening step (`## co`) — the extra voltage headroom is what carries the higher ceiling, and
+  both stay under the hardware max readback (Zen 5 5157895, Zen 5c 3289474 kHz). Boost stays ON
+  because the ceiling already clips it; disabling boost would drop the hardware max to ~2.0 GHz
+  base.
+**Evidence.** `state/owned/usr/local/sbin/eco-power.sh` (re-asserts 4.7/3.2 per policy by
   `cpuinfo_max_freq`); the CPU map `ceil_for_cpu` in `lib/readers.sh` (Zen 5 = CPUs 0–3,12–15; Zen
   5c = 4–11,16–23; mirrored in `.github/copilot-instructions.md`). Check:
   `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq` and the `./eco report` CEIL row.
-**Rejected here.** boost off (hardware max drops to ~2.0 GHz base, below the 4.6 GHz sweet spot).
+**Rejected here.** boost off (hardware max drops to ~2.0 GHz base, below the 4.7 GHz sweet spot).
 **Reopen.** new voltage-sensitivity data showing the Zen 5c knee moved.
 
 ## co
 
-**Verdict.** Curve Optimizer frozen: `coall -7`, per-core `-24 -24 -21 -21 -9 -11 -8 -6` — applied
+**Verdict.** Curve Optimizer: `coall -4`, per-core `-18 -18 -15 -15 -6 -8 -5 -3` — applied
   (check CO) · **Class:** settled
 **Why.** Free efficiency at unchanged temperature; the owner margin rule is one step and the tested
   point sits at that margin edge. Owner ruling Q6: the deep list was CoreCycler-validated
-  ("validated-keep"). Cores 8–11 (Zen 5c remainder) fall back to `coall -7` by the packing rule.
+  ("validated-keep"). Cores 8–11 (Zen 5c remainder) fall back to `coall` by the packing rule.
+  Superseded with scope: the validated-then-frozen `-7` / `-24 -24 -21 -21 -9 -11 -8 -6` list was
+  loosened one step by owner ruling 2026-10-08 (coall −7 → −6; per-core +3 +3 +3 +3 +1 +1 +1 +1) —
+  CPU stalls at too-low voltage are a hard-freeze suspect and can explain the `ryzen_smu` "out of
+  sync" symptoms (`docs/findings.md` `## suspend-resume`); loosening is the safe direction. A second
+  step on 2026-10-10 took the Zen 5 cores one step looser (`-20 -20 -17 -17`) to carry the raised
+  4.7/3.2 GHz ceilings (`## ceil`, same-day owner ruling); 2026-10-11 loosened every offset by 2
+  units (`coall −4`; per-core `-18 -18 -15 -15 -6 -8 -5 -3`) — the stability direction again.
   Packing mechanism: 16-bit two's complement, per-core payload `core_idx * 2^20 + offset`;
   `hw-tune.fish` is the single writer — never write CO values from anywhere else.
-**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer). Check:
+**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer); the pinned
+  policy mirror in `lib/readers.sh` `check_co`. Check:
   `sudo ryzenadj --info` — never the journal log (see `## ppt` Machine lies).
-**Reopen.** never opportunistically; only a new full stability campaign may move it.
+**Reopen.** never opportunistically; only a new full stability campaign may move it deeper. A
+  looser step is always allowed (stability direction) — record it here as a dated owner ruling.
 
 ## ppt
 
@@ -114,18 +127,23 @@
 
 ## timer
 
-**Verdict.** eco-power backstop `OnUnitActiveSec=600s` — applied, canary-verified (one 11-minute
-  window, zero drift) (check TIMER) · **Class:** settled
-**Why.** Q4/Q15: all known SMU-reset events are already event-driven (boot, resume, AC uevent —
-  `state/owned/etc/udev/rules.d/99-eco-power.rules` triggers on power-source change); the timer
-  guards unknown drift only. Fallback policy: if a canary ever shows drift inside the window,
-  auto-settle at 300s and report. Superseded with scope: the older "5-min backstop" claim is
-  falsified by the unit file itself (`OnUnitActiveSec=600s`); the previous 60 s cadence was 719
-  runs/day of SMU writes and wake bursts before it was stretched to 600 s.
-**Evidence.** `state/owned/etc/systemd/system/eco-power.timer`;
-  `state/owned/etc/systemd/system/eco-power.service`. Check: `systemctl cat eco-power.timer`,
-  `systemctl list-timers eco-power.timer`.
-**Reopen.** any observed drift recurrence.
+**Verdict.** `eco-power.service` is **boot-only**: the 600 s backstop timer and the AC-event udev
+  trigger were dropped (owner 2026-10-11) (check TIMER) · **Class:** settled
+**Why.** Owner ruling 2026-10-11 — the service runs at boot only: no periodic re-assert, no
+  power-event re-assert. Cost recorded, knowingly: live drift now survives until the next boot,
+  and SMU limits lost on AC flaps are no longer re-asserted until then. The resume hook still
+  re-asserts the SMU runtime knobs after suspend
+  (`state/owned/usr/lib/systemd/system-sleep/eco-power` calls `eco-power.sh resume` directly — it
+  does not start the service). Superseded with scope: the prior design (Q4/Q15) was event-driven
+  re-asserts (boot, resume, AC uevent) plus a 600 s timer guarding unknown drift — canary-verified
+  zero drift in an 11-minute window; its earlier 60 s cadence had been 719 runs/day of SMU writes
+  and wake bursts before being stretched to 600 s.
+**Evidence.** `state/owned/etc/systemd/system/eco-power.service` (boot chain: `eco-power.sh` then
+  `eco apply` as `ExecStart=-`); retired 2026-10-11: `etc/systemd/system/eco-power.timer` and
+  `etc/udev/rules.d/99-eco-power.rules` (deleted from state and live). Check:
+  `systemctl is-enabled eco-power.service`, `ls /etc/systemd/system/eco-power.timer` (absent), the
+  `./eco report` TIMER row.
+**Reopen.** any drift that outlives a boot, or visible SMU-limit loss on AC flaps.
 
 ## wifi
 
@@ -174,47 +192,64 @@
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (ASPM powersave + PM auto). Check:
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
+**Arm (f) 2026-10-08.** the policy reads `performance` (= ASPM off) as a freeze-investigation arm
+  (H2, ACPI/PCIe power-state wedge — `docs/NOTE.md` 2026-10-08); `powersave` above stays the
+  standing policy and the arm ends by git revert + `systemctl restart tlp`. Keep it only if
+  freezes stop and the owner accepts the idle-watts cost.
 **Rejected here.** ASPM `powersupersave` / L1.2 forcing (instability-proven here; no per-device
   lever exists).
 **Reopen.** a kernel with a per-device ASPM lever (none exists today).
 
 ## sched
 
-**Verdict.** scx_lavd 1.1.3 with `--powersave --per-cpu-dsq --enable-cpu-bw` (core compaction) —
-  applied (check SCHED) · **Class:** tunable
-**Why.** Compaction keeps the fewest cores awake — the race-to-sleep pairing. All `sched_*` sysctls,
-  uclamp, prefcore (hardware-disabled) and core parking: touch nothing — teo + C3 already park cores
-  in microseconds and hotplug churns sched_ext domains for no gain; measured C3 residency 69% (Zen
-  5) / 90% (Zen 5c) shows nothing blocks deep idle. The loader value
+**Verdict.** scx management **dropped** (owner 2026-10-10: "drop the scx part entirely, it needs
+  updates later") — record deleted, SCHED reports `SKIPPED`, live scheduling is owner-managed ·
+  **Class:** tunable (suspended)
+**Why.** The scx-tools-git 1:1.1.3 layout change (installed 2026-10-10 07:17) moved the config
+  sample to `/usr/share/scx_loader/config.toml` and removed `/etc/scx_loader.toml`; the managed
+  record's missing target hard-failed **every** `./eco apply` wave — all state→live convergence
+  stopped for ~10 h (that outage also hid the 2026-10-10 ceiling/CO wave from live). Dropped
+  rather than repaired, per owner; the rework lands later against the new scx-tools layout.
+  Retired with it: `state/managed/scx.toml`, `CHECK_MANAGED[SCHED]`, and `tests/run` cases 9–11
+  (section-scoping coverage — the `section` engine stays in `lib/managed.sh`, untested until the
+  record returns; restore that block from git history with the rework).
+**Observed 2026-10-10 (unmanaged).** live sched_ext is `pandemonium_5.20.0` (`enabled+all`) — not
+  the `scx_lavd` of the prior verdict and not repo-controlled. That matters for the freeze work
+  (`docs/NOTE.md` 2026-10-08, H5): an out-of-tree scheduler was live during the 2026-09-20
+  hung_task record. Check: `cat /sys/kernel/sched_ext/state /sys/kernel/sched_ext/root/ops`.
+**Prior state (superseded, scope preserved).** scx_lavd 1.1.3 `--powersave --per-cpu-dsq
+  --enable-cpu-bw` (core compaction) was the applied state; compaction keeps the fewest cores awake
+  (the race-to-sleep pairing), `sched_*` sysctls/uclamp/prefcore/core-parking stay untouched (teo +
+  C3 already park; measured C3 residency 69% Zen 5 / 90% Zen 5c), and the loader value
   `powersave_mode=["--efficiency"]` referenced a nonexistent flag and was changed to `--powersave`.
-  Superseded with scope: study 01 adopted scx_pandemonium (Pareto versus BORE: −11% idle / −35%
-  I/O-burst / −30% reclaim power, throughput tie) — applied state is resolved (scx_lavd live, newer
-  kernel + owner-settled); the comparative claim is not (see Open).
-**Evidence.** `state/managed/scx.toml` (`powersave_mode = ["--powersave"]` under
-  `[scheds.scx_lavd]`). Check: `grep -A2 scx_lavd /etc/scx_loader.toml`, the `./eco report` SCHED
-  row; C3 residency via turbostat windows per `benchmarks/METHODOLOGY.md`.
+  Study 01's scx_pandemonium adoption (Pareto versus BORE) remains a separate, unresolved claim.
 **Rejected here.** scx_pandemonium for power (its own README: +23.9% J/op versus EEVDF on its
   workload); scx_rusty (spreads load across domains — structurally anti-compaction); core parking /
   hotplug (teo + C3 already park; hotplug churns sched_ext).
-**Reopen.** a fresh scheduler A/B on the current kernel.
+**Reopen.** the scx rework: new config path/record against scx-tools-git, then restore the
+  section-scoping test block and re-run a scheduler A/B on the current kernel.
 **Open.** pandemonium versus scx_lavd was never A/B'd on the current kernel; the two verdicts use
   different baselines (BORE vs EEVDF) and different workloads, so both claims stand recorded.
 
 ## asusd
 
-**Verdict.** asusd `platform_profile_on_battery: Balanced` (was Quiet) — applied (check PROFILE) ·
-  **Class:** settled
-**Why.** Q10: this firmware exposes only `balanced` and `performance`, so the Quiet write failed
-  EOPNOTSUPP on every battery event; mapping to Balanced restores the designed behavior. Superseded
-  with scope: the TEST-BED/study-02 era "battery → Quiet" — Quiet no longer exists on this firmware.
-  Mechanism to know: writing `platform_profile` resets the SMU limits and EPP through the EC even
-  when writing the same value, and asusd writes it on every AC/battery event — this is why
-  `## timer`'s event set and the eco converger re-assert after power events.
-**Evidence.** `state/managed/asusd.toml` (anchored line `platform_profile_on_battery: Balanced,`).
-  Check: `grep platform_profile_on_battery /etc/asusd/asusd.ron` and
-  `cat /sys/firmware/acpi/platform_profile` — compare by value (see Machine lies).
+**Verdict.** asusd config is **owner-managed** — excluded from the converge backstop (owner
+  2026-10-11: "leave the asusd config to me"); PROFILE reports `ACCEPTED` with the observed value
+  only · **Class:** settled
+**Why.** Owner ruling 2026-10-11: the repo claims `asusd.ron` no longer (the previously anchored
+  `platform_profile_on_battery: Balanced,` line stays in the file as-is until the owner edits it).
+  ACCEPTED semantics apply — never "fix" this row. Superseded with scope: the managed record era
+  (Q10: the battery profile mapped to `Balanced`, because this firmware exposes only `balanced` and
+  `performance` and the Quiet write failed EOPNOTSUPP on every battery event). Mechanism to know,
+  still load-bearing for the freeze work: writing `platform_profile` resets the SMU limits and EPP
+  through the EC even when writing the same value, and asusd writes it on every AC/battery event —
+  observed 2026-10-11: its `performance` profile set EPP to `balance_performance` on all 24
+  policies, and with the boot-only backstop nothing re-asserts `dynamic` until the next boot
+  (`## timer`).
+**Evidence.** retired 2026-10-11: `state/managed/asusd.toml`. Check: the `./eco report` PROFILE row,
+  `cat /sys/firmware/acpi/platform_profile`.
 **Rejected here.** mapping the battery profile to Quiet (EOPNOTSUPP on every battery event).
-**Reopen.** if firmware re-exposes quiet.
+**Reopen.** only if the owner wants the repo to claim asusd again.
 **Machine lies.** asusd rewrites its own `asusd.ron` on restart (map keys reordered, values
   preserved) — compare by value, never by whole-file hash; startup noise "AC profile Balanced",
   "FanCurves: Not supported", "Backlight: No backlights found" is benign on this model.
@@ -660,7 +695,8 @@
 **Verdict.** RESOLVED-IN-PRACTICE, causal chain uncertain — owner reports fixed (2026-09-29 23:05)
   after the stale `.bak` resume hook was removed; `hw-tune.fish` restored to the resume path
   (single-pass) by owner directive — which also serves as the A/B "on" arm. Capture stays armed
-  (SysRq=1, hung_task_panic=1, efi_pstore, 256M journals). If a freeze recurs, the first
+  (SysRq=190, hung_task_panic=1 behind a 300 s hang bar, efi_pstore, 256M journals; the capture
+  set was risk-narrowed 2026-10-08 — see the auto-capture note below). If a freeze recurs, the first
   mitigation to re-apply is keeping hw-tune out of the resume window (the 21:14 `amdgpu SMU:
   No response` evidence); quiet asusd / TB-USB4 neutralize are the contingency ladder ·
   **Class:** tunable
@@ -690,18 +726,36 @@
   signature diff). Check: `journalctl -b 1 -o short-precise | tail`, `sudo ls /sys/fs/pstore`, and
   on each resume `journalctl -b 0 | grep -E 'System returned from sleep|Successfully thawed|SMU'`
   (thaw delta must stay < 1 s; `SMU: No response` must be absent).
-**Suspects not yet A/B'd.** `SOUND_POWER_SAVE_ON_AC/BAT=1` (`state/owned/etc/tlp.d/01-eco.conf`)
-  vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
+**Suspects not yet A/B'd.** `SOUND_POWER_SAVE_ON_AC/BAT` (1 → 0, applied 2026-10-08 — see arm (d)
+  below) vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
   was live during the 09-20 hung_task) vs whole-system freeze. Owner defers all experiments until
   a freeze recurs; runbook then is one variable at a time, ≥5 resume cycles on AC and 5 on
   battery, results to `docs/NOTE.md`: (a) baseline = current state; (b) quiet asusd: hold the
   platform_profile re-apply (asusd.ron `platform_profile_on_battery`) — revert restores the
   managed line via `./eco apply`; (c) TB/USB4: drop `NHI0/NHI1` from the wakeup toggle list in
   `eco-power.sh` and add `thunderbolt` to `RUNTIME_PM_DRIVER_DENYLIST` in `01-eco.conf` — both
-  revert by git; (d) `SOUND_POWER_SAVE_ON_*=0` in `01-eco.conf`; (e) kernel A/B on
+  revert by git; (d) `SOUND_POWER_SAVE_ON_*=0` in `01-eco.conf` — **applied prospectively
+  2026-10-08** (risk pass: stability outranks the codec's idle watts, and arm (d) applied alone is
+  itself informative — freeze stops → (d) gains credit, freeze recurs → (d) exonerated and the
+  ladder continues at (b)/(c)/(e)). The arm is live, not decorative: `/usr/sbin/tlp`
+  `apply_common_settings` calls `set_sound_power_mode`, which writes `snd_hda_intel`
+  `{power_save,power_save_controller}` (module default is 10 s — `CONFIG_SND_HDA_POWER_SAVE_DEFAULT=10`,
+  check `cat /sys/module/snd_hda_intel/parameters/power_save{,_controller}` after
+  `systemctl restart tlp`), so 0 = the `(0, N)` pair and no codec suspend/wake firmware-reload
+  cycle — the `## gpu-display` `power_save=1s` note is the old value's `(1, Y)` TLP outcome, not
+  stale; (e) kernel A/B on
   `linux-cachyos-lts` (last escalation). Auto-capture is armed meanwhile:
   `kernel.hung_task_panic=1` (`state/owned/etc/sysctl.d/98-hung-task-panic.conf`) turns the next
-  silent wedge into a pstore panic record instead of a power-button event.
+  silent wedge into a pstore panic record instead of a power-button event — gated behind
+  `kernel.hung_task_timeout_secs=300` (2026-10-08, was the 120 s default: the 2026-09-20 record
+  fired at 122 s of D-state, i.e. on the line where a slow-but-alive stall dies), and
+  `kernel.sysrq=190` keeps p/t/m/l dumps plus the s/u/b rescue while dropping the e/i/f
+  mass-process-kill chord (bit 64) that one accidental keypress could fire.
+**Open (2026-10-08).** a second boot-time writer of `snd_hda_intel` `power_save` is unidentified:
+  01:14:17.218, 0.7 s after TLP's write, and the observed `(0, Y)` pair matches no single TLP
+  outcome (`pwr=1`→`(1,Y)`, `pwr=0`→`(0,N)`, untouched→`(10,Y)`). It writes 0 — the safe value —
+  but it breaks the one-writer rule and would muddy a future arm-(d) A/B; identify it before the
+  next audio experiment.
 **Rejected here.** blaming the experimental 7.3 LTO kernel as sole cause: the stall vector was
   provably ours and the freeze vectors interact with repo-owned resume-time writes; a kernel A/B
   is the escalation path only after the tuning-side experiments are clean.

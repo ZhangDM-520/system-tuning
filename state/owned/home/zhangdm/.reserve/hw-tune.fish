@@ -3,17 +3,22 @@
 # hw-tune.fish — single source of truth for all ryzenadj hardware-level tuning.
 # Formerly undervolt.fish (Curve Optimizer only). Renamed + extended 2026-09-23 (session 023).
 # Triggers: niri autostart (login, TTY-recoverable failure domain) AND
-# /usr/local/sbin/eco-power.sh (boot, resume, power-source udev, 60s timer) — asusd
-# re-asserts its profile's limits on power events, so this re-runs to converge.
+# /usr/local/sbin/eco-power.sh (boot, resume — the power-source udev trigger and the 60 s
+# backstop timer were dropped 2026-10-11) — asusd re-asserts its profile's limits on power
+# events, so this re-runs to converge.
 # All writes are idempotent.
 #
 # Doctrine: work-per-joule / race-to-sleep. No power caps, no clock caps, no OC.
 # Rollback: ~/.reserve/undervolt.fish.bak holds the original CO values.
 
 # ---- Configuration ----
-# CPU Curve Optimizer
-set -l coall -7
-set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6
+# CPU Curve Optimizer — owner ruling 2026-10-08: loosened one step (coall -7 -> -6; per-core
+# +3 +3 +3 +3 +1 +1 +1 +1). Rationale: CPU stalls at too-low voltage are a hard-freeze suspect
+# and can explain the "ryzen_smu out of sync" symptoms; loosening is the safe direction
+# (docs/judgment.md: never step CO deeper than validated). See docs/findings.md ## co.
+set -l coall -4
+# 2026-10-11 owner ruling: every offset loosened 2 units (stability direction).
+set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3
 
 # Ensure ryzenadj binary exists before execution
 if not type -q ryzenadj
