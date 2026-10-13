@@ -5,6 +5,101 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-13 — scan applied: nodiscard + ASPM revert + wake/hygiene wave
+
+### What changed
+
+- **btrfs `nodiscard` on all 8 mounts** (owner-approved): `state/owned/etc/fstab` is now a
+  repo-owned mirror carrying `nodiscard` — the ledger's documented design, while the kernel default
+  `discard=async` had been silently active since the reinstall. Runtime remounted the same day.
+- **ASPM arm (f) closed**: `PCIE_ASPM_*` back to `powersave` (record + fixture, TLP restarted);
+  readback `[powersave]`.
+- **Wake trim**: GPP0/GPP1 (USB4 bridges) added to `eco-power.sh`'s loop (record + fixture);
+  readback `*disabled` on both.
+- **Wakeup hygiene**: `snapper-cleanup.timer` hourly → 6h (owned drop-in), user `trash-purge.timer`
+  hourly → 1d (managed record), `man-db.timer` disabled-but-active → enabled (capability kept).
+- **Login dedupe**: XDG autostart duplicates of fcitx5/kdeconnectd hidden in
+  `~/.config/autostart` (owned) — niri's spawns are the single-instance path.
+- **One-writer claim**: `vm.swappiness=150` claimed in
+  `state/owned/etc/sysctl.d/95-zram-swappiness.conf` (vendor writes 100, zram udev writes 150).
+- **Housekeeping**: `/etc/cron.hourly/snapper` → `.disabled` (latent double-run if cronie lands),
+  `/etc/locale.gen.pacsave` removed, the two `.bak-20261011` pre-image copies removed (git history
+  holds the originals).
+- Ledger updated: `## fstrim` (drift closed), `## pcie` (arm (f) closed), `## io-stack`
+  (swappiness claim), `## daemons` (cadences, bpftune owner-kept, wake trim, dedupe), `## sched`
+  (pandemonium rejection qualified).
+
+### Findings recorded
+
+- btrfs option-display trap: `nodiscard` is **invisible** in `findmnt`/`mount` — `discard=async` is
+  the only discard token ever printed. Verify by its absence (or by dmesg "turning on async
+  discard" at boot meaning the default was on).
+- Owner rulings this wave: scx_pandemonium runs deliberately (ananicy-cpp auto-nice is disabled;
+  the old scheduler benchmark may have been confounded by it — with nice already optimised there is
+  little scheduling room left; full benchmark pending owner's call), and bpftune is owner-kept
+  (watch as a possible sysctl co-writer and as the lead for the unidentified `snd_hda_intel`
+  writer).
+
+### Open
+
+- Not selected, owner keeps for now: `sched_util_clamp_min=1024`, bpftune masking, capability cuts
+  (HDR/120 Hz, kdeconnectd/print-applet, Bettbox identification).
+- Scheduler benchmark when the owner calls it; at-spi-dbus-bus login failure still untriaged.
+
+## 2026-10-13 — asusd re-claimed: the EPP/governor cast collision closed
+
+### What changed
+
+- asusd config is repo-owned again (owner: "take over the asusd config"). Four managed records now
+  patch `/etc/asusd/asusd.ron`, one anchored line each: `platform_profile_linked_epp: false`
+  (asusd stops casting EPP), `ac_command: ""` + `bat_command: ""` (asusd stops casting the cpufreq
+  governor), `platform_profile_on_battery: Balanced,` (the Q10 mapping). Applied with pre-images;
+  `./eco report` PROFILE = OK; consumer readback EPP `dynamic(profile:performance)`, governor
+  `powersave`.
+- `check_profile` asserts all four records plus a sane profile value (balanced/performance/custom);
+  `MANAGED_IDS`/`managed_label`/`CHECK_MANAGED` rewired; the fixture
+  `tests/fixtures/etc/asusd/asusd.ron` restored to mirror converged intent; `findings.md` `## asusd`
+  and the README PROFILE row updated.
+
+### Findings recorded
+
+- The flagged collision was structural: `platform_profile_linked_epp: true` made asusd cast
+  `BalancePerformance` on the AC-on profile at every profile event (seen 2026-10-11 as the EPP
+  drift), and `ac_command`/`bat_command` cast the governor via cpupower — racing TLP's
+  "MUST stay powersave". With the boot-only backstop nothing re-converged until the next boot.
+  Claiming the cast surface restores one writer per knob: the kernel's `dynamic` EPP does the
+  profile-following now.
+
+### Open
+
+- The 4-surface scan synthesis is still to be presented; its asusd items are superseded by this
+  takeover.
+
+## 2026-10-13 — system scan under way; boot-apply drift found and fixed (check blind spot)
+
+### What changed
+
+- `eco-power.service` **enabled** (live): it sat `disabled`/`inactive` — the retired 600 s timer,
+  not the unit's `[Install]`, used to start it, so the 2026-10-11 boot-only wave left nothing
+  running at boot. Consumer readback after the fix: `scaling_max_freq` 4700000/3200000, cpuidle
+  governor `teo`, EPP `dynamic(profile:performance)`.
+- `check_timer` now asks systemd (`systemctl is-enabled`) instead of only grepping the unit file,
+  and the assertion was mutation-proved (stub returning `disabled` → `DRIFT … is-enabled=disabled`);
+  `tests/stubs/systemctl` gained the matching arm. Gate 92/92.
+
+### Findings recorded
+
+- **Verify from the consumer — again**: the check read `WantedBy=multi-user.target` in the unit
+  file and reported OK while systemd's own state was `disabled`, so every boot-applied knob
+  (ceilings, teo, EPP, wake-trim) silently drifted to hardware defaults after each reboot.
+- Owner ruling during the scan: beesd's log level was 8 before the owner's own change to 5 — the
+  "lower beesd verbosity" proposal is closed as already-done.
+
+### Open
+
+- Scan synthesis over 4 surfaces (boot/kernel, systemd/udev, storage/daemons, user-space) pending
+  the user-space agent's report; all findings are proposals for owner ruling, nothing applied.
+
 ## 2026-10-11 — asusd config excluded from the backstop (owner-managed)
 
 ### What changed

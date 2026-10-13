@@ -1,0 +1,4 @@
+target = "/etc/asusd/asusd.ron"
+match = '^\s*platform_profile_on_battery:'
+line = '    platform_profile_on_battery: Balanced,'
+doc = "findings#asusd"

@@ -375,7 +375,7 @@ mapfile -t anchors19 < <(
     grep -hE '^doc = ' "$ROOT"/state/managed/*.toml | grep -oE '"[a-z-]+#[a-z0-9-]+"'
   } | tr -d '"' | sort -u
 )
-assert_eq "case19 collector sees every consumer anchor (unique)" "${#anchors19[@]}" 15
+assert_eq "case19 collector sees every consumer anchor (unique)" "${#anchors19[@]}" 16
 for a19 in "${anchors19[@]}"; do
   p19=${a19%%#*}
   s19=${a19#*#}

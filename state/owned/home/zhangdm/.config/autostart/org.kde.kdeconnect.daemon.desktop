@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=KDE Connect (XDG duplicate hidden)
+Hidden=true
+# Duplicate of the niri autostart spawn (~/.config/niri/cfg/autostart.kdl): both launched
+# kdeconnectd at login and raced for the single instance. niri's spawn is the kept path
+# (2026-10-13).

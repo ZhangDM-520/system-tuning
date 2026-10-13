@@ -192,10 +192,10 @@
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (ASPM powersave + PM auto). Check:
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
-**Arm (f) 2026-10-08.** the policy reads `performance` (= ASPM off) as a freeze-investigation arm
-  (H2, ACPI/PCIe power-state wedge — `docs/NOTE.md` 2026-10-08); `powersave` above stays the
-  standing policy and the arm ends by git revert + `systemctl restart tlp`. Keep it only if
-  freezes stop and the owner accepts the idle-watts cost.
+**Arm (f) 2026-10-08 → closed 2026-10-13.** `performance` (= ASPM off) ran as the freeze-
+  investigation arm (H2, ACPI/PCIe power-state wedge — `docs/NOTE.md` 2026-10-08) and ended by
+  owner selection: the idle-watts cost is accepted back and the policy reads `[powersave]` again
+  (readback verified 2026-10-13). The arm history stays recorded for the freeze work.
 **Rejected here.** ASPM `powersupersave` / L1.2 forcing (instability-proven here; no per-device
   lever exists).
 **Reopen.** a kernel with a per-device ASPM lever (none exists today).
@@ -224,7 +224,11 @@
   `powersave_mode=["--efficiency"]` referenced a nonexistent flag and was changed to `--powersave`.
   Study 01's scx_pandemonium adoption (Pareto versus BORE) remains a separate, unresolved claim.
 **Rejected here.** scx_pandemonium for power (its own README: +23.9% J/op versus EEVDF on its
-  workload); scx_rusty (spreads load across domains — structurally anti-compaction); core parking /
+  workload) — **qualified 2026-10-13 (owner)**: that benchmark may have been confounded by
+  ananicy-cpp auto-nice (since disabled — with nice already optimised there is little scheduling
+  room left to compete for), and the owner runs `scx_pandemonium` deliberately to try the
+  scheduler's own heuristics; a full scheduler benchmark is planned on the owner's call.
+  scx_rusty (spreads load across domains — structurally anti-compaction); core parking /
   hotplug (teo + C3 already park; hotplug churns sched_ext).
 **Reopen.** the scx rework: new config path/record against scx-tools-git, then restore the
   section-scoping test block and re-run a scheduler A/B on the current kernel.
@@ -233,23 +237,27 @@
 
 ## asusd
 
-**Verdict.** asusd config is **owner-managed** — excluded from the converge backstop (owner
-  2026-10-11: "leave the asusd config to me"); PROFILE reports `ACCEPTED` with the observed value
-  only · **Class:** settled
-**Why.** Owner ruling 2026-10-11: the repo claims `asusd.ron` no longer (the previously anchored
-  `platform_profile_on_battery: Balanced,` line stays in the file as-is until the owner edits it).
-  ACCEPTED semantics apply — never "fix" this row. Superseded with scope: the managed record era
-  (Q10: the battery profile mapped to `Balanced`, because this firmware exposes only `balanced` and
-  `performance` and the Quiet write failed EOPNOTSUPP on every battery event). Mechanism to know,
-  still load-bearing for the freeze work: writing `platform_profile` resets the SMU limits and EPP
-  through the EC even when writing the same value, and asusd writes it on every AC/battery event —
-  observed 2026-10-11: its `performance` profile set EPP to `balance_performance` on all 24
-  policies, and with the boot-only backstop nothing re-asserts `dynamic` until the next boot
-  (`## timer`).
-**Evidence.** retired 2026-10-11: `state/managed/asusd.toml`. Check: the `./eco report` PROFILE row,
-  `cat /sys/firmware/acpi/platform_profile`.
-**Rejected here.** mapping the battery profile to Quiet (EOPNOTSUPP on every battery event).
-**Reopen.** only if the owner wants the repo to claim asusd again.
+**Verdict.** asusd config is repo-owned — 4 managed records claim the EPP/governor cast surface and
+  the battery mapping; applied (check PROFILE) · **Class:** settled
+**Why.** Owner ruling 2026-10-13 ("take over the asusd config"): the owner's AC-on profile cast
+  `BalancePerformance` EPP — and `ac_command`/`bat_command` cast the cpufreq governor — on every
+  profile event, colliding with repo intent (EPP `dynamic` per `## epp`; governor MUST stay
+  `powersave`, see `01-eco.conf`). The claims: `platform_profile_linked_epp: false` (asusd stops
+  casting EPP; the kernel's `dynamic` does the profile-following), `ac_command: ""` and
+  `bat_command: ""` (TLP/eco own the governor), `platform_profile_on_battery: Balanced,` (Q10:
+  this firmware exposes only balanced/performance and the Quiet write failed EOPNOTSUPP).
+  Superseded with scope: the 2026-10-11 owner-managed ruling and the earlier single-line record.
+  Mechanism to know, load-bearing for the freeze work: writing `platform_profile` resets the SMU
+  limits and EPP through the EC even when writing the same value, and asusd writes it on every
+  AC/battery event — with the casts off, `dynamic`/`powersave` now survive those events.
+**Evidence.** `state/managed/asusd.toml`, `asusd-epp.toml`, `asusd-ac-cmd.toml`,
+  `asusd-bat-cmd.toml` (one anchored line each in `/etc/asusd/asusd.ron`). Check: the `./eco report`
+  PROFILE row, `grep -E 'linked_epp|command:' /etc/asusd/asusd.ron`, and
+  `cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference`.
+**Rejected here.** mapping the battery profile to Quiet (EOPNOTSUPP on every battery event);
+  letting asusd cast EPP/governor (the collision this entry closes).
+**Reopen.** if the owner wants profile-linked EPP back — then pin the `profile_*_epp` values
+  instead and accept a static EPP per profile.
 **Machine lies.** asusd rewrites its own `asusd.ron` on restart (map keys reordered, values
   preserved) — compare by value, never by whole-file hash; startup noise "AC profile Balanced",
   "FanCurves: Not supported", "Backlight: No backlights found" is benign on this model.
@@ -297,18 +305,20 @@
 
 ## journald
 
-**Verdict.** journald `SystemMaxUse=32M` — applied (check IO observes writeback + this) · **Class:**
+**Verdict.** journald `SystemMaxUse=256M` — applied (check IO observes writeback + this) · **Class:**
   tunable
 **Why.** The journal sat near its 50M cap with a self-restart on cap hit; the cap was lowered to 32M
-  (Q2/Q3/Q11). Dated baseline readback (2026-09-26): `journalctl --disk-usage` 47.9M against the 32M
-  cap — healthy.
-**Evidence.** `state/managed/journald.toml` (anchored line `SystemMaxUse=32M`). Check:
+  (Q2/Q3/Q11), then raised to 256M on 2026-09-28 after the 32M cap vacuumed an entire freeze boot
+  mid-investigation — the journal is forensics capacity, not just disk hygiene. Superseded with
+  scope: the 32M verdict and its 2026-09-26 baseline readback (47.9M against a 32M cap).
+**Evidence.** `state/managed/journald.toml` (anchored line `SystemMaxUse=256M`). Check:
   `journalctl --disk-usage`, `grep SystemMaxUse /etc/systemd/journald.conf`.
 
 ## io-stack
 
 **Verdict.** NVMe scheduler `none`, `nr_requests=1023`, `read_ahead_kb=256`, `wbt_lat_usec=2000`
-  kept; `vm.swappiness=150` (udev-enforced) — applied · **Class:** tunable
+  kept; `vm.swappiness=150` (claimed in `state/owned/etc/sysctl.d/95-zram-swappiness.conf` since
+  2026-10-13; the zram udev rule converges to the same value) — applied · **Class:** tunable
 **Why.** `none` is race-to-idle: bursts drain immediately so the APST timer can start.
   `max_sectors_kb=128` is the drive's MDTS limit — I/Os split at 128 KiB, so `read_ahead_kb=256` is
   not a request size and prealloc sizes are about extents, not I/O size. WBT is load-bearing. Swap
@@ -375,8 +385,12 @@
   findings the accounting must know: identical-file groups are quadratic-ish (an 87k-member
   group pegged a core >55 min) — the old duperemove script excluded such trees, but **bees
   (the dedupe duty since 2026-10-05) has no per-directory exclusion**, so that mitigation does
-  not transfer as-is and the hazard is bounded only by bees' shipped throttling (watch it —
-  `docs/rollback.md` `## Storage ops`). duperemove-era hashfile semantics (tool retired
+  not transfer as-is and the   hazard is bounded only by bees' shipped throttling (watch it —
+  `docs/rollback.md` `## Storage ops`). Drift closed 2026-10-13: since the 2026-10-05 reinstall the
+  mounts ran the kernel default `discard=async` (dmesg "turning on async discard"); `fstab` now
+  carries `nodiscard` on all 8 btrfs mounts, is a repo-owned mirror (`state/owned/etc/fstab`), and
+  the runtime was remounted the same day (btrfs shows `discard=async` in the option string only
+  when it is on — its absence means `nodiscard`). duperemove-era hashfile semantics (tool retired
   2026-10-05, kept for the archived recipe): `dedupe_seq` resume semantics skip files below the
   config marker permanently, `seq == max` are never processed, and setting all seq=0 hides files
   *below* the marker.
@@ -673,8 +687,10 @@
 
 ## daemons
 
-**Verdict.** No timer storm — 9 system + 1 user timer, all daily/weekly/night-clustered (the
-  eco-power backstop was the only sub-minute timer, now 600s); PPD masked; TLP single owner (runs
+**Verdict.** No timer storm — 9 system + 1 user timer; day/week/month cadences dominate and the two
+  hourly outliers are resolved (2026-10-13: snapper-cleanup → 6h via owned drop-in, user
+  trash-purge → 1d via managed record; `man-db.timer` disabled-but-active drift fixed by enabling);
+  the eco-power backstop is retired (service boot-only since 2026-10-11); PPD masked; TLP single owner (runs
   once at boot, exits); asusd is epoll/uevent-driven (1.27 s CPU over 13 h) with no EC polling
   interval to tune; 0 armed ACPI wake sources, RTC wakealarm empty, no cron/anacron, no monitoring
   agents, fprintd absent; all inhibitors are delay-mode (swayidle/noctalia lock chain) — nobody
@@ -685,6 +701,12 @@
   continuous `beesd@` service (daily duperemove job retired 2026-10-05; xfs-scrub retired with
   the XFS era). The duty-by-duty record lives in
   `docs/rollback.md` `## Storage ops — what runs automatically`.
+**Owner-kept 2026-10-13.** `bpftune.service` (BPF auto-tuner, `sysctl_tuner` among its tuners) runs
+  by owner election — kept; watch it as a possible sysctl co-writer (one-writer rule) and as the
+  lead candidate for the unidentified second writer of `snd_hda_intel power_save`
+  (`## suspend-resume`). Same pass: GPP0/GPP1 (USB4 bridges) were armed and are now in
+  `eco-power.sh`'s wake-trim list; duplicate XDG autostart copies of fcitx5/kdeconnectd hidden in
+  `~/.config/autostart` (the niri spawns are the kept single-instance path).
 **Evidence.** `state/owned/etc/systemd/system/*.timer`; `docs/rollback.md`
   (`## Storage ops — what runs automatically`).
   Check: `systemctl list-timers --all`, `cat /sys/class/rtc/rtc0/wakealarm` (empty),

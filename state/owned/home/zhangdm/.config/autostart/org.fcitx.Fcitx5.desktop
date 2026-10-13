@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Fcitx5 (XDG duplicate hidden)
+Hidden=true
+# Duplicate of the niri autostart spawn (~/.config/niri/cfg/autostart.kdl): both launched the IME
+# at login and raced for the single instance. niri's spawn is the kept path (2026-10-13).

@@ -103,13 +103,15 @@ from the file that was edited. A row whose two sources disagree is invalid; exit
 trusted. Mechanism evidence: two XFS mount-option campaigns (filestreams, allocsize) were silently
 inert while `remount` returned rc=0.
 
-### Conditions and non-measurements (AC/battery/screen; silent-failure readback ≠ measurement; converger-600s window; kernel change = new baseline)
+### Conditions and non-measurements (AC/battery/screen; silent-failure readback ≠ measurement; converge-run window; kernel change = new baseline)
 
 - Record conditions with every number: AC state, battery %, screen on/off, scheduler, EPP, whether
   the convergence timer had just fired (it can perturb a short window).
 - AC/battery/screen state and the 80% charge cap change the firmware floor and decide which energy
   source is usable (findings#ppt).
-- The eco converger fires on a 600 s window: never let a short measurement window span it.
+- The converge run happens at boot (the resume hook re-asserts the SMU runtime knobs): never let a
+  measurement window span a boot or a resume. Since 2026-10-11 there is no periodic converger —
+  runtime drift persists until the next boot, so record it instead of expecting re-convergence.
 - Never benchmark while an undervolt/CO stability campaign is running: the benchmark load interferes
   with the stability test and the numbers lie twice.
 - Silent-failure checks (SMU readback, verify runs) are not measurements and must not be reported as

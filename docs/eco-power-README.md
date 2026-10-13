@@ -92,7 +92,7 @@ interface from the failure.
 | TIMER | eco-power.service boot-only (backstop timer + AC trigger dropped 2026-10-11), chains eco apply | findings#timer |
 | IO | dirty writeback/expire 6000/6000, journald cap 256M | findings#writeback |
 | SCHED | scx management dropped 2026-10-10 (scx-tools layout change, rework deferred) — reports `SKIPPED`, scheduling is owner-managed | findings#sched |
-| PROFILE | asusd config owner-managed (excluded 2026-10-11) — reports `ACCEPTED` with the observed profile, never "fixed" | findings#asusd |
+| PROFILE | asusd.ron claims hold (EPP/governor casts off, battery → Balanced) and the profile value is sane | findings#asusd |
 | SD | SD reader unbound (runtime only, lost at reboot) | rollback#sd |
 | MISC | acp power gating on, localsearch masked, niri autostart spawns hw-tune | rollback#misc |
 

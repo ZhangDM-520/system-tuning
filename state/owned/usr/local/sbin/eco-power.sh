@@ -52,8 +52,9 @@ for pol in /sys/devices/system/cpu/cpufreq/policy*; do
 done
 
 # Trim wake sources: internal keyboard (i8042 AT) + lid stay wake-capable (lid is EC-
-# handled, i8042 is not in the ACPI table); disarm USB/USB4/WLAN-root wakes.
-for w in GPP3 XHC0 XHC1 XHC3 XHC4 NHI0 NHI1; do
+# handled, i8042 is not in the ACPI table); disarm USB/USB4/WLAN-root wakes. GPP0/GPP1 are the
+# USB4 bridges (added 2026-10-13, owner-approved wake trim).
+for w in GPP0 GPP1 GPP3 XHC0 XHC1 XHC3 XHC4 NHI0 NHI1; do
   if grep -E "^$w[[:space:]]" /proc/acpi/wakeup | grep -q '\*enabled'; then
     echo "$w" > /proc/acpi/wakeup 2>/dev/null && log "wake disabled: $w"
   fi

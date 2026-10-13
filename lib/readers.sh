@@ -189,7 +189,7 @@ check_timer() {
   # Boot-only service (owner 2026-10-11): the 600 s backstop timer and the AC-event udev
   # trigger are both dropped, so eco-power.service runs at boot only. The frozen TIMER id now
   # guards that contract instead of the cadence.
-  local svc bad=()
+  local svc st bad=()
   svc=$(live_path "/etc/systemd/system/eco-power.service")
   [[ -e $(live_path "/etc/systemd/system/eco-power.timer") ]] \
     && bad+=("eco-power.timer present (dropped 2026-10-11)")
@@ -197,6 +197,11 @@ check_timer() {
     && bad+=("udev power trigger present (dropped 2026-10-11)")
   grep -qF 'WantedBy=multi-user.target' "$svc" 2>/dev/null \
     || bad+=("eco-power.service not boot-enabled")
+  # systemd's own state is the consumer: a WantedBy= line is not proof of enablement
+  # (burned 2026-10-13 — the timer used to start the service, so the unit was never
+  # enabled; after the timer drop nothing ran at boot while this check read OK).
+  st=$(trim "$(systemctl is-enabled eco-power.service 2>&1 || true)")
+  [[ $st == enabled ]] || bad+=("eco-power.service is-enabled=${st:-unreadable}")
   # The convergence promise (README rule 1) lives in the service chain: the
   # second ExecStart must run eco apply after eco-power.sh (ExecStart=- so a
   # missing repo or apply failure can never fail the boot-critical chain).
@@ -237,12 +242,31 @@ check_sched() {
 }
 
 check_profile() {
-  # asusd config is owner-managed — excluded from the converge backstop by owner ruling
-  # 2026-10-11 ("leave the asusd config to me"). The row only reports the observed profile;
-  # ACCEPTED semantics apply: never "fix" it.
-  local pf
+  # asusd config is repo-owned again (owner 2026-10-13, superseding the 2026-10-11
+  # owner-managed ruling): four records claim the cast surface that collided with repo intent —
+  # platform_profile_linked_epp (was casting BalancePerformance EPP on the AC profile),
+  # ac_command/bat_command (were casting the governor), and the battery-profile mapping.
+  # The platform_profile value itself stays asusd's runtime choice.
+  local pf id bad=()
   pf=$(trim "$(cat "$(live_path "/sys/firmware/acpi/platform_profile")" 2>/dev/null || true)")
-  emit ACCEPTED PROFILE "platform_profile=${pf:-unreadable} — asusd owner-managed, excluded from convergence"
+  for id in asusd asusd-epp asusd-ac-cmd asusd-bat-cmd; do
+    managed_probe "$id"
+    case $MP_STATE in
+      ok) ;;
+      differs) bad+=("$(managed_label "$id"):$id claimed line differs") ;;
+      nomatch | multimatch) bad+=("$(managed_label "$id"):$id $MP_MSG") ;;
+      missing-target) bad+=("$(managed_label "$id"):$id target missing") ;;
+    esac
+  done
+  case $pf in
+    balanced | performance | custom) ;;
+    *) bad+=("platform_profile=${pf:-unreadable}") ;;
+  esac
+  if (( ${#bad[@]} )); then
+    emit DRIFT PROFILE "$(join_by ' ' "${bad[@]}")"
+  else
+    emit OK PROFILE "asusd records match (EPP/governor casts off), platform_profile=$pf"
+  fi
 }
 
 check_sd() {
