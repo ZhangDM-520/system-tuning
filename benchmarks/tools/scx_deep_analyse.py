@@ -35,13 +35,21 @@ RESULTS = os.environ.get("SCX_DEEP_RESULTS") or os.path.join(DATA, "scx-deep.jso
 # Lower is better for everything marked here; used only for the "winner" annotation.
 LOWER_BETTER = {
     "sched.t1", "sched.t2", "sched.storm_gain", "sched.sb_wk_pct50_0", "sched.sb_wk_pct99_0",
+    "sched.sb_wk_pct99_9", "sched.sb_wk_max", "sched.sb_rq_pct50_0", "sched.sb_rq_pct99_0",
+    "sched.sb_rq_max",
     "sched.phase_J", "sched.phase_W", "sched.meta_s", "sched.dd_s", "sched.vm_s",
+    "sched.web_wall_s", "sched.media_wall_s", "sched.git_status_s", "sched.git_diff_s",
+    "sched.git_switch_s", "sched.git_total_s", "derived.edp", "derived.edp2",
     "psi_us.io_some", "psi_us.io_full", "psi_us.memory_full", "psi_us.cpu_some",
 }
 DEFAULT_METRICS = [
     "sched.h2_bogo_rate", "sched.rate_gain", "sched.t2", "sched.storm_gain",
-    "sched.sb_wk_pct50_0", "sched.sb_wk_pct99_0", "sched.sb_wk_max",
+    "sched.sb_wk_pct50_0", "sched.sb_wk_pct99_0", "sched.sb_wk_pct99_9", "sched.sb_wk_max",
+    "sched.sb_rq_pct50_0", "sched.sb_rq_pct99_0", "sched.sb_rpspct50_0",
     "sched.phase_J", "sched.phase_W", "sched.meta_s", "sched.dd_s", "sched.vm_s",
+    "sched.web_wall_s", "sched.media_fps", "sched.media_wall_s",
+    "sched.git_status_s", "sched.git_diff_s", "sched.git_switch_s", "sched.git_total_s",
+    "derived.edp", "derived.edp2",
 ]
 
 
@@ -132,6 +140,27 @@ def main():
                 else:
                     tests.append(f"{'n/a':>10}")
             print(f"    {path.split('.', 1)[1]:<20}" + "".join(cells) + "   " + " ".join(tests))
+
+        # Tail view across reps: wall-time spread is what "feels janky" in real use, and the
+        # p95/max columns are the derived tail metrics (2026-10-13).
+        def _q(vals, p):
+            s = sorted(vals)
+            if not s:
+                return float("nan")
+            k = (len(s) - 1) * p
+            lo, hi = int(k), min(int(k) + 1, len(s) - 1)
+            return s[lo] + (s[hi] - s[lo]) * (k - lo)
+
+        wall = {a: [v for v in (perfstats.get(r, "wall_s") for r in by[phase][a])
+                    if v is not None] for a in arms}
+        if any(wall.values()):
+            print(f"    {'wall_s tail':<20}{args.control:>13}"
+                  + "".join(f"{a:>13}" for a in others))
+            for tag, p in (("p50", 0.5), ("p95", 0.95), ("max", 1.0)):
+                cells = []
+                for a in [args.control] + others:
+                    cells.append(f"{_q(wall[a], p):>13.4g}" if wall.get(a) else f"{'-':>13}")
+                print(f"    {'  ' + tag:<20}" + "".join(cells))
     return 0
 
 

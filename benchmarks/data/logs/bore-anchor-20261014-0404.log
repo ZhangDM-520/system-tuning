@@ -1,0 +1,51 @@
+[04:42:01] pre-clean done; bore anchor start (log=<home>/Projects/system-tuning/benchmarks/data/logs/bore-anchor-20261014-0404.log)
+[04:42:01] anchor night-core rep=6
+      c0 idle    30.0s  262.00J bl=272480
+      c0 light   30.0s  995.86J bl=272480 sb_wk_pct99_0=565
+      c0 sat     30.0s  943.90J bl=272480 h2_bogo_rate=11465.6
+      c0 storm    7.7s  226.52J bl=272480 t2=3.74
+      c0 io       0.1s    2.08J bl=272480
+      c0 mem     31.0s   65.37J bl=272480
+[04:44:14] anchor night-core rep=7
+      c0 idle    30.0s   82.74J bl=272480
+      c0 light   30.0s  844.20J bl=272480 sb_wk_pct99_0=22
+      c0 sat     30.0s  755.45J bl=272480 h2_bogo_rate=10323.71
+      c0 storm    8.5s  198.56J bl=272480 t2=4.149
+      c0 io       0.1s    1.86J bl=272480
+      c0 mem     31.5s  145.79J bl=272480
+[04:46:28] anchor night-core rep=8
+      c0 idle    30.0s   22.64J bl=272480
+      c0 light   30.0s  671.76J bl=272480 sb_wk_pct99_0=61
+      c0 sat     30.1s  661.61J bl=272480 h2_bogo_rate=9825.8
+      c0 storm    8.8s  193.18J bl=272480 t2=4.322
+      c0 io       0.1s    1.56J bl=272480
+      c0 mem     31.5s  170.64J bl=272480
+[04:48:43] anchor night-core rep=9
+      c0 idle    30.0s   21.15J bl=272480
+      c0 light   30.0s  671.87J bl=272480 sb_wk_pct99_0=37
+      c0 sat     30.1s  661.67J bl=272480 h2_bogo_rate=9811.75
+      c0 storm    8.8s  193.66J bl=272480 t2=4.303
+      c0 io       0.1s    1.97J bl=272480
+      c0 mem     31.5s  183.54J bl=272480
+[04:50:58] anchor night-real rep=6
+      c0 web      1.2s   11.38J bl=272480
+      c0 mixed   32.0s  714.23J bl=272480
+      c0 media    8.8s  193.97J bl=272480
+      c0 git      0.1s    1.07J bl=272480
+[04:51:44] anchor night-real rep=7
+      c0 web      1.4s   10.95J bl=272480
+      c0 mixed   32.1s  714.48J bl=272480
+      c0 media    8.8s  194.17J bl=272480
+      c0 git      0.1s    0.98J bl=272480
+[04:52:31] anchor night-real rep=8
+      c0 web      1.4s   11.63J bl=272480
+      c0 mixed   32.0s  713.95J bl=272480
+      c0 media    8.8s  194.46J bl=272480
+      c0 git      0.1s    1.01J bl=272480
+[04:53:17] anchor night-real rep=9
+      c0 web      1.5s   10.91J bl=272480
+      c0 mixed   32.0s  714.80J bl=272480
+      c0 media    8.9s  194.37J bl=272480
+      c0 git      0.1s    1.05J bl=272480
+[04:54:07] restored: state=enabled ops=pandemonium_5.20.0_x86_64_unknown_linux_gnu
+[04:54:07] anchor done

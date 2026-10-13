@@ -1,0 +1,868 @@
+[00:01:52] WARN could not blank panel — study must filter to the dominant bl regime
+[00:01:52] start: 12 arms x 6 reps, dur=30, night-core then night-real, scratch=<home>/.cache/bench-scratch owner=<owner>
+=== scx deep pass 'night-core': 12 arms x 6 reps, mode=phase ===
+    arms: bore, beerland, bpfland@-p -k -P, cake, cosmos@-g -P -a, flash@-T, flow, lavd@--per-cpu-dsq --enable-cpu-bw, mlfq, pandemonium, p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true, tickless
+    phases: idle, light, sat, storm, io, mem
+    dur=30s seg=20s cycles=1  results -> <home>/Projects/system-tuning/benchmarks/data/scx-deep.jsonl
+
+--- rep 0  order: bore -> beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless
+      c0 idle    30.0s   72.96J bl=272480
+      c0 light   30.0s  670.41J bl=272480 sb_wk_pct99_0=286
+      c0 sat     30.1s  662.14J bl=272480 h2_bogo_rate=9472.36
+      c0 storm    9.1s  200.49J bl=272480 t2=4.404
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  315.40J bl=272480
+    [bore] slot 135.0s
+      c0 idle    30.0s  128.86J bl=272480
+      c0 light   30.0s  670.28J bl=272480 sb_wk_pct99_0=1910
+      c0 sat     30.0s  661.43J bl=272480 h2_bogo_rate=9351.59
+      c0 storm   18.5s  407.08J bl=272480 t2=9.174
+      c0 io       0.1s    2.02J bl=272480
+      c0 mem     31.5s  268.97J bl=272480
+    [beerland] slot 144.5s
+      c0 idle    30.0s  373.85J bl=272480
+      c0 light   30.1s  670.17J bl=272480 sb_wk_pct99_0=1942
+      c0 sat     30.0s  661.40J bl=272480 h2_bogo_rate=9418.68
+      c0 storm   17.8s  392.23J bl=272480 t2=8.931
+      c0 io       0.1s    1.92J bl=272480
+      c0 mem     31.5s  163.26J bl=272480
+    [bpfland -p -k -P] slot 144.9s
+      c0 idle    30.0s  169.80J bl=272480
+      c0 light   30.0s  669.30J bl=272480 sb_wk_pct99_0=2404
+      c0 sat     30.1s  661.53J bl=272480 h2_bogo_rate=9259.9
+      c0 storm   10.5s  231.33J bl=272480 t2=5.22
+      c0 io       0.1s    2.00J bl=272480
+      c0 mem     31.7s  320.69J bl=272480
+    [cake] slot 137.8s
+      c0 idle    30.0s  195.02J bl=272480
+      c0 light   30.0s  670.16J bl=272480 sb_wk_pct99_0=813
+      c0 sat     30.0s  661.39J bl=272480 h2_bogo_rate=9703.09
+      c0 storm   17.9s  392.75J bl=272480 t2=8.85
+      c0 io       0.1s    1.93J bl=272480
+      c0 mem     31.5s   77.95J bl=272480
+    [cosmos -g -P -a] slot 144.3s
+      c0 idle    30.0s  112.17J bl=272480
+      c0 light   30.0s  670.85J bl=272480 sb_wk_pct99_0=1498
+      c0 sat     30.0s  661.35J bl=272480 h2_bogo_rate=9760.17
+      c0 storm   21.7s  476.27J bl=272480 t2=10.786
+      c0 io       0.1s    1.98J bl=272480
+      c0 mem     31.6s  264.51J bl=272480
+    [flash -T] slot 148.8s
+      c0 idle    30.0s   23.83J bl=272480
+      c0 light   30.0s  670.45J bl=272480 sb_wk_pct99_0=6664
+      c0 sat     30.0s  661.15J bl=272480 h2_bogo_rate=8083.75
+      c0 storm    8.6s  189.19J bl=272480 t2=4.219
+      c0 io       0.1s    1.78J bl=272480
+      c0 mem     31.5s  109.27J bl=272480
+    [flow] slot 135.6s
+      c0 idle    30.0s   45.09J bl=272480
+      c0 light   30.0s  671.03J bl=272480 sb_wk_pct99_0=2084
+      c0 sat     30.1s  661.87J bl=272480 h2_bogo_rate=9753.77
+      c0 storm    9.3s  205.44J bl=272480 t2=4.6
+      c0 io       0.1s    1.35J bl=272480
+      c0 mem     31.7s  174.93J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 136.9s
+    [mlfq] slot 49.5s
+      c0 idle    30.0s  131.08J bl=272480
+      c0 light   30.0s  670.63J bl=272480 sb_wk_pct99_0=432
+      c0 sat     30.0s  661.24J bl=272480 h2_bogo_rate=9744.63
+      c0 storm   10.6s  233.34J bl=272480 t2=5.193
+      c0 io       0.1s    1.93J bl=272480
+      c0 mem     31.8s  161.43J bl=272480
+    [pandemonium] slot 137.0s
+      c0 idle    30.0s   19.39J bl=272480
+      c0 light   30.0s  671.03J bl=272480 sb_wk_pct99_0=3284
+      c0 sat     30.1s  661.74J bl=272480 h2_bogo_rate=9755.99
+      c0 storm   10.6s  232.13J bl=272480 t2=4.448
+      c0 io       0.1s    1.82J bl=272480
+      c0 mem     31.7s  183.44J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 137.5s
+      c0 idle    30.0s   46.31J bl=272480
+      c0 light   30.0s  670.90J bl=272480 sb_wk_pct99_0=2236
+      c0 sat     30.0s  661.44J bl=272480 h2_bogo_rate=9772.88
+      c0 storm   21.6s  475.12J bl=272480 t2=10.934
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  195.47J bl=272480
+    [tickless] slot 148.6s
+
+--- rep 1  order: beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore
+      c0 idle    30.0s   22.22J bl=272480
+      c0 light   30.0s  670.80J bl=272480 sb_wk_pct99_0=1454
+      c0 sat     30.0s  661.41J bl=272480 h2_bogo_rate=9774.15
+      c0 storm   18.7s  411.06J bl=272480 t2=9.2
+      c0 io       0.1s    1.83J bl=272480
+      c0 mem     31.5s   62.40J bl=272480
+    [beerland] slot 145.1s
+      c0 idle    30.0s   98.40J bl=272480
+      c0 light   30.0s  668.46J bl=272480 sb_wk_pct99_0=1358
+      c0 sat     30.0s  661.38J bl=272480 h2_bogo_rate=9688.03
+      c0 storm   17.5s  385.02J bl=272480 t2=8.629
+      c0 io       0.1s    2.23J bl=272480
+      c0 mem     31.5s   64.52J bl=272480
+    [bpfland -p -k -P] slot 144.3s
+      c0 idle    30.0s   98.84J bl=272480
+      c0 light   30.0s  670.68J bl=272480 sb_wk_pct99_0=1922
+      c0 sat     30.1s  661.82J bl=272480 h2_bogo_rate=9780.36
+      c0 storm   10.7s  235.90J bl=272480 t2=5.33
+      c0 io       0.1s    1.55J bl=272480
+      c0 mem     31.7s   64.41J bl=272480
+    [cake] slot 138.0s
+      c0 idle    30.0s   74.84J bl=272480
+      c0 light   30.0s  670.23J bl=272480 sb_wk_pct99_0=797
+      c0 sat     30.0s  661.21J bl=272480 h2_bogo_rate=9759.75
+      c0 storm   17.8s  391.40J bl=272480 t2=8.809
+      c0 io       0.1s    1.89J bl=272480
+      c0 mem     31.5s  170.36J bl=272480
+    [cosmos -g -P -a] slot 144.3s
+      c0 idle    30.0s   83.81J bl=272480
+      c0 light   30.0s  671.03J bl=272480 sb_wk_pct99_0=1502
+      c0 sat     30.1s  661.72J bl=272480 h2_bogo_rate=9767.19
+      c0 storm   22.2s  488.84J bl=272480 t2=10.951
+      c0 io       0.1s    1.96J bl=272480
+      c0 mem     31.7s  190.86J bl=272480
+    [flash -T] slot 149.5s
+      c0 idle    30.0s   21.19J bl=272480
+      c0 light   30.0s  670.25J bl=272480 sb_wk_pct99_0=6664
+      c0 sat     30.1s  661.29J bl=272480 h2_bogo_rate=7648.91
+      c0 storm    8.7s  190.20J bl=272480 t2=4.235
+      c0 io       0.1s    2.41J bl=272480
+      c0 mem     30.9s  150.36J bl=272480
+    [flow] slot 135.4s
+      c0 idle    30.0s   27.56J bl=272480
+      c0 light   30.1s  671.34J bl=272480 sb_wk_pct99_0=2076
+      c0 sat     30.1s  661.76J bl=272480 h2_bogo_rate=9769.01
+      c0 storm    9.4s  205.83J bl=272480 t2=4.643
+      c0 io       0.1s    0.33J bl=272480
+      c0 mem     31.7s   57.26J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 136.9s
+    [mlfq] slot 49.6s
+      c0 idle    30.0s   30.21J bl=272480
+      c0 light   30.0s  670.70J bl=272480 sb_wk_pct99_0=436
+      c0 sat     30.0s  661.21J bl=272480 h2_bogo_rate=9787.88
+      c0 storm   10.5s  229.95J bl=272480 t2=5.145
+      c0 io       0.1s    1.99J bl=272480
+      c0 mem     31.7s  168.85J bl=272480
+    [pandemonium] slot 136.8s
+      c0 idle    30.0s   20.93J bl=272480
+      c0 light   30.0s  671.09J bl=272480 sb_wk_pct99_0=3164
+      c0 sat     30.1s  661.58J bl=272480 h2_bogo_rate=9800.37
+      c0 storm   13.9s  306.48J bl=272480 t2=5.245
+      c0 io       0.1s    2.00J bl=272480
+      c0 mem     31.5s  117.10J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 140.8s
+      c0 idle    30.0s   68.16J bl=272480
+      c0 light   30.0s  670.86J bl=272480 sb_wk_pct99_0=2372
+      c0 sat     30.0s  661.38J bl=272480 h2_bogo_rate=9776.22
+      c0 storm   21.7s  476.70J bl=272480 t2=10.658
+      c0 io       0.1s    1.88J bl=272480
+      c0 mem     31.5s  192.41J bl=272480
+    [tickless] slot 148.3s
+      c0 idle    30.0s   23.77J bl=272480
+      c0 light   30.0s  670.62J bl=272480 sb_wk_pct99_0=46
+      c0 sat     30.0s  661.92J bl=272480 h2_bogo_rate=9776.82
+      c0 storm    8.8s  193.94J bl=272480 t2=4.299
+      c0 io       0.1s    1.80J bl=272480
+      c0 mem     31.5s  101.13J bl=272480
+    [bore] slot 134.9s
+
+--- rep 2  order: bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland
+      c0 idle    30.0s   50.43J bl=272480
+      c0 light   30.0s  670.56J bl=272480 sb_wk_pct99_0=1130
+      c0 sat     30.0s  661.55J bl=272480 h2_bogo_rate=9760.25
+      c0 storm   17.8s  391.64J bl=272480 t2=8.82
+      c0 io       0.1s    1.89J bl=272480
+      c0 mem     31.5s  188.54J bl=272480
+    [bpfland -p -k -P] slot 143.8s
+      c0 idle    30.0s   17.05J bl=272480
+      c0 light   30.0s  670.78J bl=272480 sb_wk_pct99_0=1970
+      c0 sat     30.0s  661.82J bl=272480 h2_bogo_rate=9778.78
+      c0 storm   10.4s  230.29J bl=272480 t2=5.19
+      c0 io       0.1s    1.54J bl=272480
+      c0 mem     31.7s  125.85J bl=272480
+    [cake] slot 137.6s
+      c0 idle    30.0s   22.49J bl=272480
+      c0 light   30.0s  669.94J bl=272480 sb_wk_pct99_0=657
+      c0 sat     30.0s  661.54J bl=272480 h2_bogo_rate=9757.82
+      c0 storm   17.8s  393.12J bl=272480 t2=8.84
+      c0 io       0.1s    1.97J bl=272480
+      c0 mem     31.5s  165.90J bl=272480
+    [cosmos -g -P -a] slot 144.6s
+      c0 idle    30.0s   82.17J bl=272480
+      c0 light   30.0s  671.07J bl=272480 sb_wk_pct99_0=1526
+      c0 sat     30.1s  661.69J bl=272480 h2_bogo_rate=9767.19
+      c0 storm   21.5s  473.43J bl=272480 t2=10.68
+      c0 io       0.1s    1.89J bl=272480
+      c0 mem     31.8s  164.98J bl=272480
+    [flash -T] slot 148.7s
+      c0 idle    30.0s   22.51J bl=272480
+      c0 light   30.0s  670.12J bl=272480 sb_wk_pct99_0=6664
+      c0 sat     30.0s  661.05J bl=272480 h2_bogo_rate=7858.44
+      c0 storm    8.7s  190.34J bl=272480 t2=4.266
+      c0 io       0.1s    2.07J bl=272480
+      c0 mem     31.5s  163.99J bl=272480
+    [flow] slot 135.7s
+      c0 idle    30.0s   27.18J bl=272480
+      c0 light   30.1s  671.32J bl=272480 sb_wk_pct99_0=2068
+      c0 sat     30.0s  661.75J bl=272480 h2_bogo_rate=9782.53
+      c0 storm    9.6s  210.85J bl=272480 t2=4.846
+      c0 io       0.1s    1.52J bl=272480
+      c0 mem     31.7s  181.87J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 137.0s
+      c0 idle    30.0s  132.87J bl=272480
+      c0 light   30.0s  670.20J bl=272480 sb_wk_pct99_0=2676
+      c0 sat     30.0s  661.28J bl=272480 h2_bogo_rate=9781.16
+      c0 storm    8.4s  183.15J bl=272480 t2=4.075
+      c0 io       0.1s    2.14J bl=272480
+      c0 mem     31.5s  226.43J bl=272480
+    [mlfq] slot 135.6s
+      c0 idle    30.0s   57.13J bl=272480
+      c0 light   30.0s  670.48J bl=272480 sb_wk_pct99_0=563
+      c0 sat     30.0s  661.35J bl=272480 h2_bogo_rate=9772.0
+      c0 storm   10.5s  232.48J bl=272480 t2=5.125
+      c0 io       0.1s    2.21J bl=272480
+      c0 mem     31.7s  164.48J bl=272480
+    [pandemonium] slot 137.6s
+      c0 idle    30.0s   21.21J bl=272480
+      c0 light   30.1s  671.15J bl=272480 sb_wk_pct99_0=3300
+      c0 sat     30.1s  661.71J bl=272480 h2_bogo_rate=9816.94
+      c0 storm   10.3s  227.81J bl=272480 t2=4.922
+      c0 io       0.1s    2.01J bl=272480
+      c0 mem     31.5s  236.61J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 137.3s
+      c0 idle    30.0s   49.63J bl=272480
+      c0 light   30.1s  671.06J bl=272480 sb_wk_pct99_0=2316
+      c0 sat     30.0s  661.35J bl=272480 h2_bogo_rate=9771.88
+      c0 storm   21.6s  476.61J bl=272480 t2=10.767
+      c0 io       0.1s    1.94J bl=272480
+      c0 mem     31.5s  195.76J bl=272480
+    [tickless] slot 147.8s
+      c0 idle    30.0s   28.82J bl=272480
+      c0 light   30.0s  671.15J bl=272480 sb_wk_pct99_0=108
+      c0 sat     30.1s  662.20J bl=272480 h2_bogo_rate=9770.6
+      c0 storm    8.8s  193.01J bl=272480 t2=4.295
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  190.83J bl=272480
+    [bore] slot 134.9s
+      c0 idle    30.0s   21.87J bl=272480
+      c0 light   30.0s  670.94J bl=272480 sb_wk_pct99_0=1442
+      c0 sat     30.0s  661.59J bl=272480 h2_bogo_rate=9771.41
+      c0 storm   18.3s  402.61J bl=272480 t2=9.505
+      c0 io       0.1s    1.90J bl=272480
+      c0 mem     31.5s  109.34J bl=272480
+    [beerland] slot 144.4s
+
+--- rep 3  order: cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P
+      c0 idle    30.0s   31.12J bl=272480
+      c0 light   30.0s  670.91J bl=272480 sb_wk_pct99_0=1942
+      c0 sat     30.0s  661.51J bl=272480 h2_bogo_rate=9771.95
+      c0 storm   10.6s  233.07J bl=272480 t2=5.194
+      c0 io       0.1s    1.92J bl=272480
+      c0 mem     31.7s  146.24J bl=272480
+    [cake] slot 137.0s
+      c0 idle    30.0s   23.05J bl=272480
+      c0 light   30.0s  670.93J bl=272480 sb_wk_pct99_0=817
+      c0 sat     30.0s  661.60J bl=272480 h2_bogo_rate=9776.56
+      c0 storm   17.8s  392.90J bl=272480 t2=8.899
+      c0 io       0.1s    1.80J bl=272480
+      c0 mem     31.7s   79.06J bl=272480
+    [cosmos -g -P -a] slot 144.6s
+      c0 idle    30.0s  110.53J bl=272480
+      c0 light   30.0s  671.07J bl=272480 sb_wk_pct99_0=1514
+      c0 sat     30.0s  661.36J bl=272480 h2_bogo_rate=9736.22
+      c0 storm   21.5s  471.91J bl=272480 t2=10.728
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  122.42J bl=272480
+    [flash -T] slot 148.3s
+      c0 idle    30.0s  121.39J bl=272480
+      c0 light   30.0s  670.40J bl=272480 sb_wk_pct99_0=6664
+      c0 sat     30.1s  659.30J bl=272480 h2_bogo_rate=7620.65
+      c0 storm    8.7s  191.27J bl=272480 t2=4.283
+      c0 io       0.1s    2.00J bl=272480
+      c0 mem     31.5s   64.98J bl=272480
+    [flow] slot 135.9s
+      c0 idle    30.0s  100.02J bl=272480
+      c0 light   30.0s  670.13J bl=272480 sb_wk_pct99_0=2100
+      c0 sat     30.1s  662.38J bl=272480 h2_bogo_rate=9769.3
+      c0 storm    9.2s  203.13J bl=272480 t2=4.577
+      c0 io       0.1s    1.38J bl=272480
+      c0 mem     31.5s  137.60J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 136.4s
+    [mlfq] slot 48.9s
+      c0 idle    30.0s   26.32J bl=272480
+      c0 light   30.0s  671.16J bl=272480 sb_wk_pct99_0=496
+      c0 sat     30.1s  660.73J bl=272480 h2_bogo_rate=9784.56
+      c0 storm   10.5s  231.98J bl=272480 t2=5.193
+      c0 io       0.1s    2.32J bl=272480
+      c0 mem     31.7s   53.45J bl=272480
+    [pandemonium] slot 136.8s
+      c0 idle    30.0s   91.26J bl=272480
+      c0 light   30.0s  670.69J bl=272480 sb_wk_pct99_0=3332
+      c0 sat     30.1s  661.44J bl=272480 h2_bogo_rate=9932.81
+      c0 storm   18.8s  413.14J bl=272480 t2=9.182
+      c0 io       0.1s    1.79J bl=272480
+      c0 mem     31.6s  159.39J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 145.8s
+      c0 idle    30.0s   47.27J bl=272480
+      c0 light   30.0s  670.61J bl=272480 sb_wk_pct99_0=2348
+      c0 sat     30.0s  661.27J bl=272480 h2_bogo_rate=9772.04
+      c0 storm   21.8s  479.35J bl=272480 t2=10.717
+      c0 io       0.1s    1.89J bl=272480
+      c0 mem     31.5s   92.11J bl=272480
+    [tickless] slot 148.8s
+      c0 idle    30.0s   97.68J bl=272480
+      c0 light   30.0s  669.69J bl=272480 sb_wk_pct99_0=29
+      c0 sat     30.0s  661.65J bl=272480 h2_bogo_rate=9774.46
+      c0 storm    8.7s  191.22J bl=272480 t2=4.28
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  122.81J bl=272480
+    [bore] slot 134.8s
+      c0 idle    30.0s   34.59J bl=272480
+      c0 light   30.0s  670.50J bl=272480 sb_wk_pct99_0=1438
+      c0 sat     30.0s  661.35J bl=272480 h2_bogo_rate=9753.03
+      c0 storm   19.2s  423.68J bl=272480 t2=9.778
+      c0 io       0.1s    1.85J bl=272480
+      c0 mem     31.5s  164.61J bl=272480
+    [beerland] slot 145.3s
+      c0 idle    30.0s   24.10J bl=272480
+      c0 light   30.0s  670.63J bl=272480 sb_wk_pct99_0=1146
+      c0 sat     30.1s  661.52J bl=272480 h2_bogo_rate=9725.53
+      c0 storm   17.7s  389.32J bl=272480 t2=8.756
+      c0 io       0.1s    1.90J bl=272480
+      c0 mem     31.5s  109.51J bl=272480
+    [bpfland -p -k -P] slot 143.9s
+
+--- rep 4  order: cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P -> cake
+      c0 idle    30.0s   43.29J bl=272480
+      c0 light   30.0s  669.62J bl=272480 sb_wk_pct99_0=873
+      c0 sat     30.0s  660.99J bl=272480 h2_bogo_rate=9750.44
+      c0 storm   17.8s  390.75J bl=272480 t2=8.863
+      c0 io       0.1s    1.87J bl=272480
+      c0 mem     31.5s  172.70J bl=272480
+    [cosmos -g -P -a] slot 144.7s
+      c0 idle    30.0s   82.92J bl=272480
+      c0 light   30.0s  670.86J bl=272480 sb_wk_pct99_0=1522
+      c0 sat     30.0s  661.50J bl=272480 h2_bogo_rate=9764.3
+      c0 storm   21.9s  482.47J bl=272480 t2=10.956
+      c0 io       0.1s    1.88J bl=272480
+      c0 mem     31.7s  183.78J bl=272480
+    [flash -T] slot 149.2s
+      c0 idle    30.0s   34.85J bl=272480
+      c0 light   30.0s  670.69J bl=272480 sb_wk_pct99_0=6408
+      c0 sat     30.0s  661.55J bl=272480 h2_bogo_rate=7661.93
+      c0 storm    8.8s  193.13J bl=272480 t2=4.27
+      c0 io       0.1s    2.02J bl=272480
+      c0 mem     31.5s  174.26J bl=272480
+    [flow] slot 135.4s
+      c0 idle    30.0s   27.20J bl=272480
+      c0 light   30.1s  671.58J bl=272480 sb_wk_pct99_0=2212
+      c0 sat     30.1s  662.08J bl=272480 h2_bogo_rate=9775.73
+      c0 storm    9.9s  216.76J bl=272480 t2=4.891
+      c0 io       0.1s    1.74J bl=272480
+      c0 mem     31.5s  185.22J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 137.2s
+      c0 idle    30.0s  131.88J bl=272480
+      c0 light   30.0s  669.71J bl=272480 sb_wk_pct99_0=2596
+      c0 sat     30.0s  661.16J bl=272480 h2_bogo_rate=9765.98
+      c0 storm    8.4s  184.01J bl=272480 t2=4.05
+      c0 io       0.1s    2.00J bl=272480
+      c0 mem     31.5s  205.69J bl=272480
+    [mlfq] slot 135.4s
+      c0 idle    30.0s   93.06J bl=272480
+      c0 light   30.0s  670.15J bl=272480 sb_wk_pct99_0=453
+      c0 sat     30.0s  661.28J bl=272480 h2_bogo_rate=9772.9
+      c0 storm   10.6s  232.22J bl=272480 t2=5.182
+      c0 io       0.1s    1.80J bl=272480
+      c0 mem     31.9s  123.91J bl=272480
+    [pandemonium] slot 137.8s
+      c0 idle    30.0s   30.72J bl=272480
+      c0 light   30.0s  671.13J bl=272480 sb_wk_pct99_0=3332
+      c0 sat     30.1s  661.80J bl=272480 h2_bogo_rate=9863.51
+      c0 storm   10.3s  226.36J bl=272480 t2=4.845
+      c0 io       0.1s    1.81J bl=272480
+      c0 mem     31.5s  180.47J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 136.9s
+      c0 idle    30.0s   49.24J bl=272480
+      c0 light   30.1s  670.81J bl=272480 sb_wk_pct99_0=2284
+      c0 sat     30.0s  661.89J bl=272480 h2_bogo_rate=9756.9
+      c0 storm   22.0s  483.06J bl=272480 t2=10.855
+      c0 io       0.1s    1.92J bl=272480
+      c0 mem     31.5s  130.97J bl=272480
+    [tickless] slot 149.1s
+      c0 idle    30.0s   37.63J bl=272480
+      c0 light   30.0s  668.84J bl=272480 sb_wk_pct99_0=23
+      c0 sat     30.0s  660.34J bl=272480 h2_bogo_rate=9756.04
+      c0 storm    8.8s  194.59J bl=272480 t2=4.355
+      c0 io       0.1s    1.75J bl=272480
+      c0 mem     31.5s  170.51J bl=272480
+    [bore] slot 134.9s
+      c0 idle    30.0s   20.94J bl=272480
+      c0 light   30.0s  670.99J bl=272480 sb_wk_pct99_0=1442
+      c0 sat     30.0s  661.66J bl=272480 h2_bogo_rate=9772.35
+      c0 storm   19.6s  432.85J bl=272480 t2=9.459
+      c0 io       0.1s    1.91J bl=272480
+      c0 mem     31.5s  162.35J bl=272480
+    [beerland] slot 145.7s
+      c0 idle    30.0s   16.86J bl=272480
+      c0 light   30.0s  670.48J bl=272480 sb_wk_pct99_0=1102
+      c0 sat     30.0s  661.16J bl=272480 h2_bogo_rate=9743.73
+      c0 storm   17.6s  388.14J bl=272480 t2=8.645
+      c0 io       0.1s    1.90J bl=272480
+      c0 mem     31.5s  225.01J bl=272480
+    [bpfland -p -k -P] slot 144.4s
+      c0 idle    30.0s   23.26J bl=272480
+      c0 light   30.0s  670.65J bl=272480 sb_wk_pct99_0=1950
+      c0 sat     30.1s  661.74J bl=272480 h2_bogo_rate=9754.3
+      c0 storm   10.6s  232.54J bl=272480 t2=5.211
+      c0 io       0.1s    1.39J bl=272480
+      c0 mem     31.6s  136.09J bl=272480
+    [cake] slot 138.0s
+
+--- rep 5  order: flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a
+      c0 idle    30.0s   86.70J bl=272480
+      c0 light   30.0s  668.86J bl=272480 sb_wk_pct99_0=1514
+      c0 sat     30.0s  664.74J bl=272480 h2_bogo_rate=9791.57
+      c0 storm   22.1s  486.75J bl=272480 t2=10.916
+      c0 io       0.1s    1.79J bl=272480
+      c0 mem     31.5s  197.44J bl=272480
+    [flash -T] slot 148.7s
+      c0 idle    30.0s   21.73J bl=272480
+      c0 light   30.0s  670.36J bl=272480 sb_wk_pct99_0=6664
+      c0 sat     30.0s  661.56J bl=272480 h2_bogo_rate=7574.02
+      c0 storm    8.7s  191.33J bl=272480 t2=4.245
+      c0 io       0.1s    1.98J bl=272480
+      c0 mem     31.5s  169.28J bl=272480
+    [flow] slot 135.4s
+      c0 idle    30.0s   27.00J bl=272480
+      c0 light   30.1s  671.71J bl=272480 sb_wk_pct99_0=2084
+      c0 sat     30.1s  660.76J bl=272480 h2_bogo_rate=9763.26
+      c0 storm    9.5s  210.66J bl=272480 t2=4.817
+      c0 io       0.1s    1.56J bl=272480
+      c0 mem     31.7s  197.16J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 137.1s
+    [mlfq] slot 49.1s
+      c0 idle    30.0s   17.42J bl=272480
+      c0 light   30.0s  670.71J bl=272480 sb_wk_pct99_0=459
+      c0 sat     30.0s  659.91J bl=272480 h2_bogo_rate=9778.7
+      c0 storm   10.6s  232.02J bl=272480 t2=5.251
+      c0 io       0.1s    1.77J bl=272480
+      c0 mem     31.7s  166.89J bl=272480
+    [pandemonium] slot 136.9s
+      c0 idle    30.0s   21.26J bl=272480
+      c0 light   30.0s  670.90J bl=272480 sb_wk_pct99_0=3332
+      c0 sat     30.1s  661.34J bl=272480 h2_bogo_rate=9806.69
+      c0 storm   11.0s  243.55J bl=272480 t2=4.271
+      c0 io       0.1s    1.84J bl=272480
+      c0 mem     31.5s  188.18J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 137.8s
+      c0 idle    30.0s   48.65J bl=272480
+      c0 light   30.0s  670.71J bl=272480 sb_wk_pct99_0=2308
+      c0 sat     30.0s  661.13J bl=272480 h2_bogo_rate=9774.4
+      c0 storm   21.7s  477.18J bl=272480 t2=10.644
+      c0 io       0.1s    1.88J bl=272480
+      c0 mem     31.5s  188.60J bl=272480
+    [tickless] slot 148.8s
+      c0 idle    30.0s   19.40J bl=272480
+      c0 light   30.0s  670.06J bl=272480 sb_wk_pct99_0=25
+      c0 sat     30.0s  661.37J bl=272480 h2_bogo_rate=9770.89
+      c0 storm    8.8s  193.22J bl=272480 t2=4.289
+      c0 io       0.1s    1.91J bl=272480
+      c0 mem     31.5s  187.09J bl=272480
+    [bore] slot 135.0s
+      c0 idle    30.0s   24.42J bl=272480
+      c0 light   30.0s  676.19J bl=272480 sb_wk_pct99_0=1454
+      c0 sat     30.0s  661.85J bl=272480 h2_bogo_rate=9776.32
+      c0 storm   19.4s  426.34J bl=272480 t2=8.983
+      c0 io       0.1s    1.81J bl=272480
+      c0 mem     31.7s  108.35J bl=272480
+    [beerland] slot 145.6s
+      c0 idle    30.0s  244.31J bl=272480
+      c0 light   30.0s  669.17J bl=272480 sb_wk_pct99_0=1786
+      c0 sat     30.0s  661.47J bl=272480 h2_bogo_rate=9753.25
+      c0 storm   17.6s  387.51J bl=272480 t2=8.788
+      c0 io       0.1s    1.82J bl=272480
+      c0 mem     31.5s  191.82J bl=272480
+    [bpfland -p -k -P] slot 144.6s
+      c0 idle    30.0s   17.52J bl=272480
+      c0 light   30.0s  670.83J bl=272480 sb_wk_pct99_0=1926
+      c0 sat     30.0s  660.24J bl=272480 h2_bogo_rate=9758.08
+      c0 storm   10.6s  234.89J bl=272480 t2=5.295
+      c0 io       0.1s    1.37J bl=272480
+      c0 mem     31.7s   48.13J bl=272480
+    [cake] slot 137.2s
+      c0 idle    30.0s   95.17J bl=272480
+      c0 light   30.0s  669.91J bl=272480 sb_wk_pct99_0=687
+      c0 sat     30.0s  661.25J bl=272480 h2_bogo_rate=9765.14
+      c0 storm   17.7s  390.18J bl=272480 t2=8.816
+      c0 io       0.1s    1.97J bl=272480
+      c0 mem     31.5s  166.69J bl=272480
+    [cosmos -g -P -a] slot 144.2s
+
+=== deep run complete in 163.1 min ===
+[02:44:57] night-core finished rc=0
+=== scx deep pass 'night-real': 12 arms x 6 reps, mode=phase ===
+    arms: bore, beerland, bpfland@-p -k -P, cake, cosmos@-g -P -a, flash@-T, flow, lavd@--per-cpu-dsq --enable-cpu-bw, mlfq, pandemonium, p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true, tickless
+    phases: web, mixed, media, git
+    dur=30s seg=20s cycles=1  results -> <home>/Projects/system-tuning/benchmarks/data/scx-deep.jsonl
+
+--- rep 0  order: bore -> beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless
+      c0 web      1.5s   11.61J bl=272480
+      c0 mixed   32.0s  712.86J bl=272480
+      c0 media    8.9s  195.03J bl=272480
+      c0 git      0.1s    1.02J bl=272480
+    [bore] slot 47.6s
+      c0 web      1.4s   13.99J bl=272480
+      c0 mixed   32.2s  714.56J bl=272480
+      c0 media    8.5s  186.83J bl=272480
+      c0 git      0.1s    1.14J bl=272480
+    [beerland] slot 46.5s
+      c0 web      1.1s   14.22J bl=272480
+      c0 mixed   32.6s  729.12J bl=272480
+      c0 media    8.6s  189.07J bl=272480
+      c0 git      0.1s    1.13J bl=272480
+    [bpfland -p -k -P] slot 47.6s
+      c0 web      1.5s   11.48J bl=272480
+      c0 mixed   32.1s  713.69J bl=272480
+      c0 media    9.3s  201.93J bl=272480
+      c0 git      0.1s    0.58J bl=272480
+    [cake] slot 48.0s
+      c0 web      1.4s   13.78J bl=272480
+      c0 mixed   32.3s  717.89J bl=272480
+      c0 media    8.5s  186.49J bl=272480
+      c0 git      0.1s    1.07J bl=272480
+    [cosmos -g -P -a] slot 46.7s
+      c0 web      1.5s   13.64J bl=272480
+      c0 mixed   32.1s  713.74J bl=272480
+      c0 media    8.9s  195.43J bl=272480
+      c0 git      0.1s    0.91J bl=272480
+    [flash -T] slot 47.1s
+      c0 web      1.1s   13.42J bl=272480
+      c0 mixed   32.1s  713.90J bl=272480
+      c0 media   11.3s  248.02J bl=272480
+      c0 git      0.1s    1.16J bl=272480
+    [flow] slot 49.5s
+      c0 web      1.1s   13.48J bl=272480
+      c0 mixed   32.2s  715.75J bl=272480
+      c0 media    8.9s  196.21J bl=272480
+      c0 git      0.1s    0.86J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 47.9s
+    [mlfq] slot 48.9s
+      c0 web      1.4s    9.59J bl=272480
+      c0 mixed   32.1s  714.18J bl=272480
+      c0 media    9.1s  201.01J bl=272480
+      c0 git      0.1s    0.80J bl=272480
+    [pandemonium] slot 47.2s
+      c0 web      1.3s   12.01J bl=272480
+      c0 mixed   32.1s  715.36J bl=272480
+      c0 media    9.2s  201.95J bl=272480
+      c0 git      0.1s    1.16J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 47.6s
+      c0 web      1.1s   13.73J bl=272480
+      c0 mixed   32.1s  713.22J bl=272480
+      c0 media    8.4s  184.46J bl=272480
+      c0 git      0.1s    1.21J bl=272480
+    [tickless] slot 46.6s
+
+--- rep 1  order: beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore
+      c0 web      1.4s   10.90J bl=272480
+      c0 mixed   32.1s  714.57J bl=272480
+      c0 media    8.5s  187.42J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [beerland] slot 47.1s
+      c0 web      1.2s   13.07J bl=272480
+      c0 mixed   32.1s  714.76J bl=272480
+      c0 media    8.6s  189.98J bl=272480
+      c0 git      0.1s    1.13J bl=272480
+    [bpfland -p -k -P] slot 47.2s
+      c0 web      1.5s    8.94J bl=272480
+      c0 mixed   32.1s  714.08J bl=272480
+      c0 media    9.2s  202.15J bl=272480
+      c0 git      0.1s    0.11J bl=272480
+    [cake] slot 47.7s
+      c0 web      1.1s   13.22J bl=272480
+      c0 mixed   32.2s  715.63J bl=272480
+      c0 media    8.9s  178.34J bl=272480
+      c0 git      0.1s    1.04J bl=272480
+    [cosmos -g -P -a] slot 46.8s
+      c0 web      1.4s   11.32J bl=272480
+      c0 mixed   32.1s  647.23J bl=272480
+      c0 media    9.2s  184.20J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [flash -T] slot 47.3s
+      c0 web      1.1s   13.70J bl=272480
+      c0 mixed   32.1s  646.65J bl=272480
+      c0 media   11.5s  229.71J bl=272480
+      c0 git      0.1s    1.18J bl=272480
+    [flow] slot 49.5s
+      c0 web      1.1s   13.62J bl=272480
+      c0 mixed   32.2s  648.65J bl=272480
+      c0 media    9.3s  184.46J bl=272480
+      c0 git      0.1s    0.91J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 48.2s
+    [mlfq] slot 49.3s
+      c0 web      1.5s    9.21J bl=272480
+      c0 mixed   32.1s  715.73J bl=272480
+      c0 media    9.1s  200.03J bl=272480
+      c0 git      0.1s    0.89J bl=272480
+    [pandemonium] slot 47.3s
+      c0 web      1.4s   11.37J bl=272480
+      c0 mixed   32.3s  720.21J bl=272480
+      c0 media    9.2s  203.54J bl=272480
+      c0 git      0.1s    1.11J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 47.7s
+      c0 web      1.1s   13.42J bl=272480
+      c0 mixed   32.1s  714.28J bl=272480
+      c0 media    8.5s  186.24J bl=272480
+      c0 git      0.1s    1.17J bl=272480
+    [tickless] slot 46.1s
+      c0 web      1.5s   11.71J bl=272480
+      c0 mixed   32.0s  714.37J bl=272480
+      c0 media    8.9s  196.53J bl=272480
+      c0 git      0.1s    1.02J bl=272480
+    [bore] slot 47.1s
+
+--- rep 2  order: bpfland@-p -k -P -> cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland
+      c0 web      1.1s   13.87J bl=272480
+      c0 mixed   32.3s  717.52J bl=272480
+      c0 media    8.8s  188.11J bl=272480
+      c0 git      0.1s    1.14J bl=272480
+    [bpfland -p -k -P] slot 46.6s
+      c0 web      1.4s    9.86J bl=272480
+      c0 mixed   32.1s  646.92J bl=272480
+      c0 media    9.5s  189.67J bl=272480
+      c0 git      0.1s    0.03J bl=272480
+    [cake] slot 47.8s
+      c0 web      1.4s   11.96J bl=272480
+      c0 mixed   32.2s  648.93J bl=272480
+      c0 media    8.9s  178.57J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [cosmos -g -P -a] slot 47.8s
+      c0 web      1.5s   11.37J bl=272480
+      c0 mixed   32.1s  646.16J bl=272480
+      c0 media    9.2s  183.47J bl=272480
+      c0 git      0.1s    1.13J bl=272480
+    [flash -T] slot 48.0s
+      c0 web      1.2s   13.53J bl=272480
+      c0 mixed   32.1s  646.15J bl=272480
+      c0 media   11.6s  230.85J bl=272480
+      c0 git      0.1s    1.11J bl=272480
+    [flow] slot 49.6s
+      c0 web      1.1s   13.48J bl=272480
+      c0 mixed   32.2s  648.32J bl=272480
+      c0 media    9.3s  184.48J bl=272480
+      c0 git      0.1s    1.05J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 48.2s
+    [mlfq] slot 49.4s
+      c0 web      1.5s    9.52J bl=272480
+      c0 mixed   32.1s  715.48J bl=272480
+      c0 media    9.2s  200.77J bl=272480
+      c0 git      0.1s    0.80J bl=272480
+    [pandemonium] slot 47.2s
+      c0 web      1.3s   11.85J bl=272480
+      c0 mixed   32.2s  721.68J bl=272480
+      c0 media    9.2s  201.58J bl=272480
+      c0 git      0.1s    1.13J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 47.5s
+      c0 web      1.1s   13.54J bl=272480
+      c0 mixed   32.0s  712.84J bl=272480
+      c0 media    8.4s  185.34J bl=272480
+      c0 git      0.1s    1.24J bl=272480
+    [tickless] slot 46.3s
+      c0 web      1.2s   12.97J bl=272480
+      c0 mixed   32.0s  714.20J bl=272480
+      c0 media    8.9s  195.51J bl=272480
+      c0 git      0.1s    1.04J bl=272480
+    [bore] slot 47.2s
+      c0 web      1.4s   12.71J bl=272480
+      c0 mixed   32.1s  715.07J bl=272480
+      c0 media    8.7s  185.55J bl=272480
+      c0 git      0.1s    1.10J bl=272480
+    [beerland] slot 46.7s
+
+--- rep 3  order: cake -> cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P
+      c0 web      1.5s    9.69J bl=272480
+      c0 mixed   32.1s  646.96J bl=272480
+      c0 media    9.5s  189.01J bl=272480
+      c0 git      0.1s    0.25J bl=272480
+    [cake] slot 48.3s
+      c0 web      1.4s   12.10J bl=272480
+      c0 mixed   32.2s  649.41J bl=272480
+      c0 media    8.9s  177.22J bl=272480
+      c0 git      0.1s    1.12J bl=272480
+    [cosmos -g -P -a] slot 47.7s
+      c0 web      1.5s   10.88J bl=272480
+      c0 mixed   32.1s  647.53J bl=272480
+      c0 media    9.2s  183.93J bl=272480
+      c0 git      0.1s    1.01J bl=272480
+    [flash -T] slot 48.1s
+      c0 web      1.1s   18.82J bl=272480
+      c0 mixed   32.1s  645.87J bl=272480
+      c0 media   11.6s  231.40J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [flow] slot 49.6s
+      c0 web      1.1s   13.05J bl=272480
+      c0 mixed   32.2s  648.67J bl=272480
+      c0 media    9.3s  185.01J bl=272480
+      c0 git      0.1s    0.92J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 48.2s
+      c0 web      1.0s   18.61J bl=272480
+      c0 mixed   32.1s  646.28J bl=272480
+      c0 media    9.3s  186.21J bl=272480
+      c0 git      0.1s    1.59J bl=272480
+    [mlfq] slot 48.0s
+      c0 web      1.4s    9.94J bl=272480
+      c0 mixed   32.1s  647.79J bl=272480
+      c0 media    9.5s  190.45J bl=272480
+      c0 git      0.1s    0.90J bl=272480
+    [pandemonium] slot 48.3s
+      c0 web      1.3s   12.36J bl=272480
+      c0 mixed   32.2s  649.82J bl=272480
+      c0 media    9.7s  194.86J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 48.7s
+      c0 web      1.2s   13.33J bl=272480
+      c0 mixed   32.1s  646.40J bl=272480
+      c0 media    8.8s  177.13J bl=272480
+      c0 git      0.1s    1.13J bl=272480
+    [tickless] slot 47.2s
+      c0 web      1.5s   11.59J bl=272480
+      c0 mixed   32.1s  646.71J bl=272480
+      c0 media    9.3s  185.49J bl=272480
+      c0 git      0.1s    1.03J bl=272480
+    [bore] slot 48.1s
+      c0 web      1.1s   12.76J bl=272480
+      c0 mixed   32.1s  647.47J bl=272480
+      c0 media    8.9s  178.18J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [beerland] slot 46.5s
+      c0 web      1.1s   12.84J bl=272480
+      c0 mixed   32.3s  650.87J bl=272480
+      c0 media    9.1s  180.75J bl=272480
+      c0 git      0.1s    1.14J bl=272480
+    [bpfland -p -k -P] slot 47.7s
+
+--- rep 4  order: cosmos@-g -P -a -> flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P -> cake
+      c0 web      1.4s   11.60J bl=272480
+      c0 mixed   32.2s  648.75J bl=272480
+      c0 media    8.9s  178.06J bl=272480
+      c0 git      0.1s    1.14J bl=272480
+    [cosmos -g -P -a] slot 47.8s
+      c0 web      1.5s   11.14J bl=272480
+      c0 mixed   32.1s  647.74J bl=272480
+      c0 media    9.2s  183.52J bl=272480
+      c0 git      0.1s    0.92J bl=272480
+    [flash -T] slot 48.0s
+      c0 web      1.1s   13.29J bl=272480
+      c0 mixed   32.1s  646.98J bl=272480
+      c0 media   11.6s  231.70J bl=272480
+      c0 git      0.1s    1.16J bl=272480
+    [flow] slot 49.6s
+      c0 web      1.1s   13.49J bl=272480
+      c0 mixed   32.2s  649.10J bl=272480
+      c0 media    9.3s  184.20J bl=272480
+      c0 git      0.1s    0.81J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 48.3s
+    [mlfq] slot 49.3s
+      c0 web      1.5s    9.25J bl=272480
+      c0 mixed   32.1s  715.42J bl=272480
+      c0 media    9.1s  199.88J bl=272480
+      c0 git      0.1s    0.72J bl=272480
+    [pandemonium] slot 47.2s
+      c0 web      1.3s   11.20J bl=272480
+      c0 mixed   32.2s  717.44J bl=272480
+      c0 media    9.2s  202.81J bl=272480
+      c0 git      0.1s    1.08J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 47.6s
+      c0 web      1.0s   13.71J bl=272480
+      c0 mixed   32.0s  713.20J bl=272480
+      c0 media    8.4s  185.34J bl=272480
+      c0 git      0.1s    1.18J bl=272480
+    [tickless] slot 46.2s
+      c0 web      1.5s   11.39J bl=272480
+      c0 mixed   32.0s  714.33J bl=272480
+      c0 media    8.9s  196.35J bl=272480
+      c0 git      0.1s    1.10J bl=272480
+    [bore] slot 47.4s
+      c0 web      1.1s   12.54J bl=272480
+      c0 mixed   32.1s  714.99J bl=272480
+      c0 media    9.0s  179.05J bl=272480
+      c0 git      0.1s    1.15J bl=272480
+    [beerland] slot 46.6s
+      c0 web      1.1s   13.30J bl=272480
+      c0 mixed   32.1s  647.85J bl=272480
+      c0 media    9.1s  181.31J bl=272480
+      c0 git      0.1s    1.18J bl=272480
+    [bpfland -p -k -P] slot 47.5s
+      c0 web      1.5s   10.32J bl=272480
+      c0 mixed   32.0s  646.73J bl=272480
+      c0 media    9.5s  189.53J bl=272480
+      c0 git      0.1s    0.10J bl=272480
+    [cake] slot 48.5s
+
+--- rep 5  order: flash@-T -> flow -> lavd@--per-cpu-dsq --enable-cpu-bw -> mlfq -> pandemonium -> p2dq@-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true -> tickless -> bore -> beerland -> bpfland@-p -k -P -> cake -> cosmos@-g -P -a
+      c0 web      1.4s   11.24J bl=272480
+      c0 mixed   32.1s  647.28J bl=272480
+      c0 media    9.2s  183.90J bl=272480
+      c0 git      0.1s    0.96J bl=272480
+    [flash -T] slot 48.0s
+      c0 web      1.1s   13.55J bl=272480
+      c0 mixed   32.1s  647.36J bl=272480
+      c0 media   11.7s  232.85J bl=272480
+      c0 git      0.1s    1.12J bl=272480
+    [flow] slot 49.7s
+      c0 web      1.1s   13.54J bl=272480
+      c0 mixed   32.2s  648.32J bl=272480
+      c0 media    9.3s  184.52J bl=272480
+      c0 git      0.1s    0.85J bl=272480
+    [lavd --per-cpu-dsq --enable-cpu-bw] slot 48.2s
+      c0 web      1.2s   18.47J bl=272480
+      c0 mixed   32.2s  647.93J bl=272480
+      c0 media    9.3s  185.59J bl=272480
+      c0 git      0.1s    1.47J bl=272480
+    [mlfq] slot 48.5s
+      c0 web      1.5s   10.37J bl=272480
+      c0 mixed   32.1s  647.14J bl=272480
+      c0 media    9.5s  189.69J bl=272480
+      c0 git      0.1s    1.06J bl=272480
+    [pandemonium] slot 48.1s
+      c0 web      1.2s   12.91J bl=272480
+      c0 mixed   32.2s  649.84J bl=272480
+      c0 media    9.7s  194.40J bl=272480
+      c0 git      0.1s    1.09J bl=272480
+    [p2dq -a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] slot 48.7s
+      c0 web      1.1s   13.18J bl=272480
+      c0 mixed   32.1s  646.44J bl=272480
+      c0 media    8.8s  176.67J bl=272480
+      c0 git      0.1s    1.12J bl=272480
+    [tickless] slot 47.3s
+      c0 web      1.6s   12.14J bl=272480
+      c0 mixed   32.0s  646.57J bl=272480
+      c0 media    9.3s  185.47J bl=272480
+      c0 git      0.1s    0.91J bl=272480
+    [bore] slot 48.3s
+      c0 web      1.1s   12.80J bl=272480
+      c0 mixed   32.2s  648.17J bl=272480
+      c0 media    8.9s  178.16J bl=272480
+      c0 git      0.1s    1.12J bl=272480
+    [beerland] slot 46.5s
+      c0 web      1.1s   13.57J bl=272480
+      c0 mixed   32.1s  648.02J bl=272480
+      c0 media    9.0s  180.68J bl=272480
+      c0 git      0.1s    1.16J bl=272480
+    [bpfland -p -k -P] slot 47.5s
+      c0 web      1.5s    9.78J bl=272480
+      c0 mixed   32.1s  646.98J bl=272480
+      c0 media    9.5s  189.95J bl=272480
+      c0 git      0.1s    0.71J bl=272480
+    [cake] slot 48.6s
+      c0 web      1.5s   11.23J bl=272480
+      c0 mixed   32.3s  651.35J bl=272480
+      c0 media    8.9s  178.18J bl=272480
+      c0 git      0.1s    1.20J bl=272480
+    [cosmos -g -P -a] slot 47.8s
+
+=== deep run complete in 57.4 min ===
+[03:42:20] night-real finished rc=0
+[03:42:23] restored: state=disabled ops=-
+night-core achieved valid reps: {'beerland': '5 usable / 6 slots', 'bore': '5 usable / 6 slots', 'bpfland': '5 usable / 6 slots', 'cake': '5 usable / 6 slots', 'cosmos': '5 usable / 6 slots', 'flash': '5 usable / 6 slots', 'flow': '5 usable / 6 slots', 'lavd': '5 usable / 6 slots', 'mlfq': '2 usable / 2 slots', 'p2dq': '5 usable / 6 slots', 'pandemonium': '5 usable / 6 slots', 'tickless': '5 usable / 6 slots'}
+night-real achieved valid reps: {'beerland': '5 usable / 6 slots', 'bore': '5 usable / 6 slots', 'bpfland': '5 usable / 6 slots', 'cake': '5 usable / 6 slots', 'cosmos': '5 usable / 6 slots', 'flash': '5 usable / 6 slots', 'flow': '5 usable / 6 slots', 'lavd': '5 usable / 6 slots', 'mlfq': '2 usable / 2 slots', 'p2dq': '5 usable / 6 slots', 'pandemonium': '5 usable / 6 slots', 'tickless': '5 usable / 6 slots'}
+[03:42:23] night-run done rc_core=0 rc_real=0

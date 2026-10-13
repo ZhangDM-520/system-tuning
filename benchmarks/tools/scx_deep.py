@@ -24,6 +24,7 @@ attributable to the learning layer specifically.
 """
 
 import argparse
+import getpass
 import json
 import os
 import statistics
@@ -194,6 +195,178 @@ PHASE_FN = {"idle": ph_idle, "light": ph_light, "sat": ph_sat,
             "storm": ph_storm, "io": ph_io, "mem": ph_mem}
 
 
+# --- real-world phases (2026-10-13, 05-sched-comprehensive-benchmark) -----------
+# Fixed-work classes: identical input for every arm and every rep (cache state is part of the
+# arm), assets in SCRATCH only, each phase returns its own metric dict.
+
+WEB_PAGE = """<!doctype html><html><head><meta charset=utf-8">
+<style>.c{display:inline-block;width:60px;height:24px;background:#8af;margin:2px}</style>
+</head><body><div id="grid"></div><script>
+const t0 = performance.now();
+let s = 0;
+for (let i = 0; i < 200e6; i++) { s += (i % 7) * 1.5; }
+const grid = document.getElementById('grid');
+for (let i = 0; i < 8000; i++) {
+  const d = document.createElement('div'); d.className = 'c'; d.textContent = i;
+  grid.appendChild(d);
+}
+void grid.offsetHeight;
+const t1 = performance.now();
+document.body.setAttribute('data-ms', (t1 - t0).toFixed(1));
+document.title = 'bench-done-' + s;
+</script></body></html>
+"""
+
+MEDIA_FRAMES = 1800  # the scratch clip is fixed at 60 s x 30 fps
+
+
+def _browser_user():
+    """The browser runs as the desktop user: that is real-world usage, and Firefox-family
+    browsers refuse a root profile. BENCH_USER overrides; SUDO_USER covers the sudo case."""
+    return os.environ.get("BENCH_USER") or os.environ.get("SUDO_USER") or getpass.getuser()
+
+
+def _assets():
+    """Deterministic workload assets under SCRATCH (never inside the repo). Idempotent.
+    check=True everywhere: a silently skipped population step poisons every later phase
+    (burned 2026-10-13). The browser profile must belong to the desktop user (see _browser_user).
+    GIT_CONFIG_COUNT=0: this host injects git config (LFS/credential hooks) that can trip
+    fixture commits — the fixture must be identical everywhere."""
+    import subprocess as _sp
+    import pwd
+    import shutil
+    env = dict(os.environ, GIT_CONFIG_COUNT="0")
+    d = os.path.join(SCRATCH, "real")
+    stamp = os.path.join(d, "ASSETS_V3")
+    if not os.path.exists(stamp):
+        shutil.rmtree(d, ignore_errors=True)  # never reuse an older generation of the fixtures
+    web, prof = os.path.join(d, "web"), os.path.join(d, "zen-profile")
+    clip, repo = os.path.join(d, "clip60.mkv"), os.path.join(d, "gitrepo")
+    for p in (web, prof, os.path.dirname(clip), repo):
+        os.makedirs(p, exist_ok=True)
+    page = os.path.join(web, "bench.html")
+    if not os.path.exists(page):
+        with open(page, "w") as fh:
+            fh.write(WEB_PAGE)
+    if not os.path.exists(clip):
+        _sp.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30",
+                 "-t", "60", "-pix_fmt", "yuv420p", clip],
+                stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=600, check=True)
+    if not os.path.exists(os.path.join(repo, ".git")):
+        _sp.run(["git", "init", "-q", "-b", "main", repo], timeout=120, check=True, env=env)
+        for i in range(200):
+            for j in range(25):
+                with open(os.path.join(repo, f"f{i:02d}_{j:02d}.txt"), "w") as fh:
+                    fh.write((f"file {i} {j}\n" * 40))
+            _sp.run(["git", "-C", repo, "add", "-A"], timeout=120, check=True, env=env)
+            _sp.run(["git", "-C", repo, "-c", "user.email=bench@local", "-c", "user.name=bench",
+                     "commit", "-qm", f"commit {i}"], timeout=120, check=True, env=env)
+        _sp.run(["git", "-C", repo, "switch", "-qc", "work"], timeout=60, check=True, env=env)
+        with open(os.path.join(repo, "work_only.txt"), "w") as fh:
+            fh.write("branch work\n" * 200)
+        _sp.run(["git", "-C", repo, "add", "-A"], timeout=60, check=True, env=env)
+        _sp.run(["git", "-C", repo, "-c", "user.email=bench@local", "-c", "user.name=bench",
+                 "commit", "-qm", "work commit"], timeout=60, check=True, env=env)
+        _sp.run(["git", "-C", repo, "switch", "-q", "main"], timeout=60, check=True, env=env)
+    if not os.path.exists(stamp):
+        with open(stamp, "w") as fh:
+            fh.write("v3\n")
+    try:
+        user = pwd.getpwnam(_browser_user())
+        for p in (web, prof):
+            for root, dirs, files in os.walk(p):
+                for n in dirs:
+                    os.chown(os.path.join(root, n), user.pw_uid, user.pw_gid)
+                for n in files:
+                    os.chown(os.path.join(root, n), user.pw_uid, user.pw_gid)
+            os.chown(p, user.pw_uid, user.pw_gid)
+    except Exception:
+        pass  # ownership is a convenience; a root-run browser would still work
+    return {"web": page, "profile": prof, "clip": clip, "repo": repo}
+
+
+def ph_web(dur):
+    """Web class: one fixed page = fixed JS compute + DOM build + layout, loaded in a real
+    browser engine (Zen/Firefox headless, scratch profile, desktop user). Wall time is the
+    engine's cost for identical work; phase_J/wall/psi come from the bracket."""
+    a = _assets()
+    shot = os.path.join(a["web"], "shot.png")
+    rc, out, err, wall = A.run(["sudo", "-u", _browser_user(), "--",
+                                "zen", "--headless", "--profile", a["profile"],
+                                "--screenshot", shot, "file://" + a["web"]],
+                               timeout=dur + 180)
+    return {"web_rc": rc, "web_wall_s": round(wall, 3)}
+
+
+def ph_mixed(dur):
+    """Mixed class: interactive latency while saturated — schbench wakeup percentiles measured
+    against a fully loaded machine (desktop-while-compiling)."""
+    import subprocess as _sp
+    sat = _sp.Popen(["stress-ng", "--cpu", "24", "--cpu-method", "matrixprod",
+                     "-t", str(int(dur) + 10), "--metrics-brief"],
+                    stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+    try:
+        time.sleep(2)
+        out = A.w_schbench(max(5, int(dur)))
+    finally:
+        sat.terminate()
+        sat.wait()
+    out["mixed_saturated"] = 1
+    return out
+
+
+def ph_media(dur):
+    """Media class: fixed x264 encode of the scratch clip (20 s x 30 fps = fixed work) —
+    frames/s and per-frame energy are the real content-creation numbers."""
+    a = _assets()
+    dst = os.path.join(SCRATCH, "real", "enc.mkv")
+    rc, out, err, wall = A.run(["ffmpeg", "-y", "-i", a["clip"], "-c:v", "libx264",
+                                "-preset", "medium", "-crf", "23", "-an", dst],
+                               timeout=dur + 300)
+    fps = 0.0
+    for line in (err + out).splitlines():
+        if "speed=" in line:
+            try:
+                fps = float(line.rsplit("speed=", 1)[1].split()[0].rstrip("x"))
+            except ValueError:
+                pass
+    return {"media_rc": rc, "media_wall_s": round(wall, 3),
+            "media_fps": round(MEDIA_FRAMES / wall, 2) if wall > 0 else 0,
+            "media_speed": fps, "media_frames": MEDIA_FRAMES}
+
+
+def ph_git(dur):
+    """Dev class: git responsiveness on a fixed 5000-file/200-commit tree — status, diff, log
+    walk and a branch round-trip, repeated 3x so the aggregate wall is far above timer noise."""
+    a = _assets()
+    out = {}
+
+    def timed(name, cmd):
+        rc, _, _, wall = A.run(cmd, timeout=dur + 90,
+                               env=dict(os.environ, GIT_CONFIG_COUNT="0"))
+        out[f"git_{name}_s"] = round(wall, 3)
+        out[f"git_{name}_rc"] = rc
+
+    reps = 3
+    t0 = time.time()
+    rc = 0
+    for _ in range(reps):
+        r, _, _, _ = A.run(["git", "-C", a["repo"], "status", "--short"], timeout=dur + 90,
+                           env=dict(os.environ, GIT_CONFIG_COUNT="0"))
+        rc = rc or r
+    out["git_status_s"] = round((time.time() - t0) / reps, 3)
+    out["git_status_rc"] = rc
+    timed("diff", ["git", "-C", a["repo"], "diff", "HEAD~50"])
+    timed("log", ["git", "-C", a["repo"], "log", "--oneline", "-500"])
+    timed("switch", ["git", "-C", a["repo"], "switch", "-q", "work"])
+    timed("back", ["git", "-C", a["repo"], "switch", "-q", "main"])
+    out["git_total_s"] = round(time.time() - t0, 3)
+    return out
+
+
+PHASE_FN.update({"web": ph_web, "mixed": ph_mixed, "media": ph_media, "git": ph_git})
+
+
 def run_phases(phases, dur):
     """Execute a list of phase names, returning per-phase metric dicts in order."""
     out = []
@@ -207,7 +380,7 @@ def run_phases(phases, dur):
 # CHUNK3
 
 def slot(arm, args, rep, mode, pass_name, dur=8, cycles=2, seg=20, trace_dir=None,
-         force=False, verbose=True):
+         force=False, verbose=True, phases=None):
     """One deep measurement slot for one arm.
 
     Deliberately does NOT route through cake between slots the way the first harness did. Recovery
@@ -236,7 +409,7 @@ def slot(arm, args, rep, mode, pass_name, dur=8, cycles=2, seg=20, trace_dir=Non
             return 0
 
     if mode == "phase":
-        seq = PHASES * cycles
+        seq = (phases or PHASES) * cycles
         est = len(seq) * dur + 40
     else:
         seq = [ALT_SAT, ALT_INT] * cycles
@@ -273,7 +446,7 @@ def slot(arm, args, rep, mode, pass_name, dur=8, cycles=2, seg=20, trace_dir=Non
     # One row per phase, so perf-stats.py can rank a single workload class on its own terms rather
     # than averaging unrelated classes together.
     for i, m in enumerate(per):
-        cycle = i // len(PHASES) if mode == "phase" else i // 2
+        cycle = i // len(phases or PHASES) if mode == "phase" else i // 2
         row = dict(base)
         row["phase"] = m.get("phase", "?")
         row["cycle"] = cycle
@@ -287,6 +460,10 @@ def slot(arm, args, rep, mode, pass_name, dur=8, cycles=2, seg=20, trace_dir=Non
         row["avg_W"] = m.get("phase_W", 0)
         row["psi_us"] = m.get("psi", {})
         row["sched"] = {k: v for k, v in m.items() if k not in ("psi",)}
+        # Derived efficiency metrics: energy-delay product (EDP) and ED^2P, both per phase.
+        w = float(m.get("phase_wall_s", 0) or 0)
+        j = float(m.get("phase_J", 0) or 0)
+        row["derived"] = {"edp": round(j * w, 3), "edp2": round(j * w * w, 3)}
         emit(row)
         if verbose:
             key = {"sat": "h2_bogo_rate", "storm": "t2", "light": "sb_wk_pct99_0"}.get(row["phase"])
@@ -300,8 +477,13 @@ def slot(arm, args, rep, mode, pass_name, dur=8, cycles=2, seg=20, trace_dir=Non
 
 def cmd_run(args):
     arms = [a for a in args.arms.split(",") if a.strip()]
+    phases = [p for p in args.phases.split(",") if p.strip()] or None
+    for p in phases or []:
+        if p not in PHASE_FN:
+            raise SystemExit(f"unknown phase: {p} (have: {', '.join(sorted(PHASE_FN))})")
     print(f"=== scx deep pass '{args.passname}': {len(arms)} arms x {args.reps} reps, mode={args.mode} ===")
     print(f"    arms: {', '.join(arms)}")
+    print(f"    phases: {', '.join(phases or PHASES)}")
     print(f"    dur={args.dur}s seg={args.seg}s cycles={args.cycles}  results -> {RESULTS}", flush=True)
     started = time.time()
     for rep in range(args.reps):
@@ -312,7 +494,7 @@ def cmd_run(args):
             arm, extra = A.parse_arm_spec(spec)
             t0 = time.time()
             slot(arm, extra, rep, args.mode, args.passname, dur=args.dur, cycles=args.cycles,
-                 seg=args.seg, force=args.force, verbose=True)
+                 seg=args.seg, force=args.force, verbose=True, phases=phases)
             print(f"    [{arm}{' ' + extra if extra else ''}] slot {time.time() - t0:.1f}s", flush=True)
     print(f"\n=== deep run complete in {(time.time() - started) / 60:.1f} min ===")
     return 0
@@ -410,7 +592,8 @@ def cmd_slot(args):
     if args.args:
         extra = args.args
     slot(arm, extra, args.rep, args.mode, args.passname, dur=args.dur, cycles=args.cycles,
-         seg=args.seg, force=args.force, verbose=True)
+         seg=args.seg, force=args.force, verbose=True,
+         phases=[p for p in args.phases.split(",") if p.strip()] or None)
     return 0
 
 
@@ -443,6 +626,8 @@ def main():
     p.add_argument("--dur", type=int, default=8, help="seconds per phase (phase mode)")
     p.add_argument("--seg", type=int, default=20, help="seconds per segment (alt mode)")
     p.add_argument("--cycles", type=int, default=2)
+    p.add_argument("--phases", default="",
+                   help="comma-separated phase subset (default: all)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_run)
 
@@ -455,6 +640,8 @@ def main():
     p.add_argument("--dur", type=int, default=8)
     p.add_argument("--seg", type=int, default=20)
     p.add_argument("--cycles", type=int, default=2)
+    p.add_argument("--phases", default="",
+                   help="comma-separated phase subset (default: all)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_slot)
 

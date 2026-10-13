@@ -96,7 +96,8 @@ sudo ./verify-adopted-settings.sh
 | Tool | Role |
 |---|---|
 | `scx_ab.py` | the A/B harness: arm switching with recovery, a quiescence gate, the workload battery, and validity gating. Subcommands: `run`, `slot`, `arms`, `status`, `summary`, `receipt` |
-| `scx_deep.py` | the phase-structured harness: six workload classes × two cycles per slot, per-phase metrics, and a 1 Hz trace. Subcommands: `run`, `slot`, `summary`, `trace` |
+| `scx_deep.py` | the phase-structured harness: ten workload classes (`idle light sat storm io mem` + `web mixed media git`, subset via `--phases`) with per-phase metrics (incl. derived `edp`/`edp2`) and a 1 Hz trace. Subcommands: `run`, `slot`, `summary`, `trace` |
+| `night-run.sh` | the unattended overnight runner: preflight, pre-clean (nothing may hold sched_ext outside the loader), panel blank, `systemd-inhibit --what=sleep:idle`, two passes (core/real) with arm rotation and a discarded warm-up rep, achieved-n report, and the owner's end-state restore |
 | `scx_sampler.py` | the 1 Hz trace recorder: RAPL, panel backlight, aggregate `/proc/stat` |
 | `scx_freq_probe.py` | the clock-distribution probe — the instrument that turned "uses less power" into a mechanism |
 | `scx-relabel.py` | normalises result labels to `<pass>:<arm>[<args>]` (needed because `perf-stats.py` selects rows by label) |
@@ -107,6 +108,12 @@ sudo python3 scx_ab.py run --pass passA --reps 5 \
 sudo python3 scx_deep.py run --pass deepA --reps 4
 sudo python3 scx_freq_probe.py 3
 ```
+
+Dependencies for the scheduler harness beyond the base tooling: `schbench-git`, `rt-tests`
+(hackbench), `stress-ng`, `ffmpeg`, a Firefox-family browser for the `web` phase (Zen here, run as
+the desktop user with a scratch profile), and `scxctl` from scx-tools. Workload fixtures (JS page,
+60 s clip, 5000-file git tree) are generated once under `BENCH_SCRATCH` and version-stamped —
+bump the stamp when a fixture definition changes, or the run silently reuses the old one.
 
 **Run the feasibility gate first.** `scx-w0-attach.sh` attaches each candidate in turn with default
 flags, captures the scheduler's own startup banner (the only place a resolved CPU-domain mask is ever

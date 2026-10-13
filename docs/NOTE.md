@@ -5,6 +5,45 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-14 — 05-sched-comprehensive-benchmark: overnight 12-arm scheduler campaign
+
+### Outcome
+
+- Study landed: `benchmarks/studies/05-sched-comprehensive-benchmark/README.md` — per-phase ranked
+  tables (medians + MW-U p vs bore, Gate-1+2), wake-latency axis, sensitivity runs, recommendation.
+  Rows: `benchmarks/data/scx-deep.jsonl` passes `night-core`/`night-real` (00:02–03:42), plus an
+  mlfq top-up series and a bore window-drift anchor (03:58–04:54).
+- **Verdict: no adoption.** Every scx arm significantly regresses desktop-feel latency (light wake
+  p99: bore 29 µs vs 459–6664 µs; storm t2/energy) while its batch wins (media/git/web/io) fail the
+  "no metric significantly worse" clause. BORE stays the default. Workload-scoped candidates
+  documented, not adopted: **tickless** (encode/build session: media fps +5.7% at −5.2% J, git
+  −23%, web wall −28%; idle J +71%, storm t2 2.5x) and **cosmos `-g -P -a`** (best scx wake tails;
+  storm 2x).
+- **mlfq REJECT (reliability):** `scx_mlfq` 1.3.11 crashes at attach with kernel runtime error
+  `non-existent DSQ 0x100c`/`0x101b` in `mlfq_sched_switch` (4/12 starts overnight, 3/50 post-run)
+  — upstream bug candidate. Achieved n: 5 usable per arm per pass except mlfq 4/3 (screening only).
+- **pandemonium** (owner's end state, restored and verified): not justified over BORE on phase-class
+  data (light wake p99 459 vs 29 µs; storm t2 5.18 vs 4.30), wins web energy −19%, git status, io
+  meta. Adaptivity claim untested — phase mode only; `scx_deep.py alt` mode is the instrument.
+
+### Harness changes (uncommitted, ask-first)
+
+`benchmarks/tools/{scx_deep.py,scx_deep_analyse.py,night-run.sh,README.md}`: real-world phases
+web/mixed/media/git + derived EDP; `LOWER_BETTER` gaps fixed (`sb_wk_max`, `sb_rq_pct50_0` were
+mis-annotating verdicts); night-run restore hardening (direct-attach needs root/CAP_BPF; log
+evidence + poll for `enabled` + retry); tools README dependency row.
+
+### Lessons (MEMORY candidates)
+
+- **Cross-window drift is real:** 5 h of continuous load moved the energy floor (bore light
+  phase_J 670→758 J, anchor outside night spread in 20/43 cells). Interleave+rotate within a run
+  is mandatory; cross-window row merging is unsound. The anchor falsification caught it.
+- **Direct-attach sched_ext requires root** (user: `libbpf -EPERM`); `scxctl stop` hangs while a
+  direct-attach scheduler holds sched_ext — kill direct-attach first, verify death, then stop.
+- **Restore steps must log and verify**: the failed 03:42 restore sent its evidence to `/dev/null`.
+- **Completion watchers must target exact marker filenames** — a stale `.done` from an earlier run
+  false-positived the first watcher.
+
 ## 2026-10-13 — scan applied: nodiscard + ASPM revert + wake/hygiene wave
 
 ### What changed

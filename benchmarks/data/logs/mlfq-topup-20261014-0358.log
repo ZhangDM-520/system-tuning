@@ -1,0 +1,71 @@
+[03:58:38] pre-clean done; top-up start (log=<home>/Projects/system-tuning/benchmarks/data/logs/mlfq-topup-20261014-0358.log)
+[03:58:38] attempt night-core rep=6 usable=2
+[03:59:26] attempt night-core rep=7 usable=2
+[04:00:14] attempt night-core rep=8 usable=2
+[04:01:03] attempt night-core rep=9 usable=2
+[04:01:51] attempt night-core rep=10 usable=2
+      c0 idle    30.0s  394.68J bl=272480
+      c0 light   30.0s  664.46J bl=272480 sb_wk_pct99_0=1910
+      c0 sat     30.1s  661.46J bl=272480 h2_bogo_rate=9638.06
+      c0 storm    8.8s  194.33J bl=272480 t2=4.244
+      c0 io       0.1s    1.97J bl=272480
+      c0 mem     31.5s  509.01J bl=272480
+[04:04:06] attempt night-core rep=11 usable=3
+[04:04:54] attempt night-core rep=12 usable=3
+[04:05:42] attempt night-core rep=13 usable=3
+      c0 idle    30.0s  124.18J bl=272480
+      c0 light   30.0s  671.26J bl=272480 sb_wk_pct99_0=2356
+      c0 sat     30.0s  661.14J bl=272480 h2_bogo_rate=9775.93
+      c0 storm    8.3s  183.16J bl=272480 t2=4.08
+      c0 io       0.1s    1.77J bl=272480
+      c0 mem     31.5s  295.31J bl=272480
+[04:07:57] attempt night-core rep=14 usable=4
+[04:08:45] attempt night-core rep=15 usable=4
+[04:09:33] attempt night-core rep=16 usable=4
+[04:10:21] attempt night-core rep=17 usable=4
+[04:11:09] attempt night-core rep=18 usable=4
+[04:11:58] attempt night-core rep=19 usable=4
+[04:12:46] attempt night-core rep=20 usable=4
+[04:13:37] attempt night-core rep=21 usable=4
+[04:14:25] attempt night-core rep=22 usable=4
+[04:15:13] attempt night-core rep=23 usable=4
+[04:16:02] attempt night-core rep=24 usable=4
+[04:16:53] attempt night-core rep=25 usable=4
+[04:17:41] attempt night-core rep=26 usable=4
+[04:18:29] attempt night-core rep=27 usable=4
+[04:19:17] attempt night-core rep=28 usable=4
+[04:20:06] attempt night-core rep=29 usable=4
+[04:20:54] attempt night-core rep=30 usable=4
+[04:21:42] night-core finished usable=4 rep_next=31
+[04:21:42] attempt night-real rep=6 usable=2
+[04:22:30] attempt night-real rep=7 usable=2
+[04:23:19] attempt night-real rep=8 usable=2
+[04:24:07] attempt night-real rep=9 usable=2
+      c0 web      1.3s   14.42J bl=272480
+      c0 mixed   32.0s 1018.30J bl=272480
+      c0 media    7.7s  229.93J bl=272480
+      c0 git      0.1s    1.45J bl=272480
+[04:24:52] attempt night-real rep=10 usable=3
+[04:25:40] attempt night-real rep=11 usable=3
+[04:26:29] attempt night-real rep=12 usable=3
+[04:27:17] attempt night-real rep=13 usable=3
+[04:28:08] attempt night-real rep=14 usable=3
+[04:28:56] attempt night-real rep=15 usable=3
+[04:29:44] attempt night-real rep=16 usable=3
+[04:30:33] attempt night-real rep=17 usable=3
+[04:31:21] attempt night-real rep=18 usable=3
+[04:32:09] attempt night-real rep=19 usable=3
+[04:32:57] attempt night-real rep=20 usable=3
+[04:33:45] attempt night-real rep=21 usable=3
+[04:34:34] attempt night-real rep=22 usable=3
+[04:35:22] attempt night-real rep=23 usable=3
+[04:36:10] attempt night-real rep=24 usable=3
+[04:36:58] attempt night-real rep=25 usable=3
+[04:37:49] attempt night-real rep=26 usable=3
+[04:38:38] attempt night-real rep=27 usable=3
+[04:39:26] attempt night-real rep=28 usable=3
+[04:40:14] attempt night-real rep=29 usable=3
+[04:41:02] attempt night-real rep=30 usable=3
+[04:41:51] night-real finished usable=3 rep_next=31
+[04:41:58] restored: state=enabled ops=pandemonium_5.20.0_x86_64_unknown_linux_gnu
+[04:41:58] topup done

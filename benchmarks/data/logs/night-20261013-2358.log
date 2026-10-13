@@ -1,0 +1,60 @@
+[23:58:56] WARN could not blank panel — study must filter to the dominant bl regime
+[23:58:56] start: 12 arms x 1 reps, dur=2, core then real, scratch=<home>/.cache/bench-scratch owner=<owner>
+=== scx deep pass 'shk-core': 3 arms x 1 reps, mode=phase ===
+    arms: bore, lavd, pandemonium
+    phases: idle, light, sat, storm, io, mem
+    dur=2s seg=20s cycles=1  results -> <home>/Projects/system-tuning/benchmarks/data/scx-deep.jsonl
+
+--- rep 0  order: bore -> lavd -> pandemonium
+      c0 idle     2.0s    2.58J bl=272480
+      c0 light    3.0s   75.89J bl=272480 sb_wk_pct99_0=27
+      c0 sat      6.0s  133.75J bl=272480 h2_bogo_rate=9904.02
+      c0 storm    0.7s   16.46J bl=272480 t2=0.281
+      c0 io       0.1s    1.94J bl=272480
+      c0 mem      4.5s   46.42J bl=272480
+    [bore] slot 20.6s
+      c0 idle     2.0s    3.97J bl=272480
+      c0 light    3.0s   75.98J bl=272480 sb_wk_pct99_0=731
+      c0 sat      6.1s  133.88J bl=272480 h2_bogo_rate=9404.21
+      c0 storm    0.8s   18.10J bl=272480 t2=0.324
+      c0 io       0.1s    2.00J bl=272480
+      c0 mem      5.5s   81.37J bl=272480
+    [lavd] slot 22.8s
+      c0 idle     2.0s    3.18J bl=272480
+      c0 light    3.0s   75.67J bl=272480 sb_wk_pct99_0=459
+      c0 sat      6.0s  133.62J bl=272480 h2_bogo_rate=9827.32
+      c0 storm    0.8s   18.69J bl=272480 t2=0.336
+      c0 io       0.1s    1.81J bl=272480
+      c0 mem      4.8s   36.21J bl=272480
+    [pandemonium] slot 22.3s
+
+=== deep run complete in 1.1 min ===
+[00:00:01] night-core finished rc=0
+=== scx deep pass 'shk-real': 3 arms x 1 reps, mode=phase ===
+    arms: bore, lavd, pandemonium
+    phases: web, mixed, media, git
+    dur=2s seg=20s cycles=1  results -> <home>/Projects/system-tuning/benchmarks/data/scx-deep.jsonl
+
+--- rep 0  order: bore -> lavd -> pandemonium
+      c0 web      1.5s   25.74J bl=272480
+      c0 mixed    7.0s  159.67J bl=272480
+      c0 media    9.1s  200.64J bl=272480
+      c0 git      0.1s    0.97J bl=272480
+    [bore] slot 22.1s
+      c0 web      1.3s   13.99J bl=272480
+      c0 mixed    7.1s  162.82J bl=272480
+      c0 media    8.8s  194.75J bl=272480
+      c0 git      0.1s    1.05J bl=272480
+    [lavd] slot 22.5s
+      c0 web      1.5s   14.00J bl=272480
+      c0 mixed    7.0s  163.19J bl=272480
+      c0 media    9.2s  201.15J bl=272480
+      c0 git      0.1s    0.81J bl=272480
+    [pandemonium] slot 23.5s
+
+=== deep run complete in 1.1 min ===
+[00:01:10] night-real finished rc=0
+[00:01:13] restored: state=enabled ops=pandemonium_5.20.0_x86_64_unknown_linux_gnu
+shk-core achieved valid reps: {'bore': '0 usable / 1 slots', 'lavd': '0 usable / 1 slots', 'pandemonium': '0 usable / 1 slots'}
+shk-real achieved valid reps: {'bore': '0 usable / 1 slots', 'lavd': '0 usable / 1 slots', 'pandemonium': '0 usable / 1 slots'}
+[00:01:13] night-run done rc_core=0 rc_real=0
