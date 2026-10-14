@@ -203,7 +203,7 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 11 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 3324 (0.006*) | 1.186e+04 (0.009*) | 8.691e+04 (0.009*) | 32.23 (32.31) | 0/7 |
 
 
-**Interpretation.** Desktop-while-compiling inverts part of the picture: three arms (**cosmos, bpfland, pandemonium**) beat the control on wake-p99 tail (3364/3372/3388 vs 3956 µs, p ≈ 0.008) — the only tail where BORE loses — while every arm collapses on wake **p50** (8 µs control vs 146–4392 µs). Request-latency p99 splits again: tickless is much better (1.9e4 vs 4.8e4 µs, p = 0.009) while the rest are worse. So `mixed` is genuinely trade-off-shaped: which arm wins depends on whether median wake, tail wake, or request latency is your pain — no arm wins all three, and this is where the owner's pandemonium has its best latency story.
+**Interpretation.** Desktop-while-compiling inverts part of the picture: three arms (**cosmos, bpfland, pandemonium**) beat the control on wake-p99 tail (3364/3372/3388 vs 3956 µs, p ≈ 0.008) — the only tail where BORE loses — while every arm collapses on wake **p50** (8 µs control vs 146–4392 µs). Request-latency p99 splits again: tickless is much better (1.9e4 vs 4.8e4 µs, p = 0.009) while the rest are worse. So `mixed` is genuinely trade-off-shaped: which arm wins depends on whether median wake, tail wake, or request latency is your pain — no arm wins all three, and this is where pandemonium has its best latency story.
 
 ### phase `media`
 
@@ -320,13 +320,13 @@ worth reporting (attach-time DSQ lifecycle race). Do not run this scheduler.
      (best scx; others 1146–6664), mixed p99/p99.9 3364/3372 µs (p99.9 halves the control),
      media energy −8.8%. Storm t2 doubles — again session-scoped.
 3. **mlfq: REJECT** — crashes the kernel scheduler at attach (see above); report upstream.
-4. **pandemonium (the scheduler this machine currently runs):** this campaign does not justify
-   it over BORE on desktop-feel metrics (light wake p99 459 vs 29 µs; storm t2 5.18 vs 4.30;
-   storm energy +20%); it wins web energy (−19%), git status latency, and io metadata. Its
-   adaptive-learning claim is **not tested here** — phase mode measures steady phase classes; the
-   alternation regime (`scx_deep.py` `alt` mode) is the instrument for that claim. Keeping it is
-   an owner preference/thesis, not an evidence-backed win from this data; the end state remains
-   pandemonium either way (harness restores it).
+4. **pandemonium (the adaptive arm):** this campaign does not justify it over BORE on
+   desktop-feel metrics (light wake p99 459 vs 29 µs; storm t2 5.18 vs 4.30; storm energy +20%);
+   it wins web energy (−19%), git status latency, and io metadata. Its adaptive-learning claim is
+   **not tested here** — phase mode measures steady phase classes; the alternation regime
+   (`scx_deep.py` `alt` mode) is the instrument for that claim. Running it is an owner
+   preference/thesis, not an evidence-backed win from this data; the harness restores whatever
+   end state the owner configures (scheduler identity deliberately not recorded in this repo).
 
 ## Design
 
@@ -349,6 +349,8 @@ worth reporting (attach-time DSQ lifecycle race). Do not run this scheduler.
   background load shared by every arm including the control.
 - Kernel `bore-lto` base; `ananicy-cpp` disabled; `bpftune` running; convergence at boot only
   (no periodic converger since 2026-10-11).
+- The owner's live scheduler is owner-managed and deliberately not recorded in this repo;
+  study claims scope strictly to the benchmarked arm flags listed in `## Design`.
 - Timer window sensitivity: the run starts 00:01:52, inside the 00:00–00:30 system-timer window
   (plocate/logrotate/shadow). Sensitivity run drops rep 1 in addition to the default rep 0.
 
@@ -374,8 +376,8 @@ worth reporting (attach-time DSQ lifecycle race). Do not run this scheduler.
    the absolute numbers; the control spread absorbs it.
 3. **End-state restore failed silently at run end**: the direct-attach restore died before
    attaching (evidence discarded to `/dev/null`); restored manually and the harness restore was
-   hardened to log evidence, poll for `enabled`, and fail loudly. Direct-attach
-   `scx_pandemonium` requires root (as user: `libbpf -EPERM`), and `scxctl stop` hangs while a
+   hardened to log evidence, poll for `enabled`, and fail loudly. Direct-attach schedulers
+   require root (as user: `libbpf -EPERM`), and `scxctl stop` hangs while a
    direct-attach scheduler holds sched_ext — kill direct-attach first, then stop.
 4. **Top-up rows are a separate collection window** (post-run, same phases/dur/cycles). A bore
    anchor series at the same hour falsifies window drift: anchor-bore medians must fall inside
