@@ -35,6 +35,11 @@ evidence + poll for `enabled` + retry); tools README dependency row.
 
 ### Lessons (MEMORY candidates)
 
+- **Version strings in a report must be read from the live source at write time.** The study 05
+  intro shipped `7.3-rc4` copied from study 04's September text while the machine had run
+  `7.3.0-rc6-1-cachyos-bore-lto` all along (owner caught it 2026-10-14; fixed the same day).
+  `uname -r` (and `who -b` to prove the kernel spans the run) before writing any kernel claim.
+
 - **Cross-window drift is real:** 5 h of continuous load moved the energy floor (bore light
   phase_J 670→758 J, anchor outside night spread in 20/43 cells). Interleave+rotate within a run
   is mandatory; cross-window row merging is unsound. The anchor falsification caught it.

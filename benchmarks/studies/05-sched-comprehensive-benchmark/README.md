@@ -2,7 +2,8 @@
 
 Overnight head-to-head of 11 `sched_ext` schedulers (the `scx` candidates, each at its owner's
 feature-flag configuration) against the control arm `bore` = kernel BORE base with no `sched_ext`
-loaded. Unattended run 2026-10-14 00:02–03:42 (kernel 7.3-rc4-cachyos-lto, BORE base, hybrid
+loaded. Unattended run 2026-10-14 00:02–03:42 (kernel 7.3.0-rc6-1-cachyos-bore-lto, booted
+2026-10-13 23:15 — same kernel for the whole run; BORE base, hybrid
 Zen 5 / Zen 5c, 24 threads). Rows: `benchmarks/data/scx-deep.jsonl`, passes `night-core` and
 `night-real`. Re-analysis (merged view incl. the post-run series): `python3
 benchmarks/tools/scx_deep_analyse.py --passes night-core,night-real --control bore --bl 272480`;
@@ -40,6 +41,8 @@ latency: wake-up p99 at light load (control 29 µs; scx arms 459–6664 µs) and
 (control t2 4.30; scx arms 4.3–10.7 with matching energy multipliers). The dominant win axis is
 batch throughput/energy: media encoding, git metadata ops, web page wall time, io metadata.
 
+**Interpretation.** Ranked by gate wins minus losses, tickless leads (22/16) but no arm is clean: every row carries significant regressions, which is exactly why the adoption rule returns "no change". The middle band (cosmos 10/11, cake 12/21, bpfland 11/18, flash 8/15) trades specific wins for tail/storm losses; the bottom band (flow 7/30, p2dq 4/26, beerland 7/21) is dominated. Counts are not equal-weight — a media-fps win matters more to an encode box than a storm-t2 loss — so the per-phase tables carry the actual decisions; this table only ranks.
+
 ### Per-phase ranked tables (medians; (p) = MW-U two-sided vs bore, * = p<0.05; gates B/W = Gate-1+2 wins/losses across all default metrics for that phase)
 
 ### phase `idle`
@@ -59,6 +62,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 10 | pandemonium | 30.21 (0.917) | 30 (30) | 0/0 |
 | 11 | tickless | 49.24 (0.117) | 30 (30) | 0/0 |
 
+
+**Interpretation.** The idle floor does not separate any arm from BORE: every median sits inside the control's own spread (all p ≥ 0.076). Idle draw on this platform is firmware/SoC-dominated, so the scheduler is not a lever here — and tickless's +71% median (49.2 vs 28.8 J) is a warning sign, not a measurement: it clears neither gate. mlfq's 132 J is screening-only. Conclusion: no idle-energy claim exists in this campaign, for any arm.
+
 ### phase `light`
 
 | rank | arm | sb_wk_pct50_0 | sb_wk_pct99_0 | sb_wk_pct99_9 | phase_J | wall p95 (max) | gates B/W |
@@ -75,6 +81,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 9 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 19 (0.005*) | 3332 (0.008*) | 4120 (0.009*) | 671.1 (0.117) | 30.05 (30.05) | 1/8 |
 | 10 | beerland | 7 (0.003*) | 1442 (0.009*) | 2372 (0.009*) | 670.9 (0.117) | 30.03 (30.03) | 0/7 |
 | 11 | flow | 103 (0.005*) | 6664 (0.007*) | 9936 (0.009*) | 670.4 (0.465) | 30.03 (30.03) | 0/7 |
+
+
+**Interpretation.** This is the phase that decides the desktop-feel verdict. BORE's wake path is exceptionally tight (p99 29 µs, p50 6 µs) and **every** scx arm regresses wake latency significantly (p99 459–6664 µs, all p ≈ 0.009): sched_ext dispatch overhead lands exactly on the interactive wake-up path. cosmos is the least-bad scx arm (p99 797 µs) and the only one whose extreme tail (p99.9 1762 µs) is statistically indistinguishable from the control — but its p99 is still 27x. flow is the worst case (p50 103 µs — the median wake is slower than the control's p99). Energy is flat across all arms (p > 0.1): this phase is purely about latency.
 
 ### phase `sat`
 
@@ -93,6 +102,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 10 | lavd[--per-cpu-dsq --enable-cpu-bw] | 9769 (0.917) | -0.0046 (0.016*) | 661.8 (0.465) | 30.05 (30.05) | 0/1 |
 | 11 | flow | 7649 (0.009*) | -0.0053 (0.016*) | 661.3 (0.175) | 30.05 (30.05) | 0/2 |
 
+
+**Interpretation.** Saturation is a scheduler-insensitive regime: 10 of 11 arms land within ±0.5% of the control's bogo rate and every energy median is statistically identical (saturation leaves the scheduler little freedom to matter). The two exceptions are one marginal win and one real loss: p2dq +0.5% (p = 0.009, gate-clean but small) and **flow −22%** (7649 vs 9771, p = 0.009) — flow collapses under sustained saturation. If you compile at full width all day, the scheduler choice barely matters except: don't use flow.
+
 ### phase `storm`
 
 | rank | arm | t2 | storm_gain | phase_J | wall p95 (max) | gates B/W |
@@ -109,6 +121,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 9 | cake | 5.211 (0.009*) | 0.0215 (0.251) | 233.1 (0.009*) | 10.64 (10.7) | 0/4 |
 | 10 | pandemonium | 5.182 (0.009*) | -0.0035 (0.602) | 232 (0.009*) | 10.55 (10.57) | 0/4 |
 | 11 | lavd[--per-cpu-dsq --enable-cpu-bw] | 4.817 (0.009*) | 0.0269 (0.028*) | 210.7 (0.009*) | 9.561 (9.857) | 0/5 |
+
+
+**Interpretation.** The storm phase (interactive churn under load) is where sched_ext's dispatch latency compounds: t2 and energy rise together and the wall tail balloons — control finishes in 8.8 s where tickless/flash need 21.8–22.1 s at p95. Only **flow** beats the control here (t2 4.27 vs 4.30, p = 0.016, 2/0 — its single clean win anywhere), and everyone else is significantly worse: mild for lavd/cake/pandemonium (t2 4.8–5.2, energy +20–26%), severe for bpfland/cosmos (t2 ~8.8, energy 2x), worst for tickless/flash/beerland (t2 9.5–10.9, energy 2.2–2.5x). This is the second decisive axis for a daily driver: burst-y desktop work punishes every tested scx arm.
 
 ### phase `io`
 
@@ -127,6 +142,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 10 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 0.003 (0.100) | 0.069 (0.463) | 1.838 (0.602) | 0.077 (0.095) | 0/0 |
 | 11 | flow | 0.002 (0.005*) | 0.086 (0.009*) | 2.016 (0.009*) | 0.088 (0.091) | 1/4 |
 
+
+**Interpretation.** Metadata/dd micro-times separate slightly but the magnitudes are milliseconds and the energies are ~1.5–2 J — small stakes overall. **lavd is the only clean sweep** (3/0): same meta/dd times at 18% less energy (1.52 vs 1.85 J, p = 0.009). cake and beerland are faster on metadata (0.003 s) without energy cost; pandemonium has the fastest metadata (0.002 s) but a slower dd (0.075 s, p = 0.028) so it nets 1/1; flow is the loser again (dd 0.086 s, energy 2.02 J, 1/4). Takeaway: sched_ext arms can trim metadata latency, but nothing here moves a user-visible needle on its own.
+
 ### phase `mem`
 
 | rank | arm | vm_s | phase_J | wall p95 (max) | gates B/W |
@@ -143,6 +161,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 9 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 31.52 (0.829) | 180.5 (0.602) | 31.52 (31.64) | 0/0 |
 | 10 | cake | 31.66 (0.008*) | 125.8 (0.175) | 31.68 (31.7) | 0/1 |
 | 11 | pandemonium | 31.67 (0.008*) | 164.5 (0.347) | 31.67 (31.95) | 0/1 |
+
+
+**Interpretation.** A practical null: every gate-clean separation is sub-1% of a 31.5 s phase (31.51 vs 31.52–31.67 s) — statistically real, physically meaningless. The energy column's apparent swings (beerland 109 J vs control 170 J median) are inside the control's spread (p = 0.175) and therefore not results. This phase is the clearest case for the effect-size caveat: gates are necessary, not sufficient, and nothing in `mem` justifies a decision either way.
 
 ### phase `web`
 
@@ -161,6 +182,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 10 | cosmos[-g -P -a] | 1.445 (0.076) | 11.96 (0.917) | 1.446 (1.475) | 0/0 |
 | — | mlfq | 1.139 | 18.54 | 1.032 (1.246) | n/a (screening) |
 
+
+**Interpretation.** A clean speed-vs-energy frontier. The latency arms load the page faster and pay for it in joules: tickless/lavd/bpfland/flow/beerland all cut wall time (1.07–1.15 s vs 1.49 s, p < 0.05) but raise energy to 12.7–13.6 J (+8–16%, gate-clean for the significant ones). The inverse pair is the interesting one: **cake and pandemonium deliver the page at control speed while cutting energy 16–19%** (9.78/9.52 vs 11.71 J, p = 0.009, 3/0 each) — the battery-relevant shape of the win. mlfq's screening row shows the worst of both worlds (1.14 s at 18.5 J).
+
 ### phase `mixed`
 
 | rank | arm | sb_wk_pct50_0 | sb_wk_pct99_0 | sb_rq_pct99_0 | wall p95 (max) | gates B/W |
@@ -177,6 +201,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 9 | beerland | 1970 (0.007*) | 1.08e+04 (0.009*) | 8.102e+04 (0.009*) | 32.13 (32.16) | 0/7 |
 | 10 | cake | 1906 (0.007*) | 8720 (0.009*) | 6.355e+04 (0.009*) | 32.06 (32.06) | 0/7 |
 | 11 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 3324 (0.006*) | 1.186e+04 (0.009*) | 8.691e+04 (0.009*) | 32.23 (32.31) | 0/7 |
+
+
+**Interpretation.** Desktop-while-compiling inverts part of the picture: three arms (**cosmos, bpfland, pandemonium**) beat the control on wake-p99 tail (3364/3372/3388 vs 3956 µs, p ≈ 0.008) — the only tail where BORE loses — while every arm collapses on wake **p50** (8 µs control vs 146–4392 µs). Request-latency p99 splits again: tickless is much better (1.9e4 vs 4.8e4 µs, p = 0.009) while the rest are worse. So `mixed` is genuinely trade-off-shaped: which arm wins depends on whether median wake, tail wake, or request latency is your pain — no arm wins all three, and this is where the owner's pandemonium has its best latency story.
 
 ### phase `media`
 
@@ -195,6 +222,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 10 | cake | 189.3 (0.028*) | 9.506 (0.028*) | 189.7 (0.917) | 9.517 (9.524) | 1/4 |
 | 11 | flow | 155.5 (0.009*) | 11.57 (0.009*) | 231.4 (0.009*) | 11.59 (11.66) | 0/5 |
 
+
+**Interpretation.** The encode phase is the strongest single-arm result in the campaign: **tickless is 5/0** — +5.7% fps, −5.4% wall, −5.2% energy (all gate-clean). Fewer scheduler ticks leave the encoder more CPU and less energy per frame. Five other arms (cosmos, beerland, flash, lavd, bpfland) also cut energy 5–9% without hurting fps; cake regresses fps (189 vs 201, p = 0.028) and **flow collapses** (155 fps, −23%). For a long encode/build box, this is the phase that justifies a scheduler switch — the basis for the tickless session-profile recommendation.
+
 ### phase `git`
 
 | rank | arm | git_total_s | git_status_s | phase_J | wall p95 (max) | gates B/W |
@@ -211,6 +241,9 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | 9 | lavd[--per-cpu-dsq --enable-cpu-bw] | 0.103 (0.009*) | 0.006 (0.317) | 0.908 (0.175) | 0.106 (0.108) | 1/4 |
 | 10 | flow | 0.095 (0.527) | 0.007 (0.018*) | 1.151 (0.009*) | 0.095 (0.099) | 0/3 |
 | 11 | p2dq[-a -y --dhq-enabled true --wakeup-llc-migrations --fork-balance true --enable-pelt true --latency-priority --wakeup-preemption --enable-eas true] | 0.102 (0.016*) | 0.007 (0.017*) | 1.113 (0.028*) | 0.104 (0.104) | 0/6 |
+
+
+**Interpretation.** Repo operations on a large tree favor the tickless/beerland/bpfland group: tickless is 6/2 (total 0.069 vs 0.090 s, −23%, and faster status/diff/switch) but pays +14% energy (1.171 J, p = 0.009); beerland/bpfland split the difference (faster total, higher energy). cake's row is an outlier that should not be claimed: 0.112 J on a ~0.1 s phase is at RAPL's resolution floor — an order of magnitude below every other arm and implausible per-watt; treat git-phase energy as unreliable at this phase length (the git wall times are solid). lavd and p2dq regress git outright (1/4 and 0/6).
 
 ### Headline medians (night rows; mlfq = all valid night reps, screening)
 
@@ -235,12 +268,16 @@ batch throughput/energy: media encoding, git metadata ops, web page wall time, i
 | git/git_total_s (s) | 0.090 | **0.069** | 0.096 | 0.070 |
 | git/phase_J (J) | 1.028 | 1.171 | **0.889** | 1.470 |
 
+**Interpretation.** The campaign in miniature: BORE wins every latency-tail row it competes in (light wake p99 29 µs, storm t2 4.3) and loses the batch rows (web/media/git). tickless is the extreme profile — best batch numbers, worst idle/storm medians; pandemonium hovers near the control with targeted web-energy and git-status wins; mlfq's column is screening-only and worst-of-field on energy. Bold marks the best of the four columns, not necessarily a gate-clean result (p-values live in the per-phase tables above).
+
 ### Wake-up latency p99 (µs, schbench, night rows) — the axis BORE wins outright
 
 | phase | bore | beerland | bpfland | cake | cosmos | flash | flow | lavd | mlfq* | p2dq | pandemonium | tickless |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | light | **29** | 1442 | 1146 | 1942 | 797 | 1514 | 6664 | 2084 | 2476 | 3332 | 459 | 2316 |
 | mixed | 3956 | 1.08e4 | 3372 | 8720 | **3364** | 1.365e4 | 1.205e4 | 6680 | 1.022e4 | 1.186e4 | 3388 | 6024 |
+
+**Interpretation.** One axis, one verdict at light load: the control's wake p99 is 29 µs — 16x to 230x tighter than every scx arm. Under saturation (`mixed`) the field compresses and three arms edge past the control (cosmos 3364, bpfland 3372, pandemonium 3388 vs 3956 µs), so sched_ext's wake cost is a light-load phenomenon and its loaded tail behavior can be competitive. For interactive feel at the desktop, nothing here beats kernel BORE.
 
 ### mlfq screening (n=4 core / n=3 real, cross-window: screening only)
 
@@ -276,8 +313,9 @@ worth reporting (attach-time DSQ lifecycle race). Do not run this scheduler.
    batch-throughput wins do not offset that for a daily driver.
 2. **Workload-scoped candidates (documented, not adopted):**
    - **tickless** — for long media encodes / build sessions: +5.7% encode fps at −5.2% energy,
-     git ops −23%, web wall −28%. Expect idle energy +71% and storm/wake regressions while it
-     runs; use as a session profile, not a default.
+     git ops −23%, web wall −28%. Expect storm/wake regressions while it runs — and note its
+     idle-energy median is +71% but clears neither gate (inside control spread, p = 0.117), so
+     that cost is a warning sign, not a measurement. Use as a session profile, not a default.
    - **cosmos `-g -P -a`** — the latency-side candidate among scx arms: light wake p99 797 µs
      (best scx; others 1146–6664), mixed p99/p99.9 3364/3372 µs (p99.9 halves the control),
      media energy −8.8%. Storm t2 doubles — again session-scoped.
