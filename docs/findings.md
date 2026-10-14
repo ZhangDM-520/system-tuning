@@ -213,10 +213,16 @@
   Retired with it: `state/managed/scx.toml`, `CHECK_MANAGED[SCHED]`, and `tests/run` cases 9–11
   (section-scoping coverage — the `section` engine stays in `lib/managed.sh`, untested until the
   record returns; restore that block from git history with the rework).
-**Observed 2026-10-10 (unmanaged).** live sched_ext is `pandemonium_5.20.0` (`enabled+all`) — not
-  the `scx_lavd` of the prior verdict and not repo-controlled. That matters for the freeze work
+**Observed 2026-10-10 (unmanaged).** live sched_ext is an out-of-tree scheduler (`enabled+all`;
+  identity owner-managed and deliberately not recorded in this repo) — not
+  the scheduler of the prior verdict and not repo-controlled. That matters for the freeze work
   (`docs/NOTE.md` 2026-10-08, H5): an out-of-tree scheduler was live during the 2026-09-20
   hung_task record. Check: `cat /sys/kernel/sched_ext/state /sys/kernel/sched_ext/root/ops`.
+**Observed 2026-10-14 (unmanaged).** live sched_ext is owner-managed direct-attach via session
+  autostart (identity deliberately not recorded, owner policy). `scx_loader` stopped and **masked**
+  2026-10-14: it is only D-Bus-activated anyway, `scxctl` is unusable until unmasked, and the
+  benchmark harness (`benchmarks/tools/night-run.sh`) fails its preflight while masked. SCHED
+  remains dropped/SKIPPED.
 **Prior state (superseded, scope preserved).** scx_lavd 1.1.3 `--powersave --per-cpu-dsq
   --enable-cpu-bw` (core compaction) was the applied state; compaction keeps the fewest cores awake
   (the race-to-sleep pairing), `sched_*` sysctls/uclamp/prefcore/core-parking stay untouched (teo +
@@ -226,8 +232,9 @@
 **Rejected here.** scx_pandemonium for power (its own README: +23.9% J/op versus EEVDF on its
   workload) — **qualified 2026-10-13 (owner)**: that benchmark may have been confounded by
   ananicy-cpp auto-nice (since disabled — with nice already optimised there is little scheduling
-  room left to compete for), and the owner runs `scx_pandemonium` deliberately to try the
-  scheduler's own heuristics; a full scheduler benchmark is planned on the owner's call.
+  room left to compete for), and the owner deliberately runs their chosen scheduler to try its
+  own heuristics (identity deliberately not recorded in this repo, owner policy 2026-10-14); a
+  full scheduler benchmark is planned on the owner's call.
   scx_rusty (spreads load across domains — structurally anti-compaction); core parking /
   hotplug (teo + C3 already park; hotplug churns sched_ext).
 **Reopen.** the scx rework: new config path/record against scx-tools-git, then restore the

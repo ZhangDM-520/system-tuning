@@ -2,7 +2,7 @@
 # mlfq top-up: scx_mlfq 1.3.11 crashes at attach ~2/3 of attempts (non-existent DSQ 0x100c,
 # kernel runtime error), so the overnight run only landed n=2 usable per pass. Retry slots
 # until each pass reaches 5 usable reps, same phases/dur/cycles as night-run.sh, then restore
-# the owner's direct-attach scx_pandemonium end state.
+# the owner's direct-attach end state (via $BENCH_RESTORE_CMD; identity not recorded here).
 set -u
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TOOLS=$ROOT/benchmarks/tools
@@ -20,13 +20,15 @@ log() { echo "[$(date +%T)] $*" | tee -a "$LOG"; }
 
 # pre-clean: kill direct-attach FIRST and prove it died. `scxctl stop` hangs while a
 # direct-attach scheduler holds sched_ext -- the loader cannot stop what it does not own.
-for p in $(pgrep -x scx_pandemonium 2>/dev/null); do kill "$p" 2>/dev/null; done
+RESTORE_CMD="${BENCH_RESTORE_CMD:?set BENCH_RESTORE_CMD to the owner direct-attach scheduler command}"
+RESTORE_BIN=${RESTORE_CMD%% *}
+for p in $(pgrep -x "$RESTORE_BIN" 2>/dev/null); do kill "$p" 2>/dev/null; done
 for _ in 1 2 3 4 5; do
-  pgrep -x scx_pandemonium >/dev/null 2>&1 || break
+  pgrep -x "$RESTORE_BIN" >/dev/null 2>&1 || break
   sleep 1
 done
-pgrep -x scx_pandemonium >/dev/null 2>&1 \
-  && { log "FATAL direct-attach scx_pandemonium survived kill"; exit 2; }
+pgrep -x "$RESTORE_BIN" >/dev/null 2>&1 \
+  && { log "FATAL direct-attach end-state scheduler survived kill"; exit 2; }
 timeout 30 scxctl stop >/dev/null 2>&1
 
 usable() {
@@ -60,7 +62,7 @@ done
 # restore the owner's end state (direct-attach needs root: CAP_BPF / RLIMIT_MEMLOCK)
 scxctl stop >/dev/null 2>&1
 sleep 2
-nohup scx_pandemonium >>/tmp/scx_pandemonium-topup-restore.log 2>&1 &
+nohup $RESTORE_CMD >>/tmp/scx-restore-topup.log 2>&1 &
 sleep 5
 log "restored: state=$(cat /sys/kernel/sched_ext/state) ops=$(cat /sys/kernel/sched_ext/root/ops 2>/dev/null || echo -)"
 log "topup done"

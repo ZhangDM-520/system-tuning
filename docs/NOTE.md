@@ -5,6 +5,30 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-14 — scx_loader masked; scheduler-identity policy for the repo
+
+### What changed
+
+- **`scx_loader` stopped and masked** (owner-approved). It was only D-Bus-activated
+  (`Type=dbus`, `org.scx.Loader`) — disabled at boot already, revived by any `scxctl` call. The
+  owner's scheduler is a direct-attach via session autostart and is unaffected. While masked:
+  `scxctl` is unusable, and `benchmarks/tools/night-run.sh` preflight now fails fast with a clear
+  message (it needs `scxctl` to switch arms — unmask before any scheduler benchmark).
+  Leftover `/run/systemd/system/scx_loader.service.d/` drop-in removed.
+- **Owner policy recorded: the owner's scheduler identity is never named in repo docs.** Scrubbed
+  the existing owner-usage claims (`docs/findings.md` `## sched` observed lines + owner-runs
+  clause; this journal's 2026-10-10/2026-10-13 wave entries; study 05 prose). Arm names remain
+  only as benchmark/analysis subjects. `benchmarks/tools/night-run.sh` and the study drivers now
+  resolve the end-state command at runtime (`$BENCH_RESTORE_CMD`, else the uncommented `scx_*`
+  session-autostart entry) and log `ops=set/none` instead of the ops name.
+- `./tests/run` 93/93 green after the findings edits.
+
+### Known residue
+
+The 2026-09-20 forensics entry quotes pstore kernel evidence that contains the scheduler ops
+string verbatim (literal evidence — deliberately not rewritten). Say the word if those quotes
+should be redacted too.
+
 ## 2026-10-14 — 05-sched-comprehensive-benchmark: overnight 12-arm scheduler campaign
 
 ### Outcome
@@ -22,9 +46,11 @@ this file keeps chronology and in-flight state. Newest entry first.
 - **mlfq REJECT (reliability):** `scx_mlfq` 1.3.11 crashes at attach with kernel runtime error
   `non-existent DSQ 0x100c`/`0x101b` in `mlfq_sched_switch` (4/12 starts overnight, 3/50 post-run)
   — upstream bug candidate. Achieved n: 5 usable per arm per pass except mlfq 4/3 (screening only).
-- **pandemonium** (owner's end state, restored and verified): not justified over BORE on phase-class
-  data (light wake p99 459 vs 29 µs; storm t2 5.18 vs 4.30), wins web energy −19%, git status, io
-  meta. Adaptivity claim untested — phase mode only; `scx_deep.py alt` mode is the instrument.
+- **pandemonium arm (benchmarked):** not justified over BORE on phase-class data (light wake p99
+  459 vs 29 µs; storm t2 5.18 vs 4.30), wins web energy −19%, git status, io meta. Adaptivity
+  claim untested — phase mode only; `scx_deep.py alt` mode is the instrument. The owner's
+  end-state scheduler was restored and verified after the run — identity deliberately not
+  recorded here (owner policy, 2026-10-14).
 
 ### Harness changes (uncommitted, ask-first)
 
@@ -78,7 +104,8 @@ evidence + poll for `enabled` + retry); tools README dependency row.
 - btrfs option-display trap: `nodiscard` is **invisible** in `findmnt`/`mount` — `discard=async` is
   the only discard token ever printed. Verify by its absence (or by dmesg "turning on async
   discard" at boot meaning the default was on).
-- Owner rulings this wave: scx_pandemonium runs deliberately (ananicy-cpp auto-nice is disabled;
+- Owner rulings this wave: a deliberately chosen out-of-tree scheduler runs (identity not
+  recorded, owner policy 2026-10-14; ananicy-cpp auto-nice is disabled;
   the old scheduler benchmark may have been confounded by it — with nice already optimised there is
   little scheduling room left; full benchmark pending owner's call), and bpftune is owner-kept
   (watch as a possible sysctl co-writer and as the lead for the unidentified `snd_hda_intel`
@@ -235,8 +262,9 @@ evidence + poll for `enabled` + retry); tools README dependency row.
   `hw-tune.fish` while the repo record moved on 10-10 — which is exactly what looked like "the
   daemon restored my edits". Lesson (→ `docs/MEMORY.md`): the record is intent; live follows only
   when apply succeeds.
-- Live sched_ext is `pandemonium_5.20.0` (`enabled+all`) — unmanaged and drifting from the
-  documented `scx_lavd`; a freeze-hypothesis input (2026-10-08 H5).
+- Live sched_ext was an unmanaged out-of-tree scheduler (`enabled+all`; identity not recorded,
+  owner policy 2026-10-14) — drifting from the repo-documented state; a freeze-hypothesis input
+  (2026-10-08 H5).
 - Observed after the wave: `./eco report` PROFILE reads `platform_profile=custom` (DRIFT). This
   wave only converged `asusd.ron`'s `platform_profile_on_battery: Balanced`, so the custom profile
   is most likely a manual toggle — owner to confirm before anything treats it as tuning.

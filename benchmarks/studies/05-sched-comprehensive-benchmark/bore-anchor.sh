@@ -23,8 +23,10 @@ while ! grep -q 'topup done' "$DATA"/logs/mlfq-topup-*.log 2>/dev/null; do
   pgrep -f '/tmp/mlfq-topup[.]sh' >/dev/null 2>&1 || { log "WARN top-up driver gone without marker"; break; }
   sleep 30
 done
-for p in $(pgrep -x scx_pandemonium 2>/dev/null); do kill "$p" 2>/dev/null; done
-for _ in 1 2 3 4 5; do pgrep -x scx_pandemonium >/dev/null 2>&1 || break; sleep 1; done
+RESTORE_CMD="${BENCH_RESTORE_CMD:?set BENCH_RESTORE_CMD to the owner direct-attach scheduler command}"
+RESTORE_BIN=${RESTORE_CMD%% *}
+for p in $(pgrep -x "$RESTORE_BIN" 2>/dev/null); do kill "$p" 2>/dev/null; done
+for _ in 1 2 3 4 5; do pgrep -x "$RESTORE_BIN" >/dev/null 2>&1 || break; sleep 1; done
 timeout 30 scxctl stop >/dev/null 2>&1
 sleep 2
 grep -qx disabled /sys/kernel/sched_ext/state \
@@ -48,7 +50,7 @@ done
 
 scxctl stop >/dev/null 2>&1
 sleep 2
-nohup scx_pandemonium >/tmp/scx_pandemonium-anchor-restore.log 2>&1 &
+nohup $RESTORE_CMD >/tmp/scx-restore-anchor.log 2>&1 &
 for _ in 1 2 3 4 5 6 7 8; do
   sleep 1
   grep -q enabled /sys/kernel/sched_ext/state 2>/dev/null && break

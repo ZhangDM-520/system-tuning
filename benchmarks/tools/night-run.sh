@@ -9,7 +9,8 @@
 #   * sleep/idle are inhibited for the whole run (the machine is left alone overnight);
 #   * no scheduler may hold sched_ext outside the loader before arm 1 (a direct-attached
 #     scheduler makes every scxctl start fail and silently poisons the run);
-#   * end state is restored exactly: direct-attach scx_pandemonium, as the owner runs it.
+#   * end state is restored exactly: the owner's direct-attach scheduler, resolved at
+#     runtime and deliberately never recorded in this repo (owner policy 2026-10-14).
 #
 # Owner identity and home are derived at runtime — this file must stay free of personal identity.
 set -u
@@ -34,15 +35,31 @@ PREFIX="${PASS_PREFIX:-night}"
 
 log() { echo "[$(date +%T)] $*" | tee -a "$LOG"; }
 
+# ---- owner end-state resolution ----------------------------------------------
+# $BENCH_RESTORE_CMD if set, else the uncommented scx_* spawn-at-startup entry in the
+# owner's niri autostart config. The identity stays out of git by policy.
+RESTORE_CMD="${BENCH_RESTORE_CMD:-}"
+if [ -z "$RESTORE_CMD" ]; then
+  _line=$(grep -v '^[[:space:]]*//' "$OWNER_HOME/.config/niri/cfg/autostart.kdl" 2>/dev/null \
+    | grep -m1 'spawn-at-startup.*scx_' || true)
+  [ -n "$_line" ] && RESTORE_CMD=$(printf '%s\n' "$_line" | grep -o '"[^"]*"' | tr -d '"' \
+    | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+  RESTORE_CMD=${RESTORE_CMD#sudo }
+fi
+RESTORE_BIN=${RESTORE_CMD%% *}
+[ -n "$RESTORE_BIN" ] || { log "FATAL cannot resolve the owner's end-state scheduler; set BENCH_RESTORE_CMD"; exit 2; }
+
 # ---- preflight ----------------------------------------------------------------
 for b in scxctl hackbench schbench stress-ng ffmpeg zen git python3; do
   command -v "$b" >/dev/null || { log "FATAL missing tool: $b"; exit 2; }
 done
+[ "$(systemctl is-enabled scx_loader 2>/dev/null)" = masked ] \
+  && { log "FATAL scx_loader is masked — arms switch via scxctl over D-Bus; unmask before benchmarking"; exit 2; }
 [ -r /sys/class/powercap/intel-rapl:0/energy_uj ] || { log "FATAL RAPL unreadable"; exit 2; }
 [ "$(cat /sys/class/power_supply/AC0/online 2>/dev/null)" = 1 ] || log "WARN not on AC — energy numbers carry battery-state confounds"
 
 # ---- pre-clean: nothing may hold sched_ext outside the loader -------------------
-for p in $(pgrep -x scx_pandemonium 2>/dev/null); do kill "$p" 2>/dev/null; done
+for p in $(pgrep -x "$RESTORE_BIN" 2>/dev/null); do kill "$p" 2>/dev/null; done
 scxctl stop >/dev/null 2>&1
 sleep 2
 grep -qx disabled /sys/kernel/sched_ext/state \
@@ -82,18 +99,19 @@ log "night-real finished rc=$rc_real"
 # produces no kernel event at all, so the exit code of a brief probe is the only proof.
 # Keep the evidence in the log instead of /dev/null and re-attach on failure.
 scxctl stop >/dev/null 2>&1
-RESTORE_LOG="$LOGDIR/night-$STAMP-pandemonium.log"
-restore_pandemonium() {
-  nohup scx_pandemonium >"$RESTORE_LOG" 2>&1 &
+RESTORE_LOG="$LOGDIR/night-$STAMP-restore.log"
+restore_end_state() {
+  # intentional word-splitting: RESTORE_CMD is a full command line
+  nohup $RESTORE_CMD >"$RESTORE_LOG" 2>&1 &
   for _ in 1 2 3 4 5 6; do
     sleep 1
     grep -q enabled /sys/kernel/sched_ext/state 2>/dev/null && return 0
   done
   return 1
 }
-restore_pandemonium || { sleep 2; restore_pandemonium; } \
-  || log "FATAL restore failed — see $RESTORE_LOG; start scx_pandemonium manually"
-log "restored: state=$(cat /sys/kernel/sched_ext/state) ops=$(cat /sys/kernel/sched_ext/root/ops 2>/dev/null || echo -)"
+restore_end_state || { sleep 2; restore_end_state; } \
+  || log "FATAL restore failed — see $RESTORE_LOG; start the owner's end-state scheduler manually"
+log "restored: state=$(cat /sys/kernel/sched_ext/state) ops=$([ -s /sys/kernel/sched_ext/root/ops ] && echo set || echo none)"
 
 # ---- achieved n per arm/pass, honestly ----------------------------------------
 python3 - "$DATA/scx-deep.jsonl" "$PREFIX" >>"$LOG" 2>&1 <<'PY'
