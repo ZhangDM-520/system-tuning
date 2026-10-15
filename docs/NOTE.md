@@ -5,6 +5,31 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-15 — session refresh from handoff; CURRENT.md pointer drift fixed
+
+### What changed
+
+- Session refreshed from `/tmp/handoff-20261015.md`. Prior campaign state confirmed complete and
+  pushed (0 commits ahead of `origin/master`); tree clean except the owner's untracked
+  `TEMP-benchmark-candidates` (untouched).
+- **Pointer drift fixed:** the handoff's read-order pointed at repo `docs/CURRENT.md`, which does
+  not exist — dated host snapshots live in host-level `~/docs/CURRENT.md` (global path-anchoring:
+  host facts win there). Handoff corrected; `docs/MEMORY.md` gained the pointer row so future
+  handoffs stop repeating it. No repo code or state changes.
+- Handoff commit list was one behind: `89fa15e` (bees verbosity cap, 2026-10-14) postdates the
+  newest listed `f80c918`; recorded in the handoff.
+
+### Open (owner decides)
+
+- Upstream bug candidate: the scx attach-time kernel runtime error (`non-existent DSQ` in
+  `mlfq_sched_switch`) — evidence in study 05; report not yet written.
+- Adaptive-scheduler thesis untested by phase-mode data; instrument is the `alt` mode of
+  `benchmarks/tools/scx_deep.py`.
+
+### Gate
+
+- `./tests/run` 93/93 green (2026-10-15) after the docs edits in this entry.
+
 ## 2026-10-14 — scx_loader masked; scheduler-identity policy for the repo
 
 ### What changed
