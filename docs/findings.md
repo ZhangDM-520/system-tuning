@@ -42,10 +42,25 @@
   ruling (grilling Q: plan v2). Superseded with scope: the benchmark era's `balance_power` uniform
   (test bed) and `balance_performance`-optimal (study 02) — both stamped to the campaign kernel and
   superseded by owner-settled `dynamic`.
+  Boot-wedge mechanism and mitigation (2026-10-17): the default→`dynamic` transition registers
+  per-CPU platform-profile handlers while holding `policy->rwsem` and fires the platform_profile
+  notify (CachyOS amd-pstate `vmlinux` analysis — report handle below); asusd's woken handler walks
+  those handlers under `profile_lock` wanting the same rwsem: D-state ABBA, wedged 3/3 dock-at-boot
+  boots (2026-10-17). Mitigation is exposure reduction, not a guarantee: `eco-power.service` is
+  `After=multi-user.target tlp.service asusd.service` (tlp's boot pass is the single boot
+  transition writer; ordering verified acyclic) and `eco-power.sh` writes only on drift, matching
+  the rendered `dynamic*` — a literal `!= dynamic` comparison would never suppress (kernel renders
+  `dynamic(profile:…)`), and a same-value write still takes `policy->rwsem`. Not claimed: tlp's own
+  boot pass still transitions 24 policies under the same kernel race; the durable fix is kernel-side
+  lock ordering (upstream report candidate, open).
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (governor + EPP + boost policy);
-  `state/owned/usr/local/sbin/eco-power.sh` re-asserts EPP after every event. Check:
+  `state/owned/usr/local/sbin/eco-power.sh` re-asserts EPP on drift (drift-only since 2026-10-17);
+  `state/owned/etc/systemd/system/eco-power.service` carries the boot ordering. Check:
   `cat /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference` (every policy reads
-  `dynamic`) and the `./eco report` EPP row.
+  `dynamic*`) and the `./eco report` EPP row; for the deadlock: boot journals + `vmlinux`
+  disassembly in `docs/research/2026-10-17-boot-epp-deadlock-report.md`, live ordering via
+  `systemctl cat eco-power.service`, and `journalctl -b | grep 'epp=dynamic'` (drift lines appear
+  only on a real re-assert).
 **Reopen.** only with measured joules-per-op evidence.
 
 ## ceil

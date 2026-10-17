@@ -1,6 +1,10 @@
 [Unit]
 Description=Apply eco power settings (ryzenadj caps + amdgpu dpm state)
-After=multi-user.target
+# Boot-time single-writer order (2026-10-17): after tlp's boot pass and asusd's startup,
+# so eco-power.sh's EPP loop stays drift-only instead of racing them — concurrent
+# dynamic-EPP transitions vs asusd's profile walk wedge in D-state
+# (docs/research/2026-10-17-boot-epp-deadlock-report.md).
+After=multi-user.target tlp.service asusd.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/eco-power.sh

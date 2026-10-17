@@ -5,6 +5,36 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-17 — boot D-state deadlock (dynamic EPP vs asusd): ordered + drift-only
+
+### What changed
+
+- Owner-side forensic report landed at `docs/research/2026-10-17-boot-epp-deadlock-report.md`:
+  3/3 dock-at-boot boots (2026-10-17) wedged in kernel `D` state inside `eco-power.sh`'s EPP loop.
+  Root cause per its `vmlinux` analysis: the default→`dynamic` transition registers per-CPU
+  platform-profile handlers while holding `policy->rwsem` and fires the platform_profile notify;
+  asusd's woken handler walks those handlers under `profile_lock` wanting the same rwsem (ABBA).
+- **Fix (exposure reduction, not a guarantee):** `eco-power.service` is now
+  `After=multi-user.target tlp.service asusd.service` — tlp's boot pass is the single boot
+  transition writer and eco-power runs last (ordering verified acyclic: no cycle lines in the
+  boot journals, `systemd-analyze verify` clean). `eco-power.sh`'s EPP loop is drift-only: it
+  matches the rendered `dynamic*` and writes only on drift — the report's proposed `!= dynamic`
+  comparison would never suppress on this kernel (`dynamic(profile:…)` is the rendered value), and
+  a same-value write still takes `policy->rwsem`.
+- Fixture mirrors re-synced in lockstep (`tests/fixtures/usr/local/sbin/eco-power.sh`,
+  `tests/fixtures/etc/systemd/system/eco-power.service`; the latter also picked up the missing
+  second `ExecStart` — pre-existing mirror drift). Ledger updated: `docs/findings.md` `## epp`.
+
+### Not claimed / open
+
+- The wedge is unreproduced under the fix (needs dock-at-boot reboot cycles): verification here is
+  code paths + suite + unit verification only. tlp's boot pass still transitions 24 policies under
+  the same kernel race — the durable fix is kernel-side lock ordering; upstream report candidate.
+
+### Gate
+
+- `./tests/run` 93/93 green (2026-10-17) after the docs edits in this entry.
+
 ## 2026-10-15 — session refresh from handoff; CURRENT.md pointer drift fixed
 
 ### What changed

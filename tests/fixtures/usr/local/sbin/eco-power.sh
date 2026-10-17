@@ -23,10 +23,23 @@ apply_cpu_power () {
   else
     log "hw-tune.fish missing — firmware power limits stand"
   fi
-  # EPP dynamic: driver adapts the bias per events/power source. Re-asserted here
-  # because asusd writes a static "Power" EPP on every platform-profile event.
+  # EPP dynamic: driver adapts the bias per events/power source. Kept as a drift-only
+  # re-assert: with the asusd casts off, dynamic survives platform-profile events
+  # (docs/findings.md ## asusd), and a write is not free — the default->dynamic transition
+  # registers platform-profile handlers while holding policy->rwsem and fires the
+  # platform_profile notify; asusd's woken handler walks those handlers under profile_lock
+  # wanting the same rwsem (D-state ABBA — three dock-at-boot wedges 2026-10-17, see
+  # docs/research/2026-10-17-boot-epp-deadlock-report.md). Write only on drift: the kernel
+  # renders dynamic mode as `dynamic(profile:...)`, so match dynamic*, never literal `dynamic`.
   for pol in /sys/devices/system/cpu/cpufreq/policy*; do
-    [ -w "$pol/energy_performance_preference" ] && echo dynamic > "$pol/energy_performance_preference" 2>/dev/null
+    [ -w "$pol/energy_performance_preference" ] || continue
+    case "$(cat "$pol/energy_performance_preference" 2>/dev/null)" in
+      dynamic*) ;;
+      *)
+        echo dynamic > "$pol/energy_performance_preference" 2>/dev/null \
+          && log "$(basename "$pol") epp=dynamic (drift)"
+        ;;
+    esac
   done
 }
 
