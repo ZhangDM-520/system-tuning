@@ -5,6 +5,36 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-17 — kernel attribution research landed; mechanism corrected
+
+### What changed
+
+- Background research delivered `docs/research/2026-10-17-epp-deadlock-kernel-attribution.md`
+  (primary sources: mainline `platform_profile`/`amd-pstate`/kernfs code, local `vmlinux` address
+  mapping, MARC prior art). **Verdict: kernel-blamed YES** — lock-order inversion in the
+  platform_profile core: `profile_lock` held across `device_register`/`device_unregister`/
+  `sysfs_update_group` (which drain kernfs active refs) vs sysfs callbacks taking `profile_lock`
+  under their active ref. Triggered from the cpufreq store path under `policy->rwsem` by the
+  in-tree amd-pstate dynamic-EPP feature (mainline commits `e30ca6dd5345`, `798c47593cca`,
+  `b7294b627598`); no CachyOS patch involved. Same cycle independently patched upstream by Daniel
+  Lezcano (2026-10-14 series, unmerged as of 2026-10-17; Message-IDs in the report — MARC is
+  unreachable from this host, so the thread was not re-fetched here).
+- **Correction to the earlier 2026-10-17 entry and to `docs/findings.md` `## epp`:** the ABBA via
+  `amd_pstate_profile_set` wanting `policy->rwsem` is REFUTED — the callback acquires zero locks
+  (mainline source + local disassembly). The `735d392` mitigation stands unchanged (exposure
+  reduction: fewer register/remove cycles and needless `policy->rwsem` acquisitions); only the
+  mechanism claim moved. Findings points at the attribution report as the mechanism's one home.
+
+### Open (owner decides)
+
+- Reply to the Lezcano series with the reproduction and the secondary ask (amd-pstate should not
+  register platform-profile devices under `policy->rwsem`)? Paste-ready block in the report's
+  recommended-fix section.
+
+### Gate
+
+- `./tests/run` 93/93 green (2026-10-17) after the docs edits in this entry.
+
 ## 2026-10-17 — boot D-state deadlock (dynamic EPP vs asusd): ordered + drift-only
 
 ### What changed
