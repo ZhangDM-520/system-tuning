@@ -88,8 +88,10 @@ How a change propagates (none of this is visible from a single file):
   `## May I claim?`) — doctrine, the adoption gates, and what is not a measurement all live there.
 - **`benchmarks/` keeps its publication privacy rule** (`benchmarks/docs/MEMORY.md`): hardware
   identity stays, personal identity is stripped — new `benchmarks/` prose names no home paths,
-  machine name, user, UUID, IP, or private host log. The repo root is private by design and holds
-  live paths such as `state/owned/home/...`.
+  machine name, user, UUID, IP, or private host log. The repo root is **public since 2026-10-17**
+  (owner decision) and necessarily holds live paths such as `state/owned/home/...` — that exposure
+  is accepted; the rule above still binds `benchmarks/` prose because the subtree is republished
+  outside the repo. Fact home: `docs/MEMORY.md`.
 - **Hybrid CPU topology is hardcoded**: `ceil_for_cpu` in `lib/readers.sh` maps Zen 5 =
   CPUs 0–3,12–15 (4.7 GHz ceiling) and Zen 5c = 4–11,16–23 (3.2 GHz). Per-CPU logic must reuse
   that mapping; `benchmarks/TEST-BED.md` has the fuller machine picture.

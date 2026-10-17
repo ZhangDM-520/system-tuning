@@ -5,6 +5,23 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-17 — repo public: forensics report committed, stale privacy doctrine fixed
+
+### What changed
+
+- Owner made the repo PUBLIC (2026-10-17). The upstream draft's links all resolve now: the
+  boot-forensics report (`docs/research/2026-10-17-boot-epp-deadlock-report.md`) is committed after
+  a personal-identifier scan (none found).
+- **Doctrine fixed to match reality:** "the repo root is private by design" was stale —
+  `.github/copilot-instructions.md` and `docs/MEMORY.md` now record public-since-2026-10-17 and the
+  owner-accepted exposure of load-bearing live paths (`state/owned/home/...`; `/home/…` user paths
+  in 11 tracked files). `benchmarks/docs/MEMORY.md`'s publication rule is unchanged and still binds
+  `benchmarks/` prose (that subtree is republished outside the repo).
+
+### Gate
+
+- `./tests/run` 93/93 green (2026-10-17) after the docs edits in this entry.
+
 ## 2026-10-17 — kernel attribution research landed; mechanism corrected
 
 ### What changed

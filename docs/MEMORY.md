@@ -12,9 +12,11 @@ Last reviewed: 2026-10-08.
 The canonical single-host tuning repo (merged 2026-09-28 from `eco-power` +
 `System-Tuning-Benchmarks`): eco/power convergence machinery (`eco`, `lib/`, `state/`, `tests/`),
 benchmark methodology + studies (`benchmarks/`), filesystem maintenance (XFS campaign archived
-2026-10-05 at `docs/archive/XFS-TUNING.md`; root is btrfs since the reinstall). Private: live
-paths such as `state/owned/home/...` are expected here, while the `benchmarks/` subtree keeps its
-publication privacy rule (see `benchmarks/docs/MEMORY.md`).
+2026-10-05 at `docs/archive/XFS-TUNING.md`; root is btrfs since the reinstall). Public since
+2026-10-17 (owner decision): live paths such as `state/owned/home/...` are exposed in-tree (they
+are load-bearing, e.g. the `eco-power.service` ExecStart), while the `benchmarks/` subtree keeps
+its stricter publication privacy rule (see `benchmarks/docs/MEMORY.md`) since that material is
+republished outside the repo.
 
 ## Facts that are easy to get wrong
 
