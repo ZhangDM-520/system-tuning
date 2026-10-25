@@ -83,7 +83,7 @@ interface from the failure.
 |----|---------|--------|
 | EPP | energy preference `dynamic` on every policy | findings#epp |
 | CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | findings#ceil |
-| CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | findings#co |
+| CO | curve optimizer final: coall -3, per-core -17 -17 -14 -14 -5 -7 -4 -2 | findings#co |
 | PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | findings#ppt |
 | ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | findings#eco |
 | WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | findings#wifi |

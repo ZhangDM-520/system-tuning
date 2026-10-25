@@ -82,13 +82,13 @@ check_ceil() {
 check_co() {
   local f missing=()
   f=$(owned_state_file "/home/zhangdm/.reserve/hw-tune.fish")
-  grep -qF 'set -l coall -4' "$f" 2>/dev/null || missing+=("set -l coall -4")
-  grep -qF 'set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3' "$f" 2>/dev/null \
-    || missing+=("set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3")
+  grep -qF 'set -l coall -3' "$f" 2>/dev/null || missing+=("set -l coall -3")
+  grep -qF 'set -l per_core_offsets -17 -17 -14 -14 -5 -7 -4 -2' "$f" 2>/dev/null \
+    || missing+=("set -l per_core_offsets -17 -17 -14 -14 -5 -7 -4 -2")
   if (( ${#missing[@]} )); then
     emit DRIFT CO "state/owned hw-tune.fish missing: $(join_by ', ' "${missing[@]}")"
   else
-    emit OK CO "state/owned hw-tune.fish has coall -4 and the 8 per-core offsets"
+    emit OK CO "state/owned hw-tune.fish has coall -3 and the 8 per-core offsets"
   fi
 }
 

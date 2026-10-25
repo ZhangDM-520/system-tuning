@@ -93,7 +93,7 @@
 
 ## co
 
-**Verdict.** Curve Optimizer: `coall -4`, per-core `-18 -18 -15 -15 -6 -8 -5 -3` — applied
+**Verdict.** Curve Optimizer: `coall -3`, per-core `-17 -17 -14 -14 -5 -7 -4 -2` — applied
   (check CO) · **Class:** settled
 **Why.** Free efficiency at unchanged temperature; the owner margin rule is one step and the tested
   point sits at that margin edge. Owner ruling Q6: the deep list was CoreCycler-validated
@@ -104,7 +104,8 @@
   sync" symptoms (`docs/findings.md` `## suspend-resume`); loosening is the safe direction. A second
   step on 2026-10-10 took the Zen 5 cores one step looser (`-20 -20 -17 -17`) to carry the raised
   4.7/3.2 GHz ceilings (`## ceil`, same-day owner ruling); 2026-10-11 loosened every offset by 2
-  units (`coall −4`; per-core `-18 -18 -15 -15 -6 -8 -5 -3`) — the stability direction again.
+  units (`coall −4`; per-core `-18 -18 -15 -15 -6 -8 -5 -3`) — the stability direction again;
+  2026-10-26 loosened every offset 1 more unit (`coall −3`; per-core `-17 -17 -14 -14 -5 -7 -4 -2`).
   Packing mechanism: 16-bit two's complement, per-core payload `core_idx * 2^20 + offset`;
   `hw-tune.fish` is the single writer — never write CO values from anywhere else.
 **Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer); the pinned

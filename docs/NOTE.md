@@ -5,6 +5,31 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-26 — undervolt loosened 1 unit (owner ruling); applied live
+
+### What changed
+
+- **CO loosened 1 unit (owner ruling)**: `coall -4 → -3`; per-core
+  `-18 -18 -15 -15 -6 -8 -5 -3 → -17 -17 -14 -14 -5 -7 -4 -2` — `hw-tune.fish` record + fixture +
+  `check_co` + `docs/findings.md` `## co` + the `docs/eco-power-README.md` check-registry CO row
+  (that row still held the pre-2026-10-08 values; refreshed to the new vector — the CEIL row in
+  the same table is stale since the 2026-10-10 ceiling raise and is left for the owner). The
+  stability direction again (never step CO deeper than validated).
+
+### Verification
+
+- `fish -n` (record + fixture) and `bash -n lib/readers.sh` clean; record/fixture byte-equal.
+  `./tests/run` 93/93 green.
+- `./eco apply --dry-run` planned=1 (the record only) → `./eco apply` planned=1 applied=1;
+  pre-image `~/.reserve/hw-tune.fish.bak-20261026`. Live SMU write acks decode exactly
+  (65533 = −3; 65519/1114095 = −17/−17; 2162674/3211250 = −14/−14; then −5/−7/−4/−2);
+  `./eco report` CO OK (new vector).
+
+### Next action
+
+Commit disposition ask-first (wave sits uncommitted). The 1-unit step is owner-directed, not a
+measurement.
+
 ## 2026-10-17 — repo public: forensics report committed, stale privacy doctrine fixed
 
 ### What changed

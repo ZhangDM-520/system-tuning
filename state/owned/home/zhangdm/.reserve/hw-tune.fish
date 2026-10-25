@@ -16,9 +16,10 @@
 # +3 +3 +3 +3 +1 +1 +1 +1). Rationale: CPU stalls at too-low voltage are a hard-freeze suspect
 # and can explain the "ryzen_smu out of sync" symptoms; loosening is the safe direction
 # (docs/judgment.md: never step CO deeper than validated). See docs/findings.md ## co.
-set -l coall -4
+set -l coall -3
 # 2026-10-11 owner ruling: every offset loosened 2 units (stability direction).
-set -l per_core_offsets -18 -18 -15 -15 -6 -8 -5 -3
+# 2026-10-26 owner ruling: every offset loosened 1 unit (stability direction).
+set -l per_core_offsets -17 -17 -14 -14 -5 -7 -4 -2
 
 # Ensure ryzenadj binary exists before execution
 if not type -q ryzenadj
