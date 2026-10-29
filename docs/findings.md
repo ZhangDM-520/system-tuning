@@ -93,7 +93,7 @@
 
 ## co
 
-**Verdict.** Curve Optimizer: `coall -3`, per-core `-17 -17 -14 -14 -5 -7 -4 -2` — applied
+**Verdict.** Curve Optimizer: `coall -7`, per-core `-24 -24 -21 -21 -9 -11 -8 -6` — applied
   (check CO) · **Class:** settled
 **Why.** Free efficiency at unchanged temperature; the owner margin rule is one step and the tested
   point sits at that margin edge. Owner ruling Q6: the deep list was CoreCycler-validated
@@ -106,6 +106,13 @@
   4.7/3.2 GHz ceilings (`## ceil`, same-day owner ruling); 2026-10-11 loosened every offset by 2
   units (`coall −4`; per-core `-18 -18 -15 -15 -6 -8 -5 -3`) — the stability direction again;
   2026-10-26 loosened every offset 1 more unit (`coall −3`; per-core `-17 -17 -14 -14 -5 -7 -4 -2`).
+  2026-10-29 owner ruling: the freeze is diagnosed as the resume-window race, not the undervolt —
+  the whole loosening chain is reverted and every offset is restored to the CoreCycler-validated
+  list (`coall −7`; per-core `-24 -24 -21 -21 -9 -11 -8 -6`, the most aggressive point we ran;
+  owner Q6 "never opportunistically deeper than validated" is not breached — this IS the validated
+  point). Caveat recorded, owner-accepted: the 4.7/3.2 ceilings (`## ceil`) were raised in 2026-10-10
+  together with a CO loosening step, so deep-undervolt + raised-ceiling is a new combination whose
+  validation predates the ceiling change.
   Packing mechanism: 16-bit two's complement, per-core payload `core_idx * 2^20 + offset`;
   `hw-tune.fish` is the single writer — never write CO values from anywhere else.
 **Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer); the pinned
@@ -150,23 +157,36 @@
 
 ## timer
 
-**Verdict.** `eco-power.service` is **boot-only**: the 600 s backstop timer and the AC-event udev
-  trigger were dropped (owner 2026-10-11) (check TIMER) · **Class:** settled
+**Verdict.** `eco-power.service` is **boot-only for the SMU paths**; the 4.7/3.2 cpufreq ceiling
+  has its own **drift-only watch** (`eco-ceil.timer` every 2 min + `82-eco-ceil.rules` on
+  power-source events → `eco-power.sh ceil`, no SMU writes) (check TIMER) · **Class:** settled
 **Why.** Owner ruling 2026-10-11 — the service runs at boot only: no periodic re-assert, no
-  power-event re-assert. Cost recorded, knowingly: live drift now survives until the next boot,
-  and SMU limits lost on AC flaps are no longer re-asserted until then. The resume hook still
-  re-asserts the SMU runtime knobs after suspend
+  power-event re-assert of the SMU paths. Cost recorded, knowingly: live drift now survives until
+  the next boot, and SMU limits lost on AC flaps are no longer re-asserted until then. The resume
+  hook still re-asserts the SMU runtime knobs after suspend
   (`state/owned/usr/lib/systemd/system-sleep/eco-power` calls `eco-power.sh resume` directly — it
-  does not start the service). Superseded with scope: the prior design (Q4/Q15) was event-driven
-  re-asserts (boot, resume, AC uevent) plus a 600 s timer guarding unknown drift — canary-verified
-  zero drift in an 11-minute window; its earlier 60 s cadence had been 719 runs/day of SMU writes
-  and wake bursts before being stretched to 600 s.
+  does not start the service). Owner ruling 2026-10-29: the cpufreq ceiling was observed
+  overwritten to the hardware max (5.1/3.3) between passes — the recorded "drift outlives a boot"
+  reopen case — so the ceiling now has a dedicated watch. Deliberately NOT a return of the old
+  backstop: the watch pass is drift-only and touches only `scaling_max_freq` (no ryzenadj/SMU
+  writes, no EPP writes — those stay on the boot/resume path because their register churn is the
+  wedge race). The caught-drift log line (`CEIL DRIFT policyN <old> -> <new>`) is also the
+  overwriter probe: the overwriter is unidentified (TLP is proven innocent — its
+  `CPU_MAX_PERF` is intel_pstate-only and `CPU_SCALING_MAX_FREQ` is unset); correlate catch
+  timestamps with journal events to name it. Superseded with scope: the prior design (Q4/Q15) was
+  event-driven re-asserts (boot, resume, AC uevent) plus a 600 s timer guarding unknown drift —
+  canary-verified zero drift in an 11-minute window; its earlier 60 s cadence had been 719
+  runs/day of SMU writes and wake bursts before being stretched to 600 s.
 **Evidence.** `state/owned/etc/systemd/system/eco-power.service` (boot chain: `eco-power.sh` then
   `eco apply` as `ExecStart=-`); retired 2026-10-11: `etc/systemd/system/eco-power.timer` and
-  `etc/udev/rules.d/99-eco-power.rules` (deleted from state and live). Check:
-  `systemctl is-enabled eco-power.service`, `ls /etc/systemd/system/eco-power.timer` (absent), the
-  `./eco report` TIMER row.
-**Reopen.** any drift that outlives a boot, or visible SMU-limit loss on AC flaps.
+  `etc/udev/rules.d/99-eco-power.rules` (deleted from state and live); ceil watch since
+  2026-10-29: `state/owned/etc/systemd/system/eco-ceil.{service,timer}`,
+  `state/owned/etc/udev/rules.d/82-eco-ceil.rules`, `eco-power.sh ceil`. Check:
+  `systemctl is-enabled eco-power.service eco-ceil.timer`, `ls
+  /etc/systemd/system/eco-power.timer` (absent), `journalctl -u eco-ceil.service | grep 'CEIL
+  DRIFT'`, and the `./eco report` TIMER row.
+**Reopen.** SMU-limit loss on AC flaps surviving a boot; a CEIL DRIFT catch that never correlates
+  with any journal event (a periodic writer — name it from the timestamps).
 
 ## wifi
 
@@ -203,25 +223,32 @@
 
 ## pcie
 
-**Verdict.** Global ASPM policy `powersave` (L1 on 30/35 links; the 5 BIOS-disabled links
-  runtime-suspend anyway), runtime PM `auto` on all 40 PCI devices, zero armed wake sources —
-  applied (check TLP observes the policy file) · **Class:** tunable
-**Why.** L1.2 is capable on the NVMe/SD/WiFi paths but disabled everywhere, and the only enabler is
-  the global `powersupersave`, which is instability-proven on this box; per-device `aspm_mask` does
-  not exist in this kernel. Dead end: do not chase. The NVMe link runs Gen3 x4 (downgraded from the
-  Gen4 cap) and stays there — forcing Gen4 costs watts. No `pcie_aspm=` cmdline: BIOS _OSC already
-  grants OS control. TLP is the single owner of the policy file (it runs once at boot and exits —
-  see `## daemons`).
-**Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (ASPM powersave + PM auto). Check:
+**Verdict.** Global ASPM policy `powersupersave` (L1 + L1 substates on 30/35 links; the 5
+  BIOS-disabled links runtime-suspend anyway), runtime PM `auto` on all 40 PCI devices, zero armed
+  wake sources — applied (check TLP observes the policy file) · **Class:** tunable
+**Why.** Owner ruling 2026-10-29: the freeze is diagnosed as the resume-window race (the 21:14
+  `amdgpu SMU: No response` template — `## suspend-resume`), not the aggressive tuning, so the
+  freeze-era conservative actions are reverted and the policy goes to the most aggressive point we
+  ran: `powersupersave` (it is the only enabler of L1.2 on the capable NVMe/SD/WiFi paths;
+  per-device `aspm_mask` does not exist in this kernel). This supersedes, with scope preserved, the
+  earlier "instability-proven on this box" attribution — that claim never carried an evidence
+  handle outside this section. If link-level instability (NVMe errors, WiFi drops) recurs, the
+  L1.2 substates are the first suspect and the policy drops back to `powersave`. The NVMe link runs
+  Gen3 x4 (downgraded from the Gen4 cap) and stays there — forcing Gen4 costs watts. No
+  `pcie_aspm=` cmdline: BIOS _OSC already grants OS control. TLP is the single owner of the policy
+  file (it runs once at boot and exits — see `## daemons`).
+**Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (ASPM powersupersave + PM auto). Check:
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
 **Arm (f) 2026-10-08 → closed 2026-10-13.** `performance` (= ASPM off) ran as the freeze-
   investigation arm (H2, ACPI/PCIe power-state wedge — `docs/NOTE.md` 2026-10-08) and ended by
-  owner selection: the idle-watts cost is accepted back and the policy reads `[powersave]` again
-  (readback verified 2026-10-13). The arm history stays recorded for the freeze work.
-**Rejected here.** ASPM `powersupersave` / L1.2 forcing (instability-proven here; no per-device
-  lever exists).
-**Reopen.** a kernel with a per-device ASPM lever (none exists today).
+  owner selection: the policy read `[powersave]` again (readback verified 2026-10-13). The arm
+  history stays recorded for the freeze work.
+**Prior state (superseded, scope preserved).** `powersupersave` / L1.2 forcing was
+  "instability-proven here" and rejected (no per-device lever exists) — overturned by the
+  2026-10-29 ruling above; the prior text lives in git history.
+**Reopen.** link-level instability under L1.2 (NVMe errors, WiFi drops) → policy back to
+  `powersave`; a kernel with a per-device ASPM lever (none exists today).
 
 ## sched
 
@@ -747,8 +774,9 @@
 **Verdict.** RESOLVED-IN-PRACTICE, causal chain uncertain — owner reports fixed (2026-09-29 23:05)
   after the stale `.bak` resume hook was removed; `hw-tune.fish` restored to the resume path
   (single-pass) by owner directive — which also serves as the A/B "on" arm. Capture stays armed
-  (SysRq=190, hung_task_panic=1 behind a 300 s hang bar, efi_pstore, 256M journals; the capture
-  set was risk-narrowed 2026-10-08 — see the auto-capture note below). If a freeze recurs, the first
+  (SysRq=190, hung_task_panic=1 behind a 120 s hang bar, efi_pstore, 256M journals; the capture
+  set was risk-narrowed 2026-10-08 and the tuning knobs restored 2026-10-29 — see the auto-capture
+  note below). If a freeze recurs, the first
   mitigation to re-apply is keeping hw-tune out of the resume window (the 21:14 `amdgpu SMU:
   No response` evidence); quiet asusd / TB-USB4 neutralize are the contingency ladder ·
   **Class:** tunable
@@ -779,7 +807,8 @@
   on each resume `journalctl -b 0 | grep -E 'System returned from sleep|Successfully thawed|SMU'`
   (thaw delta must stay < 1 s; `SMU: No response` must be absent).
 **Suspects not yet A/B'd.** `SOUND_POWER_SAVE_ON_AC/BAT` (1 → 0, applied 2026-10-08 — see arm (d)
-  below) vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
+  below; the 1 s value was restored 2026-10-29 when the owner attributed the freeze to the race
+  and reverted the conservative actions) vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
   was live during the 09-20 hung_task) vs whole-system freeze. Owner defers all experiments until
   a freeze recurs; runbook then is one variable at a time, ≥5 resume cycles on AC and 5 on
   battery, results to `docs/NOTE.md`: (a) baseline = current state; (b) quiet asusd: hold the
@@ -787,20 +816,21 @@
   managed line via `./eco apply`; (c) TB/USB4: drop `NHI0/NHI1` from the wakeup toggle list in
   `eco-power.sh` and add `thunderbolt` to `RUNTIME_PM_DRIVER_DENYLIST` in `01-eco.conf` — both
   revert by git; (d) `SOUND_POWER_SAVE_ON_*=0` in `01-eco.conf` — **applied prospectively
-  2026-10-08** (risk pass: stability outranks the codec's idle watts, and arm (d) applied alone is
-  itself informative — freeze stops → (d) gains credit, freeze recurs → (d) exonerated and the
-  ladder continues at (b)/(c)/(e)). The arm is live, not decorative: `/usr/sbin/tlp`
+  2026-10-08** (risk pass: stability outranks the codec's idle watts) **and reverted 2026-10-29**
+  (owner ruling: the freeze is the resume-window race; the `(1, Y)` codec reload cycle is accepted
+  back — a recurrence that wedges in `azx_get_response` again re-credits arm (d)):
   `apply_common_settings` calls `set_sound_power_mode`, which writes `snd_hda_intel`
   `{power_save,power_save_controller}` (module default is 10 s — `CONFIG_SND_HDA_POWER_SAVE_DEFAULT=10`,
   check `cat /sys/module/snd_hda_intel/parameters/power_save{,_controller}` after
-  `systemctl restart tlp`), so 0 = the `(0, N)` pair and no codec suspend/wake firmware-reload
-  cycle — the `## gpu-display` `power_save=1s` note is the old value's `(1, Y)` TLP outcome, not
-  stale; (e) kernel A/B on
+  `systemctl restart tlp`), so 1 = the `(1, Y)` pair and the codec suspend/wake firmware-reload
+  cycle is armed again — matching the `## gpu-display` `power_save=1s` note (that outcome, not
+  stale); (e) kernel A/B on
   `linux-cachyos-lts` (last escalation). Auto-capture is armed meanwhile:
   `kernel.hung_task_panic=1` (`state/owned/etc/sysctl.d/98-hung-task-panic.conf`) turns the next
-  silent wedge into a pstore panic record instead of a power-button event — gated behind
-  `kernel.hung_task_timeout_secs=300` (2026-10-08, was the 120 s default: the 2026-09-20 record
-  fired at 122 s of D-state, i.e. on the line where a slow-but-alive stall dies), and
+  silent wedge into a pstore panic record instead of a power-button event — at the 120 s default
+  line (restored 2026-10-29 with the freeze-era reverts; the 2026-10-08 risk pass's 300 s bar is
+  superseded — the 2026-09-20 record fired at 122 s of D-state and the owner accepts panicking
+  near that line for capture certainty), and
   `kernel.sysrq=190` keeps p/t/m/l dumps plus the s/u/b rescue while dropping the e/i/f
   mass-process-kill chord (bit 64) that one accidental keypress could fire.
 **Open (2026-10-08).** a second boot-time writer of `snd_hda_intel` `power_save` is unidentified:

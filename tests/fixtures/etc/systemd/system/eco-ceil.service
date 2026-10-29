@@ -1,0 +1,8 @@
+[Unit]
+Description=eco cpufreq ceiling re-assert (drift-only; no SMU writes)
+Documentation=file:///home/zhangdm/Projects/system-tuning/docs/findings.md
+After=multi-user.target tlp.service asusd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/eco-power.sh ceil

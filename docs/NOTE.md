@@ -5,6 +5,79 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-29 — freq-cap hardening: drift-only ceil watch (timer + power-event udev)
+
+### What changed
+
+- **Owner report:** the 4.7/3.2 GHz cap was observed overwritten (cores boosting to the ~5.1/3.3
+  GHz hardware max) by an unidentified actor. **TLP exonerated by probe** (`/usr/share/tlp/
+  func.d/10-tlp-func-cpu`): `CPU_SCALING_MAX_FREQ_*` is unset → "not_configured", and
+  `CPU_MAX_PERF_*` is intel_pstate-only → no-op on amd-pstate. Since the 2026-10-11 boot-only
+  ruling nothing re-asserted the cap between boot/resume, so a clobber stuck.
+- **Hardening (owner-selected shape):** `eco-power.sh` gains a `ceil` mode — a drift-only
+  ceiling pass (`apply_ceil`, logging `CEIL DRIFT policyN <old> -> <new>` on catch, which is
+  also the overwriter probe) with **no SMU writes and no sleep**. New owned units
+  `eco-ceil.service` + `eco-ceil.timer` (2 min) and udev rule `82-eco-ceil.rules`
+  (power-source change → the same pass). SMU paths stay boot/resume-only — the watch is
+  deliberately not the old 600 s backstop (its SMU churn is the wedge race). Fixtures mirrored;
+  `check_timer` now guards the full contract (boot-only SMU paths + ceil watch active) and the
+  systemctl stub answers for `eco-ceil.timer`; contract docs updated (`## timer`, README TIMER
+  row + intro, instruction-file convergence bullet). The 2026-10-11 boot-only ruling is amended
+  with scope: full pass boot-only, ceiling watched.
+
+### Verification
+
+- `bash -n` clean; `./tests/run` 93/93 (before and after the docs edits). `./eco apply`
+  deploys the 3 new files + updated `eco-power.sh`; `systemctl daemon-reload`,
+  `udevadm control --reload`, `eco-ceil.timer` enabled + active.
+- Falsification of the catch path (red-first): clobber one policy's `scaling_max_freq` to the
+  hardware max, then expect the watch to re-assert and log the catch; `./eco report` CEIL OK.
+
+### Next action
+
+When the next CEIL DRIFT catch lands, correlate its timestamp with journal events (asusd
+profile writes, TLP runs, hotplug) to name the overwriter. Commit disposition ask-first (with
+the revert wave).
+
+## 2026-10-29 — freeze-era conservative actions reverted (owner: the freeze is the race)
+
+### What changed
+
+- Owner ruling: the freeze is diagnosed as the resume-window race (the 21:14 `amdgpu SMU: No
+  response` template), **not** the aggressive tuning — the freeze-era conservative actions are
+  reverted to the most aggressive points we once ran. Four knobs (owner-selected):
+  - **CO restored to the CoreCycler-validated list**: `coall -7`, per-core
+    `-24 -24 -21 -21 -9 -11 -8 -6` (undoing the 10-08/10-10/10-11/10-26 loosening chain) —
+    `hw-tune.fish` record + fixture + `check_co` + `## co` + README CO row. Recorded caveat,
+    owner-accepted: the 4.7/3.2 ceilings were raised 10-10 together with a CO loosening step, so
+    deep-undervolt + raised-ceiling is a new combination.
+  - **ASPM `powersave` → `powersupersave`** (`01-eco.conf` + fixture; `## pcie` rewritten): the
+    old "instability-proven on this box" rejection is superseded with scope preserved — the claim
+    never carried an evidence handle outside `## pcie`. Reopen trigger recorded: link-level
+    instability under L1.2 → policy back to `powersave`.
+  - **`SOUND_POWER_SAVE_ON_*` 0 → 1** (arm (d) reverted; `(1, Y)` codec reload cycle accepted
+    back). A recurrence wedging in `azx_get_response` re-credits arm (d).
+  - **hung-task bar 300 s → 120 s** (`98-hung-task-panic.conf` + `## suspend-resume`; risk-pass
+    narrowing reverted, `kernel.hung_task_panic=1` unchanged): owner accepts panicking near the
+    2026-09-20 record's 122 s line for capture certainty.
+  - Kept as-is (not tunings, out of scope): `kernel.sysrq=190` (already the capable mask), the
+    EPP drift-only + boot-ordering wedge mitigation (it targets the diagnosed race), the
+    boot-only SMU cadence.
+
+### Verification
+
+- `./tests/run` 93/93; record/fixture byte-equal (hw-tune, 01-eco.conf). `./eco apply`
+  planned=4 applied=4 (3 owned files + the `kernel.hung_task_timeout_secs` runtime re-assert).
+- Consumer readbacks: `/sys/module/pcie_aspm/parameters/policy` = `[powersupersave]`;
+  `snd_hda_intel` `(power_save=1, power_save_controller=Y)`; `sysctl -n
+  kernel.hung_task_timeout_secs` = 120. SMU write acks decode exactly (65529 = −7;
+  65512/1114088 = −24/−24; 2162667/3211243 = −21/−21; then −9/−11/−8/−6).
+
+### Next action
+
+Freq-cap hardening wave (owner: the 4.7/3.2 cap was observed overwritten to ~5.1/3.3; TLP is
+proven innocent as the writer) — then commit disposition ask-first for both waves.
+
 ## 2026-10-26 — undervolt loosened 1 unit (owner ruling); applied live
 
 ### What changed

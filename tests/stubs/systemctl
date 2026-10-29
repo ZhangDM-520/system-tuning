@@ -4,6 +4,9 @@ case " $* " in
   *"is-enabled eco-power.service"*)
     echo enabled
     ;;
+  *"is-enabled eco-ceil.timer"*)
+    echo enabled
+    ;;
   *"is-enabled localsearch-3"*)
     # live behaviour: masked prints "masked" and exits 1
     echo masked

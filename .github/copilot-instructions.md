@@ -6,8 +6,9 @@ btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of wo
 - **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
   gate). The live system converges to this repo at boot (`eco-power.service`; `eco apply` runs as
   the second, failure-tolerant `ExecStart=-` of the same chain), and the resume hook re-asserts the
-  SMU runtime knobs — the 600 s backstop timer and the AC-event trigger were dropped 2026-10-11 —
-  so live is never the place to make a change.
+  SMU runtime knobs — the 600 s backstop timer and the AC-event trigger were dropped 2026-10-11;
+  the 4.7/3.2 cpufreq ceiling has its own drift-only watch (`eco-ceil.timer` + power-event udev,
+  no SMU writes) since 2026-10-29 — so live is never the place to make a change.
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
 - **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS

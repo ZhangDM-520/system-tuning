@@ -4,7 +4,8 @@ Source of truth for the power-efficiency stack of this machine (ASUS Zenbook S 1
 CachyOS, Ryzen AI 9 HX 370). **Doctrine: efficiency is work per joule. Race to sleep. Never power
 caps or throttling; V/f sweet-spot ceilings are legitimate.** The live system converges to this
 repo at boot (the resume hook re-asserts the SMU runtime knobs; the 600 s backstop timer and the
-AC-event trigger were dropped 2026-10-11). Live is never the place to make a
+AC-event trigger were dropped 2026-10-11, and the 4.7/3.2 ceiling has its own drift-only watch —
+`eco-ceil.timer` + power-event udev — since 2026-10-29). Live is never the place to make a
 change: edit here, apply, commit.
 
 ## Commands
@@ -83,13 +84,13 @@ interface from the failure.
 |----|---------|--------|
 | EPP | energy preference `dynamic` on every policy | findings#epp |
 | CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | findings#ceil |
-| CO | curve optimizer final: coall -3, per-core -17 -17 -14 -14 -5 -7 -4 -2 | findings#co |
+| CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | findings#co |
 | PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | findings#ppt |
 | ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | findings#eco |
 | WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | findings#wifi |
 | BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | findings#bt |
 | TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | findings#pcie |
-| TIMER | eco-power.service boot-only (backstop timer + AC trigger dropped 2026-10-11), chains eco apply | findings#timer |
+| TIMER | eco-power.service boot-only for SMU paths (backstop timer + AC trigger dropped 2026-10-11), chains eco apply; eco-ceil watch active (timer + power-event udev) | findings#timer |
 | IO | dirty writeback/expire 6000/6000, journald cap 256M | findings#writeback |
 | SCHED | scx management dropped 2026-10-10 (scx-tools layout change, rework deferred) — reports `SKIPPED`, scheduling is owner-managed | findings#sched |
 | PROFILE | asusd.ron claims hold (EPP/governor casts off, battery → Balanced) and the profile value is sane | findings#asusd |

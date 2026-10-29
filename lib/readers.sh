@@ -82,13 +82,13 @@ check_ceil() {
 check_co() {
   local f missing=()
   f=$(owned_state_file "/home/zhangdm/.reserve/hw-tune.fish")
-  grep -qF 'set -l coall -3' "$f" 2>/dev/null || missing+=("set -l coall -3")
-  grep -qF 'set -l per_core_offsets -17 -17 -14 -14 -5 -7 -4 -2' "$f" 2>/dev/null \
-    || missing+=("set -l per_core_offsets -17 -17 -14 -14 -5 -7 -4 -2")
+  grep -qF 'set -l coall -7' "$f" 2>/dev/null || missing+=("set -l coall -7")
+  grep -qF 'set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6' "$f" 2>/dev/null \
+    || missing+=("set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6")
   if (( ${#missing[@]} )); then
     emit DRIFT CO "state/owned hw-tune.fish missing: $(join_by ', ' "${missing[@]}")"
   else
-    emit OK CO "state/owned hw-tune.fish has coall -3 and the 8 per-core offsets"
+    emit OK CO "state/owned hw-tune.fish has coall -7 and the 8 per-core offsets"
   fi
 }
 
@@ -186,9 +186,11 @@ check_tlp() {
 }
 
 check_timer() {
-  # Boot-only service (owner 2026-10-11): the 600 s backstop timer and the AC-event udev
-  # trigger are both dropped, so eco-power.service runs at boot only. The frozen TIMER id now
-  # guards that contract instead of the cadence.
+  # SMU paths boot-only (owner 2026-10-11): the 600 s backstop timer and the AC-event udev
+  # trigger for the full pass stay dropped. Ceil watch active (owner 2026-10-29): the 4.7/3.2
+  # cap was observed overwritten to the hardware max between passes, so it gets a drift-only
+  # watch (eco-ceil.timer + 82-eco-ceil.rules -> `eco-power.sh ceil`; no SMU writes). The
+  # frozen TIMER id guards this whole contract.
   local svc st bad=()
   svc=$(live_path "/etc/systemd/system/eco-power.service")
   [[ -e $(live_path "/etc/systemd/system/eco-power.timer") ]] \
@@ -207,10 +209,18 @@ check_timer() {
   # missing repo or apply failure can never fail the boot-critical chain).
   grep -qF 'ExecStart=-/home/zhangdm/Projects/system-tuning/eco apply' "$svc" 2>/dev/null \
     || bad+=("eco apply ExecStart missing from eco-power.service")
+  [[ -e $(live_path "/etc/systemd/system/eco-ceil.timer") ]] \
+    || bad+=("eco-ceil.timer missing")
+  [[ -e $(live_path "/etc/systemd/system/eco-ceil.service") ]] \
+    || bad+=("eco-ceil.service missing")
+  [[ -e $(live_path "/etc/udev/rules.d/82-eco-ceil.rules") ]] \
+    || bad+=("udev ceil trigger missing")
+  st=$(trim "$(systemctl is-enabled eco-ceil.timer 2>&1 || true)")
+  [[ $st == enabled ]] || bad+=("eco-ceil.timer is-enabled=${st:-unreadable}")
   if (( ${#bad[@]} )); then
     emit DRIFT TIMER "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK TIMER "eco-power.service boot-only (timer + AC trigger dropped), chains eco apply"
+    emit OK TIMER "eco-power.service boot-only for SMU paths, eco-ceil watch active (timer + udev), chains eco apply"
   fi
 }
 

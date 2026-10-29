@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Convergence + eco settings (doctrine v2: work-per-joule, race-to-sleep).
-# Triggers: boot (eco-power.service) and resume (system-sleep hook). Owner 2026-10-11: the
-# 600 s backstop timer and the power-source udev trigger are dropped — the service is boot-only.
+# Triggers: boot (eco-power.service), resume (system-sleep hook), and the ceil watch
+# (eco-ceil.timer every 2 min + 82-eco-ceil.rules on power-source events → `eco-power.sh
+# ceil`): the watch pass is drift-only and touches only scaling_max_freq — no ryzenadj/SMU
+# writes, no EPP writes. Owner 2026-10-11: the 600 s backstop timer and the power-source udev
+# trigger for the FULL pass are dropped (SMU paths are boot/resume-only — their register churn
+# is the wedge race). Owner 2026-10-29: the 4.7/3.2 ceiling gets its own watch after being
+# observed overwritten to the hardware max between passes (docs/findings.md ## timer).
 #
 # Ordering note: any platform_profile write (asusd does one per power-source event)
 # makes the EC reset SMU limits and EPP — so the CPU-power block runs twice, with a
@@ -43,6 +48,35 @@ apply_cpu_power () {
   done
 }
 
+apply_ceil () {
+  # Per-core-class ceilings (owner 2026-10-10): Zen5 = 4.7 GHz, Zen5c = 3.2 GHz (docs/findings.md
+  # ## ceil). Single writer of scaling_max_freq. Drift-only, with the caught value logged:
+  # the cap was observed overwritten to the hardware max (5.1/3.3) by an unidentified actor
+  # (owner 2026-10-29) — "CEIL DRIFT policyN <old> -> <new>" lines give the journal the
+  # timestamps that identify the overwriter (findings.md ## timer).
+  local pol want cur
+  for pol in /sys/devices/system/cpu/cpufreq/policy*; do
+    [ -w "$pol/scaling_max_freq" ] || continue
+    if [ "$(cat "$pol/cpuinfo_max_freq" 2>/dev/null)" -gt 4400000 ]; then
+      want=4700000
+    else
+      want=3200000
+    fi
+    cur=$(cat "$pol/scaling_max_freq" 2>/dev/null)
+    if [ "$cur" != "$want" ]; then
+      echo "$want" > "$pol/scaling_max_freq" 2>/dev/null \
+        && log "CEIL DRIFT $(basename "$pol") $cur -> $want"
+    fi
+  done
+}
+
+# Mode dispatch: `ceil` is the watch pass (eco-ceil.service from timer/udev) — ceiling-only,
+# drift-only, no SMU writes and no sleep, safe to run every couple of minutes.
+if [ "$1" = ceil ]; then
+  apply_ceil
+  exit 0
+fi
+
 apply_cpu_power
 
 # cpuidle governor teo: better idle-state prediction, deeper sleep more often
@@ -50,19 +84,7 @@ apply_cpu_power
   && echo teo > /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null \
   && log "cpuidle governor=teo"
 
-# Per-core-class ceilings (owner 2026-10-10): Zen5 = 4.7 GHz, Zen5c = 3.2 GHz. Raised from
-# 4.6/3.0 together with the second CO loosening step — the extra voltage headroom buys the
-# higher ceilings (docs/findings.md ## ceil).
-for pol in /sys/devices/system/cpu/cpufreq/policy*; do
-  [ -w "$pol/scaling_max_freq" ] || continue
-  if [ "$(cat "$pol/cpuinfo_max_freq")" -gt 4400000 ]; then
-    echo 4700000 > "$pol/scaling_max_freq" 2>/dev/null \
-      && log "$(basename "$pol") scaling_max_freq=4700000"
-  else
-    echo 3200000 > "$pol/scaling_max_freq" 2>/dev/null \
-      && log "$(basename "$pol") scaling_max_freq=3200000"
-  fi
-done
+apply_ceil
 
 # Trim wake sources: internal keyboard (i8042 AT) + lid stay wake-capable (lid is EC-
 # handled, i8042 is not in the ACPI table); disarm USB/USB4/WLAN-root wakes. GPP0/GPP1 are the

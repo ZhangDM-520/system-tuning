@@ -1,0 +1,4 @@
+# Ceiling re-assert on power-source events (owner 2026-10-29): the 4.7/3.2 cap was observed
+# overwritten to the hardware max; suspects are event handlers (asusd/TLP profile passes).
+# Runs the ceil-only pass — no SMU writes (the boot-wedge race is about SMU/EPP churn).
+ACTION=="change", SUBSYSTEM=="power_supply", TAG+="systemd", ENV{SYSTEMD_WANTS}+="eco-ceil.service"
