@@ -5,6 +5,41 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-29 — 120 Hz VRAM floor proven (quiet A/B): mclk pinned 800, +1.76 W idle
+
+### What changed
+
+- **Finding recorded (`findings.md` `## gpu-display`, owner ruling keep-120):** quiet interleaved
+  A/B on battery (120/60/120/60 + display-off, 50 s arms, `energy_now` deltas + 1 Hz
+  `pp_dpm_mclk` + 1 Hz `self_refresh_active`, AI-CLI load removed):
+
+  | arm | P | mclk | PSR |
+  |---|---|---|---|
+  | 120 Hz | 8.036 / 7.958 W | 800 MHz 100/100 | 0 |
+  | 60 Hz | 6.238 / 6.241 W | 400 MHz 200/200 | 0 |
+  | display-off | 3.406 W | 400 MHz 50/50 | 0 |
+
+  Verdict: the reported UM5606 "120 Hz keeps VRAM high" behavior is real — the 120 Hz scanout
+  floor pins mclk at 800 and 400 is unreachable; 60 Hz reaches 400 instantly. Refresh premium
+  **+1.76 W at idle** (pairs agree within 0.08 W). PSR never engages (250/250) so VRR gives no
+  idle rescue (the old "VRR lets idle refresh drop" note is corrected in `## gpu-display`).
+  Owner keeps the 120 Hz default knowingly.
+
+### Findings recorded
+
+- **The measurer was the noise bar:** the first A/B was masked by the AI CLI's own ~218 % CPU
+  (mclk never left 800/937 even with the display off; gauge readings drifted ±1.4 W). The quiet
+  protocol (`~/Workspace/mclk-vrr-ab.sh`) waits for the CLI to exit before arming — run it only
+  with the agent closed, on battery.
+- Battery gauge vs `energy_now`: `power_now` read 0.8–1.0 W high under drift — the earlier ~60 s
+  "settle" tails in the owner's power-track runs are at least partly gauge smoothing (C-states
+  are µs–ms; peripheral autosuspend timers are 2–15 s).
+
+### Next action
+
+None required (owner keeps 120 Hz). Reopen: if idle runtime ever matters, the one-line `mode`
+switch to 60 Hz is the measured lever.
+
 ## 2026-10-29 — freq-cap hardening: drift-only ceil watch (timer + power-event udev)
 
 ### What changed

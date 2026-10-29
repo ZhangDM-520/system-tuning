@@ -687,10 +687,18 @@
   `power_dpm_force_performance_level=auto` is the working lever (applied by TLP); `power_dpm_state`
   is cosmetic and root-only on this SMU APU and `pp_power_profile_mode` does not exist —
   applied/accepted · **Class:** settled
-**Why.** Screen-on idle sits at mid DPM levels (sclk ~631–752 MHz, mclk never 400 MHz, ~15 W at 2–3%
-  busy) because the 2880×1800@120 VRR panel is lit — no safe write lever exists, and the screen-off
-  chain (see `## autosuspend`) is the correct remedy. ABM `panel_power_savings=1` is active; VRR
-  always-on lets idle refresh drop (keep); backlight via `amdgpu_bl1`, no cap. Adjacent device
+**Why.** Screen-on idle sits at mid DPM levels (sclk ~631–752 MHz, mclk never 400 MHz) because the
+  2880×1800@120 VRR panel is lit. Measured 2026-10-29 (quiet interleaved A/B on battery —
+  `energy_now` deltas + 1 Hz `pp_dpm_mclk`, agent load removed; protocol
+  `~/Workspace/mclk-vrr-ab.sh`): the 120 Hz scanout floor alone pins mclk at 800 MHz (100/100
+  samples) while 60 Hz reaches 400 MHz immediately (200/200; display-off likewise) — the refresh
+  premium is **+1.76 W at idle** (paired 8.04/7.96 vs 6.24/6.24 W). Owner ruling 2026-10-29: keep
+  the 120 Hz default knowingly (60 Hz is one `mode` line away in
+  `~/.config/umbriel/cfg/display.toml`). PSR `self_refresh_active` never engages (250/250
+  samples, static screen included) — the "VRR lets idle refresh drop" hope is not observed on
+  this panel; VRR stays enabled (owner keep) and the screen-off chain (see `## autosuspend`) is
+  the idle remedy. ABM `panel_power_savings=1` is active; backlight via `amdgpu_bl1`, no cap.
+  The refresh is the mclk lever — no safe DPM write lever exists. Adjacent device
   truth: audio `power_save=1s` + controller power gating on (the "10" baseline was stale); HDMI HDA
   suspends for hours when unused; the camera USB device suspends; 7 of 8 xHCI hubs suspend; no
   `control=on` offenders exist.
