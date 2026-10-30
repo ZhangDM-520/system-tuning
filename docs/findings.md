@@ -34,41 +34,40 @@
 
 ## epp
 
-**Verdict.** Energy preference `dynamic` on every cpufreq policy (amd-pstate-epp active mode) —
-  applied (check EPP) · **Class:** tunable
-**Why.** `dynamic` follows platform profile and power source and currently resolves
-  performance-biased, which is race-to-sleep correct (fast ramp to the ceiling, then deep idle). A
-  `power`/`balance_power` EPP makes firmware creep slowly: mechanism-opposite to the doctrine. Owner
-  ruling (grilling Q: plan v2). Superseded with scope: the benchmark era's `balance_power` uniform
-  (test bed) and `balance_performance`-optimal (study 02) — both stamped to the campaign kernel and
-  superseded by owner-settled `dynamic`.
-  Boot-wedge mechanism and mitigation (2026-10-17): the default→`dynamic` transition registers
-  per-CPU platform-profile devices from inside the cpufreq sysfs store (under `policy->rwsem`), and
-  the platform_profile core holds `profile_lock` across `device_register`/`sysfs_update_group` —
-  which drains kernfs active refs — while sysfs callbacks take `profile_lock` under their active
-  ref: a lock-order inversion in the platform_profile core, hit 3/3 dock-at-boot boots
-  (2026-10-17). Superseded same day: the sibling forensic report's ABBA via `amd_pstate_profile_set`
-  wanting `policy->rwsem` is refuted (the callback acquires zero locks, source + disassembly) —
+**Verdict.** Energy preference path **owned by power-profiles-daemon** (owner 2026-10-30: all
+  profile handling to PPD, asusd muted per `## asusd`) — the repo writes no EPP and asserts
+  ownership health (check EPP: PPD active, EPP sane on every policy) · **Class:** settled
+**Why.** Superseded with scope: the `dynamic`-everywhere era (owner ruling plan v2; drift-only
+  re-assert since 2026-10-17) — with PPD managing the profile path there is exactly one writer
+  and the repo's writer is retired. History: `dynamic` followed platform profile and power source
+  (performance-biased = race-to-sleep correct); benchmark-era `balance_power`/`balance_performance`
+  optima are stamped to the campaign kernel. Boot-wedge mechanism (2026-10-17, still true
+  kernel-side): the default→`dynamic` transition registers per-CPU platform-profile devices from
+  inside the cpufreq store under `policy->rwsem` while the platform_profile core holds
+  `profile_lock` across `device_register`/`sysfs_update_group` (kernfs active-ref drain) — a
+  lock-order inversion hit 3/3 dock-at-boot boots; the sibling ABBA claim is refuted;
   `docs/research/2026-10-17-epp-deadlock-kernel-attribution.md` is the mechanism's one home
-  (mainline lineage, no CachyOS patch; upstream fix = Lezcano 2026-10-14 series, unmerged as of
-  2026-10-17). Mitigation is exposure reduction, not a guarantee: `eco-power.service` is
-  `After=multi-user.target tlp.service asusd.service` (tlp's boot pass is the single boot
-  transition writer; ordering verified acyclic) and `eco-power.sh` writes only on drift, matching
-  the rendered `dynamic*` — a literal `!= dynamic` comparison would never suppress (kernel renders
-  `dynamic(profile:…)`), and a same-value write still takes `policy->rwsem`, the lock that freezes
-  every cpufreq consumer once the store wedges. Not claimed: tlp's own boot pass still transitions
-  24 policies through the same path; no userspace arrangement removes the inversion — the fix is
-  kernel-side.
-**Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (governor + EPP + boost policy);
-  `state/owned/usr/local/sbin/eco-power.sh` re-asserts EPP on drift (drift-only since 2026-10-17);
-  `state/owned/etc/systemd/system/eco-power.service` carries the boot ordering. Check:
-  `cat /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference` (every policy reads
-  `dynamic*`) and the `./eco report` EPP row; for the deadlock: kernel attribution (mechanism truth
-  home) `docs/research/2026-10-17-epp-deadlock-kernel-attribution.md`, initial boot forensics
-  `docs/research/2026-10-17-boot-epp-deadlock-report.md`, live ordering via
-  `systemctl cat eco-power.service`, and `journalctl -b | grep 'epp=dynamic'` (drift lines appear
-  only on a real re-assert).
-**Reopen.** only with measured joules-per-op evidence.
+  (upstream fix = Lezcano 2026-10-14 series). PPD writes plain EPP values, which do not take the
+  dynamic-transition path; nothing in the repo writes EPP any more (the drift-only loop in
+  `eco-power.sh` and TLP's `CPU_ENERGY_PERF_POLICY_*` lines retired 2026-10-30). Not claimed: the
+  kernel inversion itself is unfixed — any future dynamic-mode write re-enters the path.
+**Evidence.** `lib/readers.sh` `check_epp` (ownership health + `ppd-conflict` probe) +
+  `state/managed/` (profile-path records under `## asusd`);
+  `state/managed/ppd-conflict.toml` neuters the stock PPD unit's `Conflicts=tlp.service` — a
+  symmetric kill that TERMs whichever side starts second mid-run and fires TLP's
+  `ExecStop=tlp init stop` shutdown phase (observed 2026-10-30; a drop-in `Conflicts=` does NOT
+  clear a vendor list on systemd 262 — the managed line-patch is the mechanism) — plus
+  `state/owned/etc/systemd/system/power-profiles-daemon.service.d/10-eco-coexist.conf`
+  (`After=tlp.service`, TLP's one-shot boot pass first);
+  `state/owned/etc/tlp.d/01-eco.conf` (EPP lines removed — TLP self-defers to PPD
+  anyway: `10-tlp-func-cpu` `nop_ppd_active`); `state/owned/usr/local/sbin/eco-power.sh` (the
+  drift-only writer retired). Check: `systemctl is-active power-profiles-daemon`,
+  `powerprofilesctl get`, `cat /sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference`,
+  and the `./eco report` EPP row; for the deadlock: kernel attribution (mechanism truth home)
+  `docs/research/2026-10-17-epp-deadlock-kernel-attribution.md`, initial boot forensics
+  `docs/research/2026-10-17-boot-epp-deadlock-report.md`.
+**Reopen.** measured joules-per-op evidence that a fixed EPP beats PPD's mapping; or PPD failing
+  to hold the path (the row DRIFTs).
 
 ## ceil
 
@@ -169,8 +168,8 @@
   overwritten to the hardware max (5.1/3.3) between passes — the recorded "drift outlives a boot"
   reopen case — so the ceiling now has a dedicated watch. Deliberately NOT a return of the old
   backstop: the watch pass is drift-only and touches only `scaling_max_freq` (no ryzenadj/SMU
-  writes, no EPP writes — those stay on the boot/resume path because their register churn is the
-  wedge race). The caught-drift log line (`CEIL DRIFT policyN <old> -> <new>`) is also the
+  writes, no EPP writes — EPP is PPD-owned since 2026-10-30 and nothing in the repo writes it).
+  The caught-drift log line (`CEIL DRIFT policyN <old> -> <new>`) is also the
   overwriter probe: the overwriter is unidentified (TLP is proven innocent — its
   `CPU_MAX_PERF` is intel_pstate-only and `CPU_SCALING_MAX_FREQ` is unset); correlate catch
   timestamps with journal events to name it. Superseded with scope: the prior design (Q4/Q15) was
@@ -294,29 +293,33 @@
 
 ## asusd
 
-**Verdict.** asusd config is repo-owned — 4 managed records claim the EPP/governor cast surface and
-  the battery mapping; applied (check PROFILE) · **Class:** settled
-**Why.** Owner ruling 2026-10-13 ("take over the asusd config"): the owner's AC-on profile cast
-  `BalancePerformance` EPP — and `ac_command`/`bat_command` cast the cpufreq governor — on every
-  profile event, colliding with repo intent (EPP `dynamic` per `## epp`; governor MUST stay
-  `powersave`, see `01-eco.conf`). The claims: `platform_profile_linked_epp: false` (asusd stops
-  casting EPP; the kernel's `dynamic` does the profile-following), `ac_command: ""` and
-  `bat_command: ""` (TLP/eco own the governor), `platform_profile_on_battery: Balanced,` (Q10:
-  this firmware exposes only balanced/performance and the Quiet write failed EOPNOTSUPP).
-  Superseded with scope: the 2026-10-11 owner-managed ruling and the earlier single-line record.
+**Verdict.** asusd power-profile handling **muted** — 5 managed records pin the mute surface
+  (EPP/governor casts + AC/battery `platform_profile` switching); the profile value is
+  power-profiles-daemon's runtime choice (check PROFILE) · **Class:** settled
+**Why.** Owner ruling 2026-10-30 ("mute all asusctl power profile handling; all managed by
+  power-profiles-daemon") closes the documented asusd/PPD two-writer race the other way: PPD is
+  the single profile writer (re-enabled the same day), asusd keeps everything else (charge
+  thresholds, keyboard, …) but none of the profile path. The claims: `platform_profile_linked_epp:
+  false` (no EPP casting), `ac_command: ""` / `bat_command: ""` (no governor casting),
+  `change_platform_profile_on_ac: false` / `change_platform_profile_on_battery: false` (no
+  platform_profile writes on power events). Superseded with scope: the 2026-10-13 "take over the
+  asusd config" ruling and its Q10 `platform_profile_on_battery: Balanced` record (retired
+  2026-10-30 — inert once the switching is off; the Quiet EOPNOTSUPP fact stands in history).
   Mechanism to know, load-bearing for the freeze work: writing `platform_profile` resets the SMU
-  limits and EPP through the EC even when writing the same value, and asusd writes it on every
-  AC/battery event — with the casts off, `dynamic`/`powersave` now survive those events.
-**Evidence.** `state/managed/asusd.toml`, `asusd-epp.toml`, `asusd-ac-cmd.toml`,
-  `asusd-bat-cmd.toml` (one anchored line each in `/etc/asusd/asusd.ron`). Check: the `./eco report`
-  PROFILE row, `grep -E 'linked_epp|command:' /etc/asusd/asusd.ron`, and
-  `cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference`.
-**Rejected here.** mapping the battery profile to Quiet (EOPNOTSUPP on every battery event);
-  letting asusd cast EPP/governor (the collision this entry closes).
-**Reopen.** if the owner wants profile-linked EPP back — then pin the `profile_*_epp` values
-  instead and accept a static EPP per profile.
+  limits and EPP through the EC even when writing the same value — that is why exactly one writer
+  owns the attribute now.
+**Evidence.** `state/managed/asusd-epp.toml`, `asusd-ac-cmd.toml`, `asusd-bat-cmd.toml`,
+  `asusd-profile-ac.toml`, `asusd-profile-bat.toml` (one anchored line each in
+  `/etc/asusd/asusd.ron`). Check: the `./eco report` PROFILE row,
+  `grep -E 'linked_epp|command:|change_platform_profile' /etc/asusd/asusd.ron`, and
+  `journalctl -u asusd | grep ThrottlePolicy` (profile writes should stop).
+**Rejected here.** letting asusd cast or switch any of the profile path (the two-writer race);
+  battery-profile Quiet (EOPNOTSUPP on this firmware, 2026-10-13).
+**Reopen.** if the owner wants asusd profile switching back — then PPD must yield first.
 **Machine lies.** asusd rewrites its own `asusd.ron` on restart (map keys reordered, values
-  preserved) — compare by value, never by whole-file hash; startup noise "AC profile Balanced",
+  preserved) — compare by value, never by whole-file hash; the file must never end with an empty
+  line — asusd reverts the config when it finds one (owner warning 2026-10-30; check PROFILE
+  guards the EOF shape); startup noise "AC profile Balanced",
   "FanCurves: Not supported", "Backlight: No backlights found" is benign on this model.
 
 ## writeback

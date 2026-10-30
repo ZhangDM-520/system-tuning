@@ -82,18 +82,18 @@ interface from the failure.
 
 | ID | Asserts | Anchor |
 |----|---------|--------|
-| EPP | energy preference `dynamic` on every policy | findings#epp |
+| EPP | power-profiles-daemon owns the profile/EPP path (active; EPP sane on every policy) | findings#epp |
 | CEIL | cpufreq ceilings: Zen5 4.6 GHz, Zen5c 3.0 GHz (V/f sweet spots) | findings#ceil |
 | CO | curve optimizer final: coall -7, per-core -24 -24 -21 -21 -9 -11 -8 -6 | findings#co |
 | PPT | envelope 31/31/31 W, stapm-time 128; STAPM readback ACCEPTED below 31 | findings#ppt |
 | ECO | SMU `--power-saving` asserted (CCLK boost setpoint lowered) | findings#eco |
 | WIFI | WiFi power-save on (iw + NM + udev + TLP layers agree) | findings#wifi |
 | BT | btusb `enable_autosuspend=Y`, old no-autosuspend file stays disabled | findings#bt |
-| TLP | TLP policy file intact (ASPM powersave, EPP dynamic, PM auto) | findings#pcie |
+| TLP | TLP policy file intact (ASPM powersupersave, PM auto; EPP yielded to PPD) | findings#pcie |
 | TIMER | eco-power.service boot-only for SMU paths (backstop timer + AC trigger dropped 2026-10-11), chains eco apply; eco-ceil watch active (timer + power-event udev) | findings#timer |
 | IO | dirty writeback/expire 6000/6000, journald cap 256M | findings#writeback |
 | SCHED | scx management dropped 2026-10-10 (scx-tools layout change, rework deferred) — reports `SKIPPED`, scheduling is owner-managed | findings#sched |
-| PROFILE | asusd.ron claims hold (EPP/governor casts off, battery → Balanced) and the profile value is sane | findings#asusd |
+| PROFILE | asusd power-profile handling muted (casts + AC/battery switching off) and platform_profile sane | findings#asusd |
 | SD | SD reader unbound (runtime only, lost at reboot) | rollback#sd |
 | MISC | acp power gating on, localsearch masked, niri autostart spawns hw-tune | rollback#misc |
 

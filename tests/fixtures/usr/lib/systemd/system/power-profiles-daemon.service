@@ -1,0 +1,14 @@
+# fixture foreign file: power-profiles-daemon unit (converged shape — the stock
+# Conflicts=tuned.service tlp.service auto-cpufreq.service system76-power.service line is
+# patched by managed record ppd-conflict).
+[Unit]
+Description=Power Profiles daemon
+
+[Service]
+Type=dbus
+ExecStart=/usr/lib/power-profiles-daemon
+Conflicts=tuned.service auto-cpufreq.service system76-power.service
+After=multi-user.target display-manager.target
+
+[Install]
+WantedBy=graphical.target

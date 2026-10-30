@@ -12,7 +12,21 @@ ceil_for_cpu() {
 }
 
 check_epp() {
-  local dir f val n=0 bad=()
+  # The profile/EPP path is owned by power-profiles-daemon since 2026-10-30 (owner ruling:
+  # asusd muted, PPD sole writer; the repo's EPP writer and TLP's EPP lines retired the same
+  # day). The check asserts ownership health, not a fixed value: PPD alive, and every policy
+  # EPP sane. `dynamic*` is accepted because the kernel renders the amd-pstate dynamic mode
+  # (legacy value survives until PPD's next profile write).
+  local dir f val st n=0 bad=()
+  st=$(trim "$(systemctl is-active power-profiles-daemon 2>&1 || true)")
+  [[ $st == active ]] || bad+=("power-profiles-daemon is-active=${st:-unreadable}")
+  # Coexistence guard: the stock unit's Conflicts=tlp.service would TERM TLP mid-run and fire
+  # its shutdown phase whenever either side starts (managed record `ppd-conflict` patches it).
+  managed_probe ppd-conflict
+  case $MP_STATE in
+    ok) ;;
+    *) bad+=("ppd-conflict:$MP_STATE ${MP_MSG:-}") ;;
+  esac
   dir=$(live_path "/sys/devices/system/cpu/cpufreq")
   if [[ ! -d $dir ]]; then
     emit DRIFT EPP "no cpufreq policies found at $dir"
@@ -22,14 +36,16 @@ check_epp() {
     [[ -f $f ]] || continue
     n=$((n + 1))
     val=$(trim "$(cat "$f")")
-    [[ $val == dynamic* ]] || bad+=("$(basename "$(dirname "$f")")=$val")
+    case $val in
+      performance | balance_performance | balance_power | power | default | dynamic*) ;;
+      *) bad+=("$(basename "$(dirname "$f")")=$val") ;;
+    esac
   done
-  if (( n == 0 )); then
-    emit DRIFT EPP "no energy_performance_preference files found"
-  elif (( ${#bad[@]} )); then
-    emit DRIFT EPP "$(join_by ' ' "${bad[@]}") not dynamic ($((n - ${#bad[@]}))/$n ok)"
+  (( n > 0 )) || bad+=("no energy_performance_preference files found")
+  if (( ${#bad[@]} )); then
+    emit DRIFT EPP "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK EPP "all $n policies dynamic"
+    emit OK EPP "power-profiles-daemon active; EPP sane on all $n policies (PPD-owned)"
   fi
 }
 
@@ -252,14 +268,19 @@ check_sched() {
 }
 
 check_profile() {
-  # asusd config is repo-owned again (owner 2026-10-13, superseding the 2026-10-11
-  # owner-managed ruling): four records claim the cast surface that collided with repo intent —
-  # platform_profile_linked_epp (was casting BalancePerformance EPP on the AC profile),
-  # ac_command/bat_command (were casting the governor), and the battery-profile mapping.
-  # The platform_profile value itself stays asusd's runtime choice.
-  local pf id bad=()
+  # asusd power-profile handling is muted (owner 2026-10-30: all profile handling to
+  # power-profiles-daemon): five records pin the mute surface — EPP/governor casts and the
+  # AC/battery platform_profile switching. The profile VALUE is PPD's runtime choice.
+  local pf id bad=() f last2
+  f=$(live_path "/etc/asusd/asusd.ron")
   pf=$(trim "$(cat "$(live_path "/sys/firmware/acpi/platform_profile")" 2>/dev/null || true)")
-  for id in asusd asusd-epp asusd-ac-cmd asusd-bat-cmd; do
+  # asusd reverts the config when its file carries an empty end line (owner warning
+  # 2026-10-30) — guard the exact EOF shape: no blank line after the closing paren.
+  if [[ -f $f ]]; then
+    last2=$(tail -c 2 "$f" | od -An -tx1 | tr -d ' \n')
+    [[ $last2 == 0a0a ]] && bad+=("asusd.ron has an empty end line (asusd would revert)")
+  fi
+  for id in asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat; do
     managed_probe "$id"
     case $MP_STATE in
       ok) ;;
@@ -269,13 +290,13 @@ check_profile() {
     esac
   done
   case $pf in
-    balanced | performance | custom) ;;
+    quiet | balanced | performance | custom) ;;
     *) bad+=("platform_profile=${pf:-unreadable}") ;;
   esac
   if (( ${#bad[@]} )); then
     emit DRIFT PROFILE "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK PROFILE "asusd records match (EPP/governor casts off), platform_profile=$pf"
+    emit OK PROFILE "asusd power-profile handling muted (casts + profile switching off), platform_profile=$pf"
   fi
 }
 

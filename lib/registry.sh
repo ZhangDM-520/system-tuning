@@ -39,7 +39,8 @@ declare -A CHECK_DOC=(
 
 # Checks that assert a managed (foreign-file line-patch) record.
 declare -A CHECK_MANAGED=(
+  [EPP]=ppd-conflict
   [IO]=journald
-  [PROFILE]=asusd
+  [PROFILE]=asusd-epp
   [MISC]=niri-autostart
 )

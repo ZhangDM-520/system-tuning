@@ -5,6 +5,47 @@ this file keeps chronology and in-flight state. Newest entry first.
 
 ---
 
+## 2026-10-30 — power-profiles-daemon owns the profile path; asusd muted; TLP/PPD coexistence
+
+### What changed
+
+- **Owner ruling: all profile handling → power-profiles-daemon** (re-enabled by the owner);
+  asusd's power-profile handling muted and the repo's own EPP writers retired:
+  - asusd mute surface now 5 managed records — `platform_profile_linked_epp: false`,
+    `ac_command`/`bat_command` `""` (pre-existing) + new `change_platform_profile_on_ac/battery:
+    false` (no platform_profile writes on power events). The Q10 `platform_profile_on_battery:
+    Balanced` record retired (inert once switching is off). Live: mute lines verified, asusd
+    silent.
+  - `eco-power.sh`'s drift-only `dynamic` EPP loop retired and TLP's `CPU_ENERGY_PERF_POLICY_*`
+    lines removed — **nothing in the repo writes EPP now**; `check_epp` redefined to ownership
+    health (PPD active + EPP sane + `ppd-conflict` guard), `check_profile` asserts the mute +
+    platform_profile sane. EPP converged to PPD's value (`performance`, 24/24 policies) — the
+    dynamic→static transition (the wedge-path `platform_profile_remove`) ran clean.
+  - Contract docs updated: `findings.md` `## epp`/`## asusd`/`## timer`, README EPP/TLP/PROFILE
+    rows (the TLP row also picked up its stale ASPM value), MEMORY rows.
+- **TLP↔PPD coexistence fix (found by the TERM-kill during apply):** PPD's stock unit carries
+  `Conflicts=tlp.service` — symmetric, so starting either side TERMs the other mid-run and fires
+  TLP's `ExecStop=tlp init stop` shutdown phase (two kills observed). Fix: managed record
+  `ppd-conflict` line-patches the vendor unit's `Conflicts=` (drop-in `Conflicts=` does NOT clear
+  a vendor list on systemd 262 — burned here) + owned drop-in `After=tlp.service` so TLP's
+  one-shot boot pass lands first. Verified: TLP completes, both services active, merged Conflicts
+  free of `tlp.service`.
+- **asusd.ron EOF guard (owner warning):** asusd reverts the config when its file ends with an
+  empty line; `check_profile` now asserts the EOF shape (live ends `\n)` — clean).
+
+### Verification
+
+- `./tests/run` 93/93 (fixtures mirror the new records, the patched unit shape, and the drop-in).
+  `./eco apply` planned=2/4 applied all; report rows EPP/TLP/PROFILE OK.
+- Readbacks: `powerprofilesctl get`=performance, `platform_profile`=performance, 24/24 EPP
+  `performance`, asusd.ron EOF `0a 29` (no empty end line), mute lines ×2 present.
+
+### Next action
+
+Commit disposition ask-first. Note: `tlp init start` now completes under PPD; a future TLP
+package update will surface as DRIFT on `ppd-conflict` (managed drift detection) — re-apply to
+re-patch.
+
 ## 2026-10-29 — 120 Hz VRAM floor proven (quiet A/B): mclk pinned 800, +1.76 W idle
 
 ### What changed

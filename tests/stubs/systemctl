@@ -7,6 +7,9 @@ case " $* " in
   *"is-enabled eco-ceil.timer"*)
     echo enabled
     ;;
+  *"is-active power-profiles-daemon"*)
+    echo active
+    ;;
   *"is-enabled localsearch-3"*)
     # live behaviour: masked prints "masked" and exits 1
     echo masked

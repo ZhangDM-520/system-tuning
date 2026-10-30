@@ -12,13 +12,16 @@ OWNED_DIR="$STATE_DIR/owned"
 MANAGED_DIR="$STATE_DIR/managed"
 
 # state/managed/<file>.toml basename (load key) and the record ID the spec names it by.
-# scx dropped 2026-10-10 (scx-tools-git layout change; rework deferred) — restore with its record.
-# asusd re-claimed 2026-10-13 (owner: "take over the asusd config"): four records patch one
-# anchored line each in asusd.ron — the EPP/governor cast surface plus the battery mapping.
-MANAGED_IDS=(asusd asusd-epp asusd-ac-cmd asusd-bat-cmd journald niri-autostart trash-purge)
+# scx dropped 2026-10-10 (scx-tools-git layout change, rework deferred) — restore with its record.
+# asusd power-profile handling muted 2026-10-30 (owner: all profile handling to power-profiles-
+# daemon): five records patch one anchored line each in asusd.ron — EPP/governor casts plus the
+# AC/battery platform_profile switching. The Q10 battery-mapping record was retired with the
+# switching (inert once change_platform_profile_on_* is false).
+MANAGED_IDS=(asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat ppd-conflict journald niri-autostart trash-purge)
 managed_label() {
   case "$1" in
-    asusd | asusd-epp | asusd-ac-cmd | asusd-bat-cmd) printf 'asusd.ron' ;;
+    asusd-epp | asusd-ac-cmd | asusd-bat-cmd | asusd-profile-ac | asusd-profile-bat) printf 'asusd.ron' ;;
+    ppd-conflict) printf 'power-profiles-daemon.service' ;;
     trash-purge) printf 'trash-purge.timer' ;;
     journald) printf 'journald.conf' ;;
     niri-autostart) printf 'niri-autostart.kdl' ;;
