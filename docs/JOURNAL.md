@@ -1,9 +1,15 @@
-# NOTE — session journal
+# JOURNAL — system-tuning historical log
 
-Running log of work on this repository. Durable knowledge is mined upward into `docs/MEMORY.md`;
-this file keeps chronology and in-flight state. Newest entry first.
+Chronological action journal (newest entry first). New entries are one-line summary pointers to
+`.logs/action-<date>-<name>.md` summaries. Entries dated 2026-10-30 and older are the verbatim
+pre-migration record from `docs/NOTE.md` — multi-line detail, no action files exist for them
+(2026-10-31 memory-architecture migration: `AGENTS.md` + `docs/JOURNAL.md` + `.logs/scratchpad.md`
+replaced `docs/MEMORY.md` / `docs/NOTE.md` / `~/docs/CURRENT.md`; durable knowledge mined upward
+into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
+
+## 2026-10-31 — memory architecture migration: `docs/NOTE.md`/`docs/MEMORY.md`/`~/docs/CURRENT.md` consolidated into `AGENTS.md` (global memory; host snapshots folded into `## Current state`) + `docs/JOURNAL.md` (this log) + `.logs/scratchpad.md` (active buffer). → `.logs/action-2026-10-31-memory-architecture-migration.md`
 
 ## 2026-10-30 — power-profiles-daemon owns the profile path; asusd muted; TLP/PPD coexistence
 

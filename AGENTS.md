@@ -1,13 +1,21 @@
-# Project Memory — system-tuning
+# AGENTS.md — global memory (system-tuning)
 
-Durable facts, pitfalls and lessons for this repository. Established by inspection or decision;
-none of it should need re-derivation. Session chronology lives in `docs/NOTE.md`; benchmarks-era
-standing decisions stay in their original home at `benchmarks/docs/MEMORY.md` (pointer, not copy —
-one fact, one home).
+Last reviewed: 2026-10-31 (migrated from `docs/MEMORY.md`; per-row fact dates preserved below).
 
-Last reviewed: 2026-10-08.
+## Memory architecture
 
-## What this repository is
+- **Global memory — this file:** project overview, pitfalls, long-term rules. Established by
+  inspection or decision; none of it should need re-derivation.
+- **Active buffer — `.logs/scratchpad.md`:** current task state and working scratch; reset after
+  each action.
+- **Historical log — `docs/JOURNAL.md`:** chronological action journal, newest entry first; new
+  entries are one-line summary pointers to `.logs/action-<date>-<name>.md` summaries.
+- `benchmarks/` keeps its own memory pair (`benchmarks/docs/MEMORY.md`, `benchmarks/docs/NOTE.md`)
+  under its stricter publication privacy rule — pointer, not copy; one fact, one home.
+- Single source of truth: never duplicate rules or lists across docs — link with explicit
+  Markdown pointers. Stamp entries `Last reviewed: YYYY-MM-DD` and re-verify on edit.
+
+## Project overview
 
 The canonical single-host tuning repo (merged 2026-09-28 from `eco-power` +
 `System-Tuning-Benchmarks`): eco/power convergence machinery (`eco`, `lib/`, `state/`, `tests/`),
@@ -54,8 +62,93 @@ republished outside the repo.
 | `scx_mlfq` 1.3.11 crashes at attach on this kernel: kernel runtime error `non-existent DSQ 0x100c`/`0x101b` in `mlfq_sched_switch`, sched_ext auto-disables | Dated 2026-10-14: 4/12 starts survived the night run, 3/50 in a top-up — REJECT, upstream bug candidate. Any slot harness must treat a failed attach as one invalid marker row and never let it poison later arms (`benchmarks/studies/05-sched-comprehensive-benchmark/README.md`) |
 | Version strings in a report must be read from the live source at write time, never copied from an older doc | Burned 2026-10-14: study 05's intro shipped `7.3-rc4` copied from study 04 (September) while the run kernel was `7.3.0-rc6-1-cachyos-bore-lto`. `uname -r` + `who -b` (prove the kernel spans the measurement window) before writing any kernel claim |
 | The owner's scheduler identity is deliberately never recorded in repo docs (owner policy, 2026-10-14) | Refer to "the owner's direct-attach scheduler" only. Tooling resolves the command at runtime: `$BENCH_RESTORE_CMD` or the uncommented `scx_*` session-autostart entry (`benchmarks/tools/night-run.sh`) — never hardcode or name it in scripts, logs, or prose |
-| Dated host snapshots (kernel, RAM, disk) live in host-level `~/docs/CURRENT.md`; the repo has no `docs/CURRENT.md` | Global path-anchoring: `./docs/…` under `~/Projects/<Repo>` is the repo's docs, but host facts win in `~/docs/`. Burned 2026-10-15: a session handoff pointed its read-order at a repo `docs/CURRENT.md` that does not exist. Never bake volatile values into repo docs — probe and record them in `~/docs/CURRENT.md` |
+| Dated volatile snapshots (kernel, RAM, disk, host config state) live in `AGENTS.md` `## Current state` (folded from host-level `~/docs/CURRENT.md`, retired 2026-10-31) | Entries are dated and replaced on re-measure, never accumulated; never bake volatile values into static doctrine docs. Burned 2026-10-15: a session handoff pointed its read-order at a repo `docs/CURRENT.md` that never existed — know which home a file lives in before writing a path |
 | TLP is not a `scaling_max_freq` writer on this box: `CPU_SCALING_MAX_FREQ_*` unset → "not_configured", `CPU_MAX_PERF_*` is intel_pstate-only → no-op on amd-pstate | Dated 2026-10-29. Probe `/usr/share/tlp/func.d/10-tlp-func-cpu` (the real module — the entrypoint delegates) before blaming TLP for cpufreq cap clobbers; the observed overwriter is still unidentified and the ceil watch logs `CEIL DRIFT policyN <old> -> <new>` to name it (`docs/findings.md` `## timer`) |
 | TLP also self-defers EPP to power-profiles-daemon: with PPD running, `set_cpu_perf_policy` returns early (`nop_ppd_active`) and warns instead of writing | Dated 2026-10-30. `/usr/share/tlp/func.d/10-tlp-func-cpu`; the repo's `CPU_ENERGY_PERF_POLICY_*` lines were removed the same day anyway (PPD sole writer — `docs/findings.md` `## epp`) |
 | `asusd.ron` must never end with an empty line: asusd reverts the config when it finds one (owner warning) | Dated 2026-10-30. After every patch verify EOF bytes (`tail -c 2 /etc/asusd/asusd.ron \| od -An -tx1` → must not be `0a 0a`); check PROFILE now guards this (`docs/findings.md` `## asusd`) |
 | A drop-in `Conflicts=` (empty assignment) does NOT clear a vendor unit's list on systemd 262 — the vendor value survives | Dated 2026-10-30. To remove one entry from a package unit's list, use a managed line-patch of the vendor file (`state/managed/`), not a drop-in; burned while neutering PPD's `Conflicts=tlp.service` (`docs/findings.md` `## epp`) |
+
+## Current state (volatile dated snapshots)
+
+Folded from host-level `~/docs/CURRENT.md` at the 2026-10-31 memory-architecture migration (host file retired). Dated snapshots of volatile host values that must not be baked into static docs (architecture: `~/.copilot/copilot-instructions.md` §0). Every entry is dated; re-probe before trusting. When a value here is re-measured, replace the entry — no history accumulation.
+
+### Host snapshot — 2026-10-29 (probes: `uname -r`, `free -h`, `df -h /`, `pacman -Qkk pacman`, `snapper list`)
+
+- kernel: `7.3.0-4-cachyos-lto`
+- RAM: 30Gi total / 15Gi available
+- `/`: 920G btrfs (181G used / 721G avail)
+- `/etc/makepkg.conf`: locally modified (`pacman -Qkk pacman` → modification time + size mismatch) — not stock
+- snapper `root`: 6 number snapshots (NUMBER_LIMIT 24 + 6 important; bulk prune 1620→6 on 2026-10-29; timer cadence fixed)
+
+### Compositor config state — 2026-10-22 (re-probe: `ps -eo comm= | grep -E 'niri|umbriel'`, `ls /run/user/1000/wayland-*`, `busctl --user status org.freedesktop.ScreenSaver`)
+
+- Active WM: **umbriel** (`umbriel-git`, `umbriel msg <action> …`) on `wayland-0`; the Noctalia
+  shell stack (`noctalia msg …`, plugins, idle chain) runs on it. **Niri retired 2026-10-22**
+  (no niri process; `~/.config/niri/` unchanged, kept for rollback).
+- umbriel config at `~/.config/umbriel/` — `umbriel config validate` → `config: ok`;
+  terminal **ghostty** (`Mod+Return`), full theme palette in `noctalia.toml` (now
+  `[include.optional]`), output has `tearing`/`bit_depth=10`/`xwayland_native_resolution`,
+  touchpad retuned.
+- Open items for the owner: `Ctrl+Shift+3` screenshot-window bind (needs slurp or an upstream
+  action), `Mod+Ctrl+C` center-visible-columns, mouse `scroll-factor 2`. Rationale lives in
+  `~/docs/NOTE.md` 2026-10-19 — the config files carry no comments by request.
+- `~/.config/noctalia/config.toml` + `~/.local/state/noctalia/settings.toml` are **not** part of
+  this translation; Noctalia also pushes a theme at runtime that can override `[colors]`.
+- Verified on umbriel 2026-10-22 (plugin work): idle chain logs in the journal
+  (`[idle] …` from `umbriel[...]`), `org.freedesktop.ScreenSaver` exposes only
+  `Inhibit`/`UnInhibit` (no `SimulateUserActivity`), logind blocker suppresses behaviours
+  (`screen-off suppressed (screensaver inhibit locks=1)`).
+
+### Boot config state — 2026-10-21
+
+- `/boot/limine.conf` regenerated mid-session by `limine-entry-tool` (ALPM hook, 2026-10-21 11:48–11:49):
+  172,881 B / 204 `protocol: linux` entries (sha256 `e13ec7eb…`) — was 172,814 B at 10:26. The 6 MB
+  failing artifact stays preserved as `/boot/limine.conf.full-20261020` (7de97d12…, unchanged).
+
+### Ananicy rules state — 2026-10-21
+
+- `ananicy-cpp.service` enabled+active (re-enabled by owner same day; had been disabled+masked since
+  2026-10-06 for set_priority spam). Config: `check_freq=60`, `loglevel=critical`, `log_applied_rule=false`.
+- Rule corpus 15828 = package 15813 + `/etc/ananicy.d/10-local.rules` 17; IN_DIFF count now **0**
+  (was 10). Local files: `10-local.rules`; package files locally edited (9) — pre-images in
+  `~/docs/backups/2026-10-21-ananicy/`. Owner's own edit: `00-types.types` `Game` nice -8→-6 (+`Launcher` type).
+- Not covered by name (runtime argv[0] is dynamic): zen contentprocs, netease gpu/renderer/utility
+  (main+zygote ARE covered via `app.asar` / zygote alias). Unruled by choice: systemd core, kernel
+  threads, copilot CLI, the owner's direct-attach scheduler (sched_ext **enabled** — re-probed
+  2026-10-21, supersedes the 2026-10-15 "disabled" note; identity never recorded here — owner policy).
+
+### Aranicy daemon state — 2026-10-28 (probes: `pacman -Q aranicy`, `systemctl is-active aranicy`, `ls /var/lib/aranicy`)
+- Host package: **aranicy 0.2.1-1** scratch build from the local working tree
+  (~/Workspace/aranicy-pkgbuild; local-tarball PKGBUILD variant) — official
+  v0.2.1 tag/package NOT cut (disposition pending). Rollback:
+  `sudo pacman -U ~/Projects/gentoo-style-arch/packages/stable/aranicy/aranicy-0.2.0-1-x86_64.pkg.tar.zst`.
+- aranicy.service active (eBPF exec events; StateDirectory=aranicy).
+  The owner's direct-attach scheduler runs manually (command never recorded here — owner policy;
+  tooling resolves it at runtime).
+- /etc/ananicy.d/ananicy.conf carries `bias_group.build = ^(cc1.*|lto1.*|collect2|as|ld.*)$`
+  (backup: ananicy.conf.bak-20261028-1210). bias_* knobs/bias_group need a
+  service restart to take effect (--reload swaps rules/config only).
+- /var/lib/aranicy/bias-state populated (unprivileged `aranicy dump bias`).
+- Evidence tree for the fuzzy/sensitivity wave: ~/Workspace/aranicy-build-val/evidence/;
+  open follow-up: sparse-window confidence decay (bias-confidence-sparse).
+
+### Default applications / MIME state — 2026-10-29 (probes: `xdg-mime query default <mime>`, `grep -c ... ~/.config/mimeapps.list`)
+- `~/.config/mimeapps.list` active (pre-image backup: `~/.config/mimeapps.list.bak-20261029-2226`).
+- Total broken desktop references: **0**.
+- Office suite: LibreOffice (`libreoffice-writer`, `libreoffice-calc`, `libreoffice-impress`, `libreoffice-draw`, `libreoffice-math`). OnlyOffice uninstalled and all associations retired.
+- Code / markup / configs: VSCodium (`vscodium.desktop` via `/usr/bin/codium %F`).
+- Browser / Web: Zen Browser (`userapp-Nightly-XE01W3.desktop` / `zen-browser.desktop`).
+- PDF / XPS: `zen-browser.desktop` (PDF), `org.gnome.Evince.desktop` (PostScript/XPS).
+
+### 2026-10-30 — noctalia annotation zoom/pan (delivered, awaiting maintainer actions)
+
+- Upstream PR #5111 open (noctalia-dev/noctalia, from fork ZhangDM-520): zoom/pan for the
+  screenshot annotation editor. Awaiting upstream review; rebase the gsa patch when main moves.
+- gsa tree commit f2d0e98: `packages/git/noctalia-git/0001-capture-annotate-zoom-pan.patch` +
+  PKGBUILD prepare(); built `noctalia-git-5.4.0.r6061.gaa66386ce-1-x86_64.pkg.tar.zst` (makepkg,
+  PGO) — NOT installed. Install + live smoke (Ctrl+wheel / Ctrl+drag / toolbar zoom) pending.
+
+### scx scheduler host facts — 2026-10-30 (probes: `scx_mavd` runs, `ps -eo comm=`, socket probe)
+- scx-scheds-git 1.1.4.r111.gda3c98b30; the owner's direct-attach scheduler runs manually.
+- **scx_mavd is unrunnable on kernel 7.3.0-rc6**: BPF load fails at `scx_lib_init_probe` (-EINVAL, flag-independent) — its experimental sub-scheduler kernel ops are missing. Any future mavd live check needs a newer kernel first.
+- aranicy.service = packaged 0.2.1-1 (the multi-scheduler sampler is committed but not yet packaged/released).

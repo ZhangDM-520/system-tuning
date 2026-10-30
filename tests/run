@@ -367,7 +367,7 @@ assert_contains "case17 --json summary carries skipped" '"skipped":'
 # --- (19) doc-contract anchor gate: every PREFIX#slug consumer resolves to a
 # real heading. Consumers: CHECK_DOC values (lib/registry.sh), emit() 4th args
 # (lib/readers.sh), doc = "..." (state/managed/*.toml). The prefix map below is
-# the contract (MEMORY: an anchor is shorthand, not a filename).
+# the contract (AGENTS.md: an anchor is shorthand, not a filename).
 mapfile -t anchors19 < <(
   {
     grep -oE '"[a-z-]+#[a-z0-9-]+"' "$ROOT/lib/registry.sh"
@@ -423,7 +423,7 @@ assert_eq "case20 eco usage states it exactly once" \
 assert_eq "case20 no copy outside the allowlist" "$outside20" ''
 assert_eq "case20 at most one copy per file" "$multi20" ''
 
-# --- (21) docs/NOTE.md entry-merge guard: swallowing a `## 20..-.. —` heading
+# --- (21) docs/JOURNAL.md entry-merge guard: swallowing a `## 20..-.. —` heading
 # fuses two journal entries (burned twice 2026-09-29). Merge signature: one
 # `## ` entry carrying a repeated `### ` section title. Invariants, kept robust
 # to legitimate entry variation (each entry carries its own `###` set: What
@@ -441,7 +441,7 @@ assert_eq "case20 at most one copy per file" "$multi20" ''
 # `---` rule would false-positive on every entry but the first. The file/entry
 # guards keep the case from passing vacuously on a missing or gutted journal.
 # Totals come from the PASS/FAIL counters above — nothing hardcodes a count.
-note21="$ROOT/docs/NOTE.md"
+note21="$ROOT/docs/JOURNAL.md"
 assert_file "case21 journal exists" "$note21"
 entries21=0
 viol21='' undated21='' orphan21='' dup21=''

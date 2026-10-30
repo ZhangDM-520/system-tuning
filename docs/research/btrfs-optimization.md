@@ -20,7 +20,7 @@ runbook already names as pending (`docs/rollback.md:178`). The XFS-era sibling i
 re-create a convention that is being archived. This note is research (not yet a knob-ledger
 entry in `docs/findings.md` and not yet a maintenance recipe in `docs/rollback.md`); when
 proposals below are adopted, the durable rule gets exactly one home per the anchor rule
-(`docs/MEMORY.md`, "Every rule has one doc home").
+(`AGENTS.md`, "Every rule has one doc home").
 
 ---
 
@@ -215,7 +215,7 @@ straddles a suspend is *cancelled*, and only a `scrub resume` (or a re-run) fini
 verification pass. Any schedule must therefore (a) prefer windows where no suspend is expected,
 and (b) make the re-check block notice a cancelled/postponed scrub (§9). This is the storage
 analogue of the wake-window discipline the suspend/resume work taught us (`docs/findings.md:634`
-ff. `## suspend-resume`; the resume-window SMU/EC contention chain in `docs/NOTE.md`
+ff. `## suspend-resume`; the resume-window SMU/EC contention chain in `docs/JOURNAL.md`
 `## 2026-09-29 — recurrence 21:14 …`): maintenance must never be in flight during the
 suspend-entry or the first minute after wake.
 
@@ -370,7 +370,7 @@ randomized within 100 min after its weekly slot (stock unit, §0).
    `none` scheduler ionice is likely inert (§3).
 2. **Window choice.** Plugged-in (AC), idle, screen-off windows — and never near the
    suspend-entry/resume zone. This host has a measured history of wake-window contention
-   (SMU/EC/AMDGPU chain — `docs/findings.md:634` ff.; `docs/NOTE.md` `## 2026-09-29 — recurrence
+   (SMU/EC/AMDGPU chain — `docs/findings.md:634` ff.; `docs/JOURNAL.md` `## 2026-09-29 — recurrence
    21:14 …`), and kernel ≥ 6.19 cancels a running scrub at suspend (§3). Timers with
    `Persistent=true` fire their make-up runs at/after boot — exactly the fragile window — so a
    make-up run should be deferrable (the shipped scrub timer's `RandomizedDelaySec=1w` is
@@ -508,7 +508,7 @@ Primary sources (all read 2026-10-05):
 
 - `docs/judgment.md` (`## May I change?`:7-56, `## May I claim?`:58-133) — doctrine and claim gates.
 - `docs/rollback.md` (`## Storage ops — what runs automatically`:121-149, `## Storage ops — never-run rules`:151-168, `## Storage ops — re-check commands`:170-180) — storage policy being adapted.
-- `docs/findings.md` — `## io-stack`:267-288, `## nvme`:290-314, `## fstrim`:316-347, `## sched`:181-201, `## suspend-resume`:634 ff.; `docs/NOTE.md` (`## 2026-09-29 — recurrence 21:14 …`); `docs/MEMORY.md` (one-doc-home rule; sleep-hook pitfalls).
+- `docs/findings.md` — `## io-stack`:267-288, `## nvme`:290-314, `## fstrim`:316-347, `## sched`:181-201, `## suspend-resume`:634 ff.; `docs/JOURNAL.md` (`## 2026-09-29 — recurrence 21:14 …`); `AGENTS.md` (one-doc-home rule; sleep-hook pitfalls).
 - btrfs-progs 7.1 man pages (installed locally at `/usr/share/man/man{5,8}/`, dated Jul 15 2026):
   `btrfs(5)` (MOUNT OPTIONS: autodefrag, compress/compress-force, datacow/datasum, discard,
   space_cache, ssd; "RAID56 STATUS AND RECOMMENDED PRACTICES"), `btrfs-scrub(8)`,

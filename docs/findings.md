@@ -240,7 +240,7 @@
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
 **Arm (f) 2026-10-08 → closed 2026-10-13.** `performance` (= ASPM off) ran as the freeze-
-  investigation arm (H2, ACPI/PCIe power-state wedge — `docs/NOTE.md` 2026-10-08) and ended by
+  investigation arm (H2, ACPI/PCIe power-state wedge — `docs/JOURNAL.md` 2026-10-08) and ended by
   owner selection: the policy read `[powersave]` again (readback verified 2026-10-13). The arm
   history stays recorded for the freeze work.
 **Prior state (superseded, scope preserved).** `powersupersave` / L1.2 forcing was
@@ -265,7 +265,7 @@
 **Observed 2026-10-10 (unmanaged).** live sched_ext is an out-of-tree scheduler (`enabled+all`;
   identity owner-managed and deliberately not recorded in this repo) — not
   the scheduler of the prior verdict and not repo-controlled. That matters for the freeze work
-  (`docs/NOTE.md` 2026-10-08, H5): an out-of-tree scheduler was live during the 2026-09-20
+  (`docs/JOURNAL.md` 2026-10-08, H5): an out-of-tree scheduler was live during the 2026-09-20
   hung_task record. Check: `cat /sys/kernel/sched_ext/state /sys/kernel/sched_ext/root/ops`.
 **Observed 2026-10-14 (unmanaged).** live sched_ext is owner-managed direct-attach via session
   autostart (identity deliberately not recorded, owner policy). `scx_loader` stopped and **masked**
@@ -822,7 +822,7 @@
   and reverted the conservative actions) vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
   was live during the 09-20 hung_task) vs whole-system freeze. Owner defers all experiments until
   a freeze recurs; runbook then is one variable at a time, ≥5 resume cycles on AC and 5 on
-  battery, results to `docs/NOTE.md`: (a) baseline = current state; (b) quiet asusd: hold the
+  battery, results to `docs/JOURNAL.md`: (a) baseline = current state; (b) quiet asusd: hold the
   platform_profile re-apply (asusd.ron `platform_profile_on_battery`) — revert restores the
   managed line via `./eco apply`; (c) TB/USB4: drop `NHI0/NHI1` from the wakeup toggle list in
   `eco-power.sh` and add `thunderbolt` to `RUNTIME_PM_DRIVER_DENYLIST` in `01-eco.conf` — both
@@ -852,6 +852,6 @@
 **Rejected here.** blaming the experimental 7.3 LTO kernel as sole cause: the stall vector was
   provably ours and the freeze vectors interact with repo-owned resume-time writes; a kernel A/B
   is the escalation path only after the tuning-side experiments are clean.
-**Reopen.** After the experiment matrix (`docs/NOTE.md` 2026-09-29 suspend/resume entry) names
+**Reopen.** After the experiment matrix (`docs/JOURNAL.md` 2026-09-29 suspend/resume entry) names
   the culprit, this entry becomes the settled verdict; any freeze recurrence with pstore evidence
   reopens it with the captured record.
