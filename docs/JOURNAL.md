@@ -9,6 +9,10 @@ into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
 
+## 2026-11-01 (audit, rulings applied) — runtime-parameter audit landed: TLP `CPU_SCALING_GOVERNOR_*` dropped (governor race with PPD closed — PPD sole writer, converged live); pstore arming loss recorded (`## suspend-resume`) and ruled to the kernel config flip (`EFI_VARS_PSTORE_DEFAULT_DISABLE=n`, addendum `/tmp/pstore-arming-gap-20261101.md` handed over); stale `## cpu`/`## pcie` claims corrected. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
+
+## 2026-11-01 (pm) — post-reboot verify of 7.3.1-1-KISS: built kernel carries **pre-flip** kconfig (skip-when-unset gating + unset-knob invariants ate the 806fcac defaults — report at `/tmp/kconfig-build-drift-20261101.md` for the kernel recipe agent); runtime mutation answer: TLP pins amd-pstate mode `active` via our own `CPU_DRIVER_OPMODE_*` lines; the 24 CEIL DRIFT catches are the benign boot apply (disambiguation added to `## timer`). Docs corrected (`## epp`/`## cpu`/`## pcie` build-drift note + AGENTS). → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
+
 ## 2026-11-01 — kernel-kconfig adaptation: 7.3.1 KISS defaults (guided pstate / supersave ASPM / mitigations off) reconciled with eco — `check_epp` mode-aware (EPP attrs are active-mode-only), TLP ASPM check writer-agnostic, `## epp`/`## cpu`/`## pcie`/`## recovery` updated; `_capture_chain` ruled OFF by owner. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
 
 ## 2026-10-31 — memory architecture migration: `docs/NOTE.md`/`docs/MEMORY.md`/`~/docs/CURRENT.md` consolidated into `AGENTS.md` (global memory; host snapshots folded into `## Current state`) + `docs/JOURNAL.md` (this log) + `.logs/scratchpad.md` (active buffer). → `.logs/action-2026-10-31-memory-architecture-migration.md`

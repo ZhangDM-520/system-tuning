@@ -54,8 +54,11 @@
 **Mode scoping (2026-11-01).** The EPP attrs (`energy_performance_preference`,
   `energy_performance_available_preferences`) register only when `cppc_state == AMD_PSTATE_ACTIVE`
   (`epp_visibility()`, `drivers/cpufreq/amd-pstate.c`) — under guided/passive the surface is absent
-  by design. The 7.3.1 KISS kernel build defaults `_amd_pstate_mode=guided` (kernel recipe), so
-  there `check_epp` accepts the mode-labelled absence and asserts PPD health only; the profile path
+  by design. The recipe's `_amd_pstate_mode` knob defaults to guided but is inert unless set at
+  build time (skip-when-unset — `## cpu` build-drift note), and TLP pins the runtime mode to
+  `active` anyway (`CPU_DRIVER_OPMODE_*` in `state/owned/etc/tlp.d/01-eco.conf` writes
+  `amd_pstate/status` at every TLP run). On a kernel that actually runs guided/passive, `check_epp`
+  accepts the mode-labelled absence and asserts PPD health only; the profile path
   then rests on the platform_profile surface (check PROFILE — PPD ships an `acpi_platform_profile`
   backend; verify on the first guided boot before claiming the path healthy). Guided also retires
   the wedge trigger structurally: with no EPP store path there is no default→`dynamic` transition
@@ -182,7 +185,9 @@
   The caught-drift log line (`CEIL DRIFT policyN <old> -> <new>`) is also the
   overwriter probe: the overwriter is unidentified (TLP is proven innocent — its
   `CPU_MAX_PERF` is intel_pstate-only and `CPU_SCALING_MAX_FREQ` is unset); correlate catch
-  timestamps with journal events to name it. Superseded with scope: the prior design (Q4/Q15) was
+  timestamps with journal events to name it (catches stamped at the boot/resume apply are the
+  apply itself — the 24 at 2026-11-01 14:38:37 were the boot pass capping from hardware max; the
+  probe is watch-pass catches outside those windows). Superseded with scope: the prior design (Q4/Q15) was
   event-driven re-asserts (boot, resume, AC uevent) plus a 600 s timer guarding unknown drift —
   canary-verified zero drift in an 11-minute window; its earlier 60 s cadence had been 719
   runs/day of SMU writes and wake bursts before being stretched to 600 s.
@@ -245,7 +250,8 @@
   L1.2 substates are the first suspect and the policy drops back to `powersave`. The NVMe link runs
   Gen3 x4 (downgraded from the Gen4 cap) and stays there — forcing Gen4 costs watts. No
   `pcie_aspm=` cmdline: BIOS _OSC already grants OS control. TLP is the single owner of the policy
-  file (it runs once at boot and exits — see `## daemons`).
+  file (re-applied at boot **and on every power-source change** — `85-tlp.rules` fires `tlp auto`;
+  the "runs once at boot and exits" reading was corrected 2026-11-01 — see `## daemons`).
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (ASPM powersupersave + PM auto). Check:
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
@@ -256,9 +262,10 @@
 **Prior state (superseded, scope preserved).** `powersupersave` / L1.2 forcing was
   "instability-proven here" and rejected (no per-device lever exists) — overturned by the
   2026-10-29 ruling above; the prior text lives in git history.
-**Kernel-default note (2026-11-01).** The 7.3.1 KISS build sets `_pcie_aspm=supersave`
-  (`PCIEASPM_DEFAULT_POWER_SUPERSAVE`), so the boot default matches the ruling — and covers hotplug
-  enumeration that TLP's one boot-time write never reached. TLP's `PCIE_ASPM_*` lines are redundant
+**Kernel-default note (2026-11-01).** A build with the recipe's `_pcie_aspm=supersave` value would
+  set `PCIEASPM_DEFAULT_POWER_SUPERSAVE`, making the boot default match the ruling — and covering
+  hotplug enumeration that TLP's one boot-time write never reached. (Skip-when-unset: the shipped
+  7.3.1-1 still carries `PCIEASPM_DEFAULT` — `## cpu` build-drift note.) TLP's `PCIE_ASPM_*` lines are redundant
   on that kernel but stay until the older (`PCIEASPM_DEFAULT`) boot entries are retired — a
   fallback boot would otherwise silently lose supersave; retirement = drop the three lines from
   `state/owned/etc/tlp.d/01-eco.conf`. Since 2026-11-01 the TLP check asserts the live policy
@@ -662,17 +669,39 @@
 ## cpu
 
 **Verdict.** CPU/power stack verified optimal as configured: amd-pstate-epp active mode
-  (firmware-autonomous V/f within our bounds), `scaling_governor=powersave` on every policy, min
+  (firmware-autonomous V/f within our bounds), `scaling_governor` PPD-owned (performance-profile
+  write ×24; the older "powersave on every policy" reading predates the 2026-10-30 takeover — see
+  the writer note), min
   freq 605264 = `lowest_nonlinear` (the V/f knee), boost ON but clipped by the ceilings (see
   `## ceil`), EPP per `## epp`; no `amd_pstate` module params exist · **Class:** settled
 **Why.** Firmware-autonomous V/f inside the owner-set bounds; the min floor sits exactly on the V/f
   knee. `zswap` is not compiled and pointless here (swap is already compressed zram). Kernel-side
   idle facts live in `## kernel`.
 **Kernel-mode scoping (2026-11-01).** "amd-pstate-epp active mode" is stamped to the running
-  active-mode kernel; the 7.3.1 KISS build defaults to guided (bounds-only control — the min floor
-  and the `## ceil` ceilings remain the levers, EPP bias is gone) and strips the `MITIGATION_*`
-  menu (`_cpu_mitigations=off`). Per `docs/judgment.md` a kernel change is a new baseline: the
-  guided-mode stack needs its own baseline before any perf/efficiency number is claimed.
+  active-mode kernel; a build with the recipe's guided/`_cpu_mitigations=off` values would make
+  this bounds-only control (the min floor and the `## ceil` ceilings remain the levers, EPP bias
+  gone) and strip the `MITIGATION_*` menu. Per `docs/judgment.md` a kernel change is a new
+  baseline: such a stack needs its own baseline before any perf/efficiency number is claimed.
+**Build-drift note (2026-11-01, post-reboot verify).** The installed `7.3.1-1-KISS-cachyos-lto`
+  carries the **pre-flip** values (`X86_AMD_PSTATE_DEFAULT_MODE=3`, `PCIEASPM_DEFAULT`,
+  `CPU_MITIGATIONS=y` — `zcat /proc/config.gz`): the recipe's knob writes are skip-when-unset
+  (explicit-gated) and its unset-knob invariants assert the old values, so the kernel-repo's
+  806fcac defaults never reached a plain `makepkg` artifact (reported to the kernel recipe repo
+  2026-11-01). All guided/supersave/mitigations-off scoping here and in `## epp`/`## pcie` is
+  conditional until a build actually ships those values — and TLP pins the runtime amd-pstate mode
+  to `active` regardless (`## epp`).
+**Governor writer note (2026-11-01 audit).** `scaling_governor` has two writers: PPD (profile path
+  owner — writes `performance` for the performance profile) and TLP
+  (`CPU_SCALING_GOVERNOR_*=powersave` in `state/owned/etc/tlp.d/01-eco.conf`, re-applied at boot
+  and on **every** `power_supply` change via `85-tlp.rules` → `tlp auto`;
+  `set_cpu_scaling_governor` has no `nop_ppd_active` deferral, unlike `set_cpu_perf_policy`). Each
+  power event flips the governor to `powersave` until PPD's next action. The 2026-10-30 ruling
+  ("all profile handling → PPD") retired TLP's EPP lines but not these — dropping the three lines
+  would make PPD the sole writer (owner decision; under a guided build the `powersave` pairing is
+  additionally unverified — the guided driver's bounds semantics favour dynamic-switching
+  governors, `amd-pstate.c` `amd_pstate_adjust_perf`).
+  **Ruled 2026-11-01:** the three lines are dropped (converged live) — PPD is the sole
+  `scaling_governor` writer; the guided pairing caveat now applies to PPD's own governor choice.
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf`; `benchmarks/TEST-BED.md` (fuller machine
   picture). Check: `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq` (605264),
   `ls /sys/module/amd_pstate` (does not exist).
@@ -813,12 +842,23 @@
 **Verdict.** RESOLVED-IN-PRACTICE, causal chain uncertain — owner reports fixed (2026-09-29 23:05)
   after the stale `.bak` resume hook was removed; `hw-tune.fish` restored to the resume path
   (single-pass) by owner directive — which also serves as the A/B "on" arm. Capture stays armed
-  (SysRq=190, hung_task_panic=1 behind a 120 s hang bar, efi_pstore, 256M journals; the capture
+  (SysRq=190, hung_task_panic=1 behind a 120 s hang bar, efi_pstore — **disarmed
+  2026-11-01, see the capture-chain correction below**, 256M journals; the capture
   set was risk-narrowed 2026-10-08 and the tuning knobs restored 2026-10-29 — see the auto-capture
   note below). If a freeze recurs, the first
   mitigation to re-apply is keeping hw-tune out of the resume window (the 21:14 `amdgpu SMU:
   No response` evidence); quiet asusd / TB-USB4 neutralize are the contingency ladder ·
   **Class:** tunable
+**Capture-chain correction (2026-11-01 audit).** The efi_pstore leg is **disarmed**: this kernel
+  ships `CONFIG_EFI_VARS_PSTORE_DEFAULT_DISABLE=y`, so arming depends entirely on
+  `efi_pstore.pstore_disable=0` on the kernel cmdline — and that param is gone from both
+  `/boot/limine.conf` and `/etc/default/limine` (0 matches; lost in a limine-entry-tool
+  regeneration — the `## recovery` dual-file rule's exact burn). Verified live:
+  `/sys/module/efi_pstore/parameters/pstore_disable=Y`, `/sys/fs/pstore` empty. **Ruled 2026-11-01:
+  kernel config flip** (`EFI_VARS_PSTORE_DEFAULT_DISABLE=n` in the kernel recipe — addendum handed
+  to the kernel agent) is the chosen mechanism, being durable across limine regenerations; until
+  that rebuilt kernel boots, pstore stays disarmed and a hung_task panic loses its stacks (the
+  SysRq and journal legs are unaffected).
 **Why.** Evidence, not hypothesis: (1) every wake stalled 5.1 s because
   `eco-power.sh` ran `hw-tune.fish` twice with `sleep 5` in the systemd-sleep post hook and
   systemd thaws `user.slice` only after the hook exits (fixed: `eco-power.sh resume` = single
