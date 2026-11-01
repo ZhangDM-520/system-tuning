@@ -9,6 +9,8 @@ into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
 
+## 2026-11-01 (settled kernel) — post-boot verification green: config trio landed (MODE=4 / `PCIEASPM_POWER_SUPERSAVE` / mitigations stripped), pstore **armed again** (`pstore_disable=N`, `Registered efi_pstore`, 4 stale 2026-09 records back in `/sys/fs/pstore`), TLP mode pin = `active` as kept by ruling (guided dormant), PPD sole governor writer, ceil watch clean (boot-apply cluster only), `./eco report` drift=0. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
+
 ## 2026-11-01 (audit, rulings applied) — runtime-parameter audit landed: TLP `CPU_SCALING_GOVERNOR_*` dropped (governor race with PPD closed — PPD sole writer, converged live); pstore arming loss recorded (`## suspend-resume`) and ruled to the kernel config flip (`EFI_VARS_PSTORE_DEFAULT_DISABLE=n`, addendum `/tmp/pstore-arming-gap-20261101.md` handed over); stale `## cpu`/`## pcie` claims corrected. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
 
 ## 2026-11-01 (pm) — post-reboot verify of 7.3.1-1-KISS: built kernel carries **pre-flip** kconfig (skip-when-unset gating + unset-knob invariants ate the 806fcac defaults — report at `/tmp/kconfig-build-drift-20261101.md` for the kernel recipe agent); runtime mutation answer: TLP pins amd-pstate mode `active` via our own `CPU_DRIVER_OPMODE_*` lines; the 24 CEIL DRIFT catches are the benign boot apply (disambiguation added to `## timer`). Docs corrected (`## epp`/`## cpu`/`## pcie` build-drift note + AGENTS). → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`

@@ -690,6 +690,12 @@
   2026-11-01). All guided/supersave/mitigations-off scoping here and in `## epp`/`## pcie` is
   conditional until a build actually ships those values — and TLP pins the runtime amd-pstate mode
   to `active` regardless (`## epp`).
+  **Settled rebuild verified 2026-11-01 23:04.** Recipe fix landed (kernel-repo `d046540`:
+  values moved into base `config`, `:=` defaults made a contract with it): the booted config now
+  carries `X86_AMD_PSTATE_DEFAULT_MODE=4`, `PCIEASPM_POWER_SUPERSAVE=y`,
+  `# CONFIG_CPU_MITIGATIONS is not set` (zero `MITIGATION_*` symbols). Same version string as the
+  drifted build — identify kernels by `zcat /proc/config.gz`. Runtime mode reads `active` (TLP's
+  OPMODE pin, kept by ruling), so the guided world stays dormant until those lines change.
 **Governor writer note (2026-11-01 audit).** `scaling_governor` has two writers: PPD (profile path
   owner — writes `performance` for the performance profile) and TLP
   (`CPU_SCALING_GOVERNOR_*=powersave` in `state/owned/etc/tlp.d/01-eco.conf`, re-applied at boot
@@ -856,9 +862,10 @@
   regeneration — the `## recovery` dual-file rule's exact burn). Verified live:
   `/sys/module/efi_pstore/parameters/pstore_disable=Y`, `/sys/fs/pstore` empty. **Ruled 2026-11-01:
   kernel config flip** (`EFI_VARS_PSTORE_DEFAULT_DISABLE=n` in the kernel recipe — addendum handed
-  to the kernel agent) is the chosen mechanism, being durable across limine regenerations; until
-  that rebuilt kernel boots, pstore stays disarmed and a hung_task panic loses its stacks (the
-  SysRq and journal legs are unaffected).
+  to the kernel agent) is the chosen mechanism, being durable across limine regenerations.
+  **Armed again 2026-11-01 23:04** (settled kernel): `pstore_disable=N`, `Registered efi_pstore as
+  persistent store backend` in dmesg, and the four stale 2026-09 panic records visible again in
+  `/sys/fs/pstore`; the SysRq and journal legs are unaffected.
 **Why.** Evidence, not hypothesis: (1) every wake stalled 5.1 s because
   `eco-power.sh` ran `hw-tune.fish` twice with `sleep 5` in the systemd-sleep post hook and
   systemd thaws `user.slice` only after the hook exits (fixed: `eco-power.sh resume` = single
