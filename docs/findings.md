@@ -51,6 +51,16 @@
   dynamic-transition path; nothing in the repo writes EPP any more (the drift-only loop in
   `eco-power.sh` and TLP's `CPU_ENERGY_PERF_POLICY_*` lines retired 2026-10-30). Not claimed: the
   kernel inversion itself is unfixed — any future dynamic-mode write re-enters the path.
+**Mode scoping (2026-11-01).** The EPP attrs (`energy_performance_preference`,
+  `energy_performance_available_preferences`) register only when `cppc_state == AMD_PSTATE_ACTIVE`
+  (`epp_visibility()`, `drivers/cpufreq/amd-pstate.c`) — under guided/passive the surface is absent
+  by design. The 7.3.1 KISS kernel build defaults `_amd_pstate_mode=guided` (kernel recipe), so
+  there `check_epp` accepts the mode-labelled absence and asserts PPD health only; the profile path
+  then rests on the platform_profile surface (check PROFILE — PPD ships an `acpi_platform_profile`
+  backend; verify on the first guided boot before claiming the path healthy). Guided also retires
+  the wedge trigger structurally: with no EPP store path there is no default→`dynamic` transition
+  to re-enter the 2026-10-17 inversion (the kernel-side inversion itself stays unfixed on active
+  mode).
 **Evidence.** `lib/readers.sh` `check_epp` (ownership health + `ppd-conflict` probe) +
   `state/managed/` (profile-path records under `## asusd`);
   `state/managed/ppd-conflict.toml` neuters the stock PPD unit's `Conflicts=tlp.service` — a
@@ -246,6 +256,13 @@
 **Prior state (superseded, scope preserved).** `powersupersave` / L1.2 forcing was
   "instability-proven here" and rejected (no per-device lever exists) — overturned by the
   2026-10-29 ruling above; the prior text lives in git history.
+**Kernel-default note (2026-11-01).** The 7.3.1 KISS build sets `_pcie_aspm=supersave`
+  (`PCIEASPM_DEFAULT_POWER_SUPERSAVE`), so the boot default matches the ruling — and covers hotplug
+  enumeration that TLP's one boot-time write never reached. TLP's `PCIE_ASPM_*` lines are redundant
+  on that kernel but stay until the older (`PCIEASPM_DEFAULT`) boot entries are retired — a
+  fallback boot would otherwise silently lose supersave; retirement = drop the three lines from
+  `state/owned/etc/tlp.d/01-eco.conf`. Since 2026-11-01 the TLP check asserts the live policy
+  writer-agnostically (`[powersupersave]`), so it guards either writer.
 **Reopen.** link-level instability under L1.2 (NVMe errors, WiFi drops) → policy back to
   `powersave`; a kernel with a per-device ASPM lever (none exists today).
 
@@ -635,6 +652,12 @@
   recommendation (borg or restic to off-host or external storage) stands for the next maintenance
   window (the 2026-10-05 btrfs move added local snapshot capability — re-assess alongside
   `docs/research/btrfs-optimization.md`).
+**Capture chain ruled OFF (owner 2026-11-01).** The kernel recipe's off-by-default `_capture_chain`
+  knob (would arm `PANIC_ON_OOPS` + `PANIC_TIMEOUT`, `WQ_WATCHDOG`, `PSTORE_CONSOLE` and
+  `BOOTPARAM_SOFTLOCKUP_PANIC` — the evidence classes the freeze hunts kept missing) **stays off**:
+  the recovery-domain trade (reboot-on-oops instead of limp-on) is declined by owner ruling.
+  Stall markers remain journal/pstore-only; re-proposal only on new freeze evidence. Probe current
+  state: `zcat /proc/config.gz | grep -E 'PSTORE_CONSOLE|WQ_WATCHDOG|PANIC_ON_OOPS|SOFTLOCKUP'`.
 
 ## cpu
 
@@ -645,6 +668,11 @@
 **Why.** Firmware-autonomous V/f inside the owner-set bounds; the min floor sits exactly on the V/f
   knee. `zswap` is not compiled and pointless here (swap is already compressed zram). Kernel-side
   idle facts live in `## kernel`.
+**Kernel-mode scoping (2026-11-01).** "amd-pstate-epp active mode" is stamped to the running
+  active-mode kernel; the 7.3.1 KISS build defaults to guided (bounds-only control — the min floor
+  and the `## ceil` ceilings remain the levers, EPP bias is gone) and strips the `MITIGATION_*`
+  menu (`_cpu_mitigations=off`). Per `docs/judgment.md` a kernel change is a new baseline: the
+  guided-mode stack needs its own baseline before any perf/efficiency number is claimed.
 **Evidence.** `state/owned/etc/tlp.d/01-eco.conf`; `benchmarks/TEST-BED.md` (fuller machine
   picture). Check: `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_min_freq` (605264),
   `ls /sys/module/amd_pstate` (does not exist).

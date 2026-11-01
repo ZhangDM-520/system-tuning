@@ -470,6 +470,32 @@ assert_eq "case21 every ## heading is a dated 20..-.. entry" "$undated21" ''
 assert_eq "case21 every ### section sits under a dated entry" "$orphan21" ''
 assert_eq "case21 no ### title repeats within one entry (merge signature)" "$dup21" ''
 
+# --- (22) amd-pstate mode-aware EPP surface + writer-agnostic ASPM assert ---
+# The 7.3.1 KISS kernel defaults amd-pstate to guided mode, where the EPP
+# attributes are never registered (epp_visibility() gates on AMD_PSTATE_ACTIVE,
+# drivers/cpufreq/amd-pstate.c). A mode-labelled absence is health; an
+# unlabelled absence keeps the pre-guided DRIFT contract. The ASPM policy
+# assert is writer-agnostic (findings ## pcie: it must survive the future
+# retirement of TLP's PCIE_ASPM lines once the supersave-default kernel is the
+# only bootable one).
+t22=$(new_tree epp-guided)
+mkdir -p "$t22/sys/devices/system/cpu/amd_pstate"
+printf 'guided\n' > "$t22/sys/devices/system/cpu/amd_pstate/status"
+rm -f "$t22"/sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference
+run_eco "$t22" report
+assert_eq "case22 guided report exits 0" "$RC" 0
+assert_contains "case22 guided absence is OK, named guided" \
+  "OK EPP guided mode: no EPP surface by design"
+t22b=$(new_tree epp-unlabelled)
+rm -f "$t22b"/sys/devices/system/cpu/cpufreq/policy*/energy_performance_preference
+run_eco "$t22b" report
+assert_contains "case22 unlabelled absence stays DRIFT" \
+  "DRIFT EPP no energy_performance_preference files found (mode=unknown)"
+t22c=$(new_tree aspm-policy)
+printf 'default performance [powersave] \n' > "$t22c/sys/module/pcie_aspm/parameters/policy"
+run_eco "$t22c" report
+assert_contains "case22 ASPM policy drift is caught writer-agnostically" "DRIFT TLP "
+
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
 if (( FAIL )); then exit 1; fi

@@ -9,6 +9,8 @@ into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
 
+## 2026-11-01 — kernel-kconfig adaptation: 7.3.1 KISS defaults (guided pstate / supersave ASPM / mitigations off) reconciled with eco — `check_epp` mode-aware (EPP attrs are active-mode-only), TLP ASPM check writer-agnostic, `## epp`/`## cpu`/`## pcie`/`## recovery` updated; `_capture_chain` ruled OFF by owner. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`
+
 ## 2026-10-31 — memory architecture migration: `docs/NOTE.md`/`docs/MEMORY.md`/`~/docs/CURRENT.md` consolidated into `AGENTS.md` (global memory; host snapshots folded into `## Current state`) + `docs/JOURNAL.md` (this log) + `.logs/scratchpad.md` (active buffer). → `.logs/action-2026-10-31-memory-architecture-migration.md`
 
 ## 2026-10-30 — power-profiles-daemon owns the profile path; asusd muted; TLP/PPD coexistence

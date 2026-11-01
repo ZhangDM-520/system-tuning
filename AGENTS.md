@@ -67,6 +67,7 @@ republished outside the repo.
 | TLP also self-defers EPP to power-profiles-daemon: with PPD running, `set_cpu_perf_policy` returns early (`nop_ppd_active`) and warns instead of writing | Dated 2026-10-30. `/usr/share/tlp/func.d/10-tlp-func-cpu`; the repo's `CPU_ENERGY_PERF_POLICY_*` lines were removed the same day anyway (PPD sole writer — `docs/findings.md` `## epp`) |
 | `asusd.ron` must never end with an empty line: asusd reverts the config when it finds one (owner warning) | Dated 2026-10-30. After every patch verify EOF bytes (`tail -c 2 /etc/asusd/asusd.ron \| od -An -tx1` → must not be `0a 0a`); check PROFILE now guards this (`docs/findings.md` `## asusd`) |
 | A drop-in `Conflicts=` (empty assignment) does NOT clear a vendor unit's list on systemd 262 — the vendor value survives | Dated 2026-10-30. To remove one entry from a package unit's list, use a managed line-patch of the vendor file (`state/managed/`), not a drop-in; burned while neutering PPD's `Conflicts=tlp.service` (`docs/findings.md` `## epp`) |
+| amd-pstate EPP attrs exist in **active mode only** (`epp_visibility()`, `drivers/cpufreq/amd-pstate.c`); under guided/passive their absence is by design, not breakage | Dated 2026-11-01. The 7.3.1 KISS build defaults `_amd_pstate_mode=guided`; `check_epp` is mode-aware (mode-labelled absence = OK). Contract home `docs/findings.md` `## epp` |
 
 ## Current state (volatile dated snapshots)
 
@@ -74,7 +75,7 @@ Folded from host-level `~/docs/CURRENT.md` at the 2026-10-31 memory-architecture
 
 ### Host snapshot — 2026-10-29 (probes: `uname -r`, `free -h`, `df -h /`, `pacman -Qkk pacman`, `snapper list`)
 
-- kernel: `7.3.0-4-cachyos-lto`
+- kernel: `7.3.0-4-KISS-cachyos-lto` (re-probed 2026-11-01 `uname -r` + `who -b`: KISS variant, boot 08:17; was `7.3.0-4-cachyos-lto` at the 2026-10-29 probe)
 - RAM: 30Gi total / 15Gi available
 - `/`: 920G btrfs (181G used / 721G avail)
 - `/etc/makepkg.conf`: locally modified (`pacman -Qkk pacman` → modification time + size mismatch) — not stock

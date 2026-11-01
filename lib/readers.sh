@@ -17,7 +17,7 @@ check_epp() {
   # day). The check asserts ownership health, not a fixed value: PPD alive, and every policy
   # EPP sane. `dynamic*` is accepted because the kernel renders the amd-pstate dynamic mode
   # (legacy value survives until PPD's next profile write).
-  local dir f val st n=0 bad=()
+  local dir f val st mod n=0 bad=()
   st=$(trim "$(systemctl is-active power-profiles-daemon 2>&1 || true)")
   [[ $st == active ]] || bad+=("power-profiles-daemon is-active=${st:-unreadable}")
   # Coexistence guard: the stock unit's Conflicts=tlp.service would TERM TLP mid-run and fire
@@ -41,7 +41,23 @@ check_epp() {
       *) bad+=("$(basename "$(dirname "$f")")=$val") ;;
     esac
   done
-  (( n > 0 )) || bad+=("no energy_performance_preference files found")
+  # amd-pstate registers the EPP attrs only in active mode (epp_visibility(),
+  # drivers/cpufreq/amd-pstate.c): under guided/passive their absence is by
+  # design (the 7.3.1 KISS build defaults _amd_pstate_mode=guided). A
+  # mode-labelled absence is health; an unlabelled absence stays DRIFT.
+  mod=$(trim "$(cat "$(live_path "/sys/devices/system/cpu/amd_pstate/status")" 2>/dev/null || true)")
+  if (( n == 0 )); then
+    case $mod in
+      guided | passive)
+        if (( ${#bad[@]} )); then
+          emit DRIFT EPP "$(join_by ' ' "${bad[@]}")"
+        else
+          emit OK EPP "$mod mode: no EPP surface by design (EPP attrs are active-mode-only); power-profiles-daemon active; profile path = platform_profile (check PROFILE)"
+        fi
+        return 0 ;;
+      *) bad+=("no energy_performance_preference files found (mode=${mod:-unknown})") ;;
+    esac
+  fi
   if (( ${#bad[@]} )); then
     emit DRIFT EPP "$(join_by ' ' "${bad[@]}")"
   else
@@ -192,12 +208,21 @@ check_bt() {
 }
 
 check_tlp() {
-  local live
+  # TLP is the single writer of the policy file at boot (findings ## pcie). The
+  # live policy assert is writer-agnostic: since the 7.3.1 KISS kernel
+  # (PCIEASPM_DEFAULT_POWER_SUPERSAVE) the boot default duplicates TLP's write,
+  # and this assert survives the future retirement of the TLP lines.
+  local live pol bad=()
   live=$(live_path "/etc/tlp.d/01-eco.conf")
-  if mirror_equal "$live"; then
-    emit OK TLP "/etc/tlp.d/01-eco.conf byte-equal to state/owned mirror"
+  mirror_equal "$live" || bad+=("/etc/tlp.d/01-eco.conf differs from state/owned mirror")
+  pol=$(live_path "/sys/module/pcie_aspm/parameters/policy")
+  if [[ -r $pol ]] && ! grep -qF '[powersupersave]' "$pol"; then
+    bad+=("ASPM policy=$(trim "$(cat "$pol")") (want [powersupersave])")
+  fi
+  if (( ${#bad[@]} )); then
+    emit DRIFT TLP "$(join_by ' ' "${bad[@]}")"
   else
-    emit DRIFT TLP "/etc/tlp.d/01-eco.conf differs from state/owned mirror"
+    emit OK TLP "/etc/tlp.d/01-eco.conf byte-equal to state/owned mirror; ASPM policy=powersupersave"
   fi
 }
 
