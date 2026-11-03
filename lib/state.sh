@@ -17,12 +17,13 @@ MANAGED_DIR="$STATE_DIR/managed"
 # daemon): five records patch one anchored line each in asusd.ron — EPP/governor casts plus the
 # AC/battery platform_profile switching. The Q10 battery-mapping record was retired with the
 # switching (inert once change_platform_profile_on_* is false).
-MANAGED_IDS=(asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat ppd-conflict journald niri-autostart trash-purge)
+# trash-purge timer-cadence record retired 2026-11-03 (owner ruling: eco never controls systemd
+# timers — see docs/findings.md ## daemons).
+MANAGED_IDS=(asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat ppd-conflict journald niri-autostart)
 managed_label() {
   case "$1" in
     asusd-epp | asusd-ac-cmd | asusd-bat-cmd | asusd-profile-ac | asusd-profile-bat) printf 'asusd.ron' ;;
     ppd-conflict) printf 'power-profiles-daemon.service' ;;
-    trash-purge) printf 'trash-purge.timer' ;;
     journald) printf 'journald.conf' ;;
     niri-autostart) printf 'niri-autostart.kdl' ;;
     *) printf '%s' "$1" ;;

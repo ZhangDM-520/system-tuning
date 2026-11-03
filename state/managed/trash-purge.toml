@@ -1,4 +1,0 @@
-target = "/home/zhangdm/.config/systemd/user/trash-purge.timer"
-match = '^OnUnitActiveSec='
-line = 'OnUnitActiveSec=1d'
-doc = "findings#daemons"

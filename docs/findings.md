@@ -818,20 +818,37 @@
 
 ## daemons
 
-**Verdict.** No timer storm — 9 system + 1 user timer; day/week/month cadences dominate and the two
-  hourly outliers are resolved (2026-10-13: snapper-cleanup → 6h via owned drop-in, user
-  trash-purge → 1d via managed record; `man-db.timer` disabled-but-active drift fixed by enabling);
-  the eco-power backstop is retired (service boot-only since 2026-10-11); PPD masked; TLP single owner (runs
-  once at boot, exits); asusd is epoll/uevent-driven (1.27 s CPU over 13 h) with no EC polling
-  interval to tune; 0 armed ACPI wake sources, RTC wakealarm empty, no cron/anacron, no monitoring
-  agents, fprintd absent; all inhibitors are delay-mode (swayidle/noctalia lock chain) — nobody
-  blocks suspend indefinitely · **Class:** settled
-**Why.** Nothing in the daemon set competes for wakeups or writes (TLP exits after boot; the
-  asusd/PPD two-writer precedent is closed by masking PPD). The scheduled set is maintenance:
+**Verdict.** No timer storm — system + 1 user timer at **vendor cadences**; the 2026-10-13
+  wakeup-reduction cadence work is **reverted (owner ruling 2026-11-03: eco never controls systemd
+  timers)** — snapper-cleanup back to hourly vendor (the 6h owned drop-in left the timer
+  schedule-dead: `NextElapseUSecMonotonic=infinity`, never triggered → 3469 snap-pac number pairs
+  accumulated; the unit's limine-cleanup hook died with the timer), user trash-purge back to its
+  own hourly `OnUnitActiveSec=1h` (managed record retired); `man-db.timer` disabled-but-active
+  drift fixed by enabling; the eco-power backstop is retired (service boot-only since 2026-10-11);
+  PPD owns the profile path since 2026-10-30 (not masked); TLP runs at boot and on every
+  power-source change (`85-tlp.rules`); asusd is epoll/uevent-driven (1.27 s CPU over 13 h) with
+  no EC polling interval to tune; 0 armed ACPI wake sources, RTC wakealarm empty, no cron/anacron,
+  no monitoring agents, fprintd absent; all inhibitors are delay-mode (swayidle/noctalia lock
+  chain) — nobody blocks suspend indefinitely · **Class:** settled
+**Why.** Nothing in the daemon set competes for wakeups or writes (TLP runs at boot and on
+  power-source events; the asusd/PPD two-writer precedent is closed by muting asusd —
+  `## asusd`). The scheduled set is maintenance:
   weekly fstrim + smartd self-test and monthly `btrfs-scrub@-.timer` (stock unit); dedupe is the
   continuous `beesd@` service (daily duperemove job retired 2026-10-05; xfs-scrub retired with
   the XFS era). The duty-by-duty record lives in
   `docs/rollback.md` `## Storage ops — what runs automatically`.
+**Timer-control retired (owner ruling 2026-11-03).** eco must never control systemd timers — they
+  are essential maintenance infrastructure. The 2026-10-13 wakeup-reduction cadence work (owned
+  drop-in `snapper-cleanup.timer.d/10-cadence.conf` 1h→6h; managed record `trash-purge` 1h→1d)
+  is fully reverted: vendor drop-in dir removed live + from `state/`, the managed record retired
+  (`lib/state.sh`), trash-purge's own `OnUnitActiveSec=1h` restored. Mechanism of the burn: the
+  cadence drop-in left `snapper-cleanup.timer` schedule-dead on systemd 262
+  (`NextElapseUSecMonotonic=infinity`, `LastTriggerUSec` empty — never fired; exact parser
+  semantics of the list-reset not pinned), so 3469 snap-pac number pairs accumulated and the
+  unit's `limine-snapper-override` cleanup hook never ran. The state file additionally carried an
+  uncommitted `OnBootSec=10m` "fix" that never converged (nothing checks the drop-in — silent
+  divergence). Pre-images: `/tmp/10-cadence.conf.preimage-20261103`,
+  `/tmp/trash-purge.timer.preimage-20261103`. Wakeup reduction never touches timer cadence again.
 **Owner-kept 2026-10-13.** `bpftune.service` (BPF auto-tuner, `sysctl_tuner` among its tuners) runs
   by owner election — kept; watch it as a possible sysctl co-writer (one-writer rule) and as the
   lead candidate for the unidentified second writer of `snd_hda_intel power_save`
