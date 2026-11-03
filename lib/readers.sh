@@ -17,7 +17,7 @@ check_epp() {
   # day). The check asserts ownership health, not a fixed value: PPD alive, and every policy
   # EPP sane. `dynamic*` is accepted because the kernel renders the amd-pstate dynamic mode
   # (legacy value survives until PPD's next profile write).
-  local dir f val st mod n=0 bad=()
+  local dir f val st mod ini n=0 bad=()
   st=$(trim "$(systemctl is-active power-profiles-daemon 2>&1 || true)")
   [[ $st == active ]] || bad+=("power-profiles-daemon is-active=${st:-unreadable}")
   # Coexistence guard: the stock unit's Conflicts=tlp.service would TERM TLP mid-run and fire
@@ -27,6 +27,18 @@ check_epp() {
     ok) ;;
     *) bad+=("ppd-conflict:$MP_STATE ${MP_MSG:-}") ;;
   esac
+  # PPD action/battery-aware surface (2026-11-03): battery-aware persists in
+  # state.ini (the daemon's own store). The action flags are runtime-only —
+  # configure-action does NOT persist (verified: a PPD restart reverts them) —
+  # so the owned drop-in 20-eco-actions.conf re-asserts them after every PPD
+  # start; its byte-equality is the mechanism guarantee checked here. Runtime
+  # truth: `powerprofilesctl list-actions` (findings ## epp manual check).
+  ini=$(live_path "/var/lib/power-profiles-daemon/state.ini")
+  if [[ -f $ini ]]; then
+    [[ $(trim "$(sed -n 's/^battery_aware=//p' "$ini")") == true ]] || bad+=("battery-aware off")
+  fi
+  actf=$(live_path "/etc/systemd/system/power-profiles-daemon.service.d/20-eco-actions.conf")
+  mirror_equal "$actf" || bad+=("ppd-actions drop-in differs from state/owned mirror")
   dir=$(live_path "/sys/devices/system/cpu/cpufreq")
   if [[ ! -d $dir ]]; then
     emit DRIFT EPP "no cpufreq policies found at $dir"

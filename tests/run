@@ -495,6 +495,12 @@ t22c=$(new_tree aspm-policy)
 printf 'default performance [powersave] \n' > "$t22c/sys/module/pcie_aspm/parameters/policy"
 run_eco "$t22c" report
 assert_contains "case22 ASPM policy drift is caught writer-agnostically" "DRIFT TLP "
+t22d=$(new_tree ppd-actions)
+sed -i '/^ExecStartPost=-\/usr\/bin\/powerprofilesctl configure-action amdgpu_dpm/d' \
+  "$t22d/etc/systemd/system/power-profiles-daemon.service.d/20-eco-actions.conf"
+run_eco "$t22d" report
+assert_contains "case22 PPD action drop-in drift is caught" \
+  "DRIFT EPP ppd-actions drop-in differs"
 
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"

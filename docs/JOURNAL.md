@@ -9,6 +9,8 @@ into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
 
+## 2026-11-03 (pm) — PPD action surface enabled + made persistent: `amdgpu_panel_power`/`amdgpu_dpm` enabled (trickle_charge was on), battery-aware dynamics confirmed on; the flags are runtime-only (a PPD restart reverts them — verified) so the new owned drop-in `20-eco-actions.conf` re-asserts all four after every PPD start (survives restart proven); TLP's `RADEON_DPM_PERF_LEVEL_*`/`AMDGPU_ABM_LEVEL_*` retired (same attributes — two-writer race closed like the governor lines); check EPP asserts battery-aware + the drop-in mirror. → `.logs/action-2026-11-03-ppd-actions.md`
+
 ## 2026-11-03 — timer control removed from eco (owner ruling: systemd timers are essential): the 2026-10-13 cadence work reverted — `snapper-cleanup.timer.d` drop-in + `trash-purge` managed record retired, vendor cadences restored; the dead cadence drop-in had left `snapper-cleanup.timer` schedule-dead (`NextElapseUSecMonotonic=infinity`) → 3469 snap-pac pairs piled up and the limine-cleanup hook never ran (cleanup triggered manually; `## daemons` carries the full record). → `.logs/action-2026-11-03-timer-control-removal.md`
 
 ## 2026-11-01 (settled kernel) — post-boot verification green: config trio landed (MODE=4 / `PCIEASPM_POWER_SUPERSAVE` / mitigations stripped), pstore **armed again** (`pstore_disable=N`, `Registered efi_pstore`, 4 stale 2026-09 records back in `/sys/fs/pstore`), TLP mode pin = `active` as kept by ruling (guided dormant), PPD sole governor writer, ceil watch clean (boot-apply cluster only), `./eco report` drift=0. → `.logs/action-2026-11-01-kernel-kconfig-eco-adaptation.md`

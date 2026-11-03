@@ -64,6 +64,19 @@
   the wedge trigger structurally: with no EPP store path there is no default→`dynamic` transition
   to re-enter the 2026-10-17 inversion (the kernel-side inversion itself stays unfixed on active
   mode).
+**Action surface (2026-11-03).** PPD's optional actions are all enabled — `trickle_charge`,
+  `amdgpu_panel_power`, `amdgpu_dpm` — and battery-aware dynamics are on. The action flags are
+  **runtime-only** (verified 2026-11-03: `configure-action` does not persist to state.ini and a
+  PPD restart reverts them), so the owned drop-in
+  `power-profiles-daemon.service.d/20-eco-actions.conf` re-asserts all three actions +
+  battery-awareness after every PPD start (asserted as a mirror by check EPP; runtime truth =
+  `powerprofilesctl list-actions`); battery-awareness also persists in state.ini on its own. The
+  GPU actions own
+  `power_dpm_force_performance_level` + `amdgpu/panel_power_savings` per profile, so TLP's
+  `RADEON_DPM_PERF_LEVEL_*`/`AMDGPU_ABM_LEVEL_*` lines are retired (two-writer race closed the
+  same way as the governor lines; `## gpu-display`). Battery-aware means the active profile moves
+  with charger/battery events — the fixed "profile performance" reading is superseded; the EPP
+  sanity set covers the whole map.
 **Evidence.** `lib/readers.sh` `check_epp` (ownership health + `ppd-conflict` probe) +
   `state/managed/` (profile-path records under `## asusd`);
   `state/managed/ppd-conflict.toml` neuters the stock PPD unit's `Conflicts=tlp.service` — a
@@ -750,7 +763,8 @@
 ## gpu-display
 
 **Verdict.** The amdgpu device is **card1** (`/sys/class/drm/card1`), not card0;
-  `power_dpm_force_performance_level=auto` is the working lever (applied by TLP); `power_dpm_state`
+  `power_dpm_force_performance_level=auto` is the working lever (owned by PPD's `amdgpu_dpm`
+  action since 2026-11-03 — TLP's `RADEON_DPM_PERF_LEVEL_*` retired); `power_dpm_state`
   is cosmetic and root-only on this SMU APU and `pp_power_profile_mode` does not exist —
   applied/accepted · **Class:** settled
 **Why.** Screen-on idle sits at mid DPM levels (sclk ~631–752 MHz, mclk never 400 MHz) because the
@@ -763,12 +777,15 @@
   `~/.config/umbriel/cfg/display.toml`). PSR `self_refresh_active` never engages (250/250
   samples, static screen included) — the "VRR lets idle refresh drop" hope is not observed on
   this panel; VRR stays enabled (owner keep) and the screen-off chain (see `## autosuspend`) is
-  the idle remedy. ABM `panel_power_savings=1` is active; backlight via `amdgpu_bl1`, no cap.
+  the idle remedy. ABM `panel_power_savings` is PPD-owned since 2026-11-03
+  (`amdgpu_panel_power` action, per-profile value; the TLP-era `=1` pin is retired); backlight via
+  `amdgpu_bl1`, no cap.
   The refresh is the mclk lever — no safe DPM write lever exists. Adjacent device
   truth: audio `power_save=1s` + controller power gating on (the "10" baseline was stale); HDMI HDA
   suspends for hours when unused; the camera USB device suspends; 7 of 8 xHCI hubs suspend; no
   `control=on` offenders exist.
-**Evidence.** `state/owned/etc/tlp.d/01-eco.conf` (DPM perf level). Check:
+**Evidence.** power-profiles-daemon actions `amdgpu_dpm` + `amdgpu_panel_power` (persisted in
+  `/var/lib/power-profiles-daemon/state.ini`, asserted by check EPP). Check:
   `cat /sys/class/drm/card1/device/power_dpm_force_performance_level` (=auto),
   `cat /sys/class/drm/card1/device/pp_dpm_sclk` (mid levels while the panel is lit),
   `ls /sys/class/drm/`.
