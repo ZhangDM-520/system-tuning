@@ -987,11 +987,17 @@
   converged), `pacman -Q cachyos-settings`, `systemd-analyze cat-config systemd/journald.conf |
   grep SystemMaxUse`, `iw reg get`, `lsmod | grep -E 'iTCO_wdt|sp5100_tco|wdat_wdt'`,
   `cat /sys/kernel/mm/transparent_hugepage/defrag`.
-**Before removing the package.** `pacman -R cachyos-settings` — not `-Rns` (its other deps are
-  wanted) and not `-Rdd` (that skips the integrity question, not the dependency one). Keep
-  `wireless-regdb` (regulatory data, otherwise only an orphan) and `zram-generator` (owns
-  `zram0`); mark them explicit (`pacman -D --asexplicit wireless-regdb zram-generator`) so an
-  orphan sweep cannot take them. Two vendor paths lose their owner and are already covered:
+**Removal — done 2026-11-09, verified live.** `pacman -R cachyos-settings` (no `-Rns`: its other
+  deps are wanted; no `-Rdd`: that answers the integrity question, not the dependency one).
+  Readback after removal: every former `/usr/lib` value still live from `/etc` (sysctl set,
+  journald 256M, NVMe `none`, zram 89.9G with its writeback device, `iw reg get` → `country TW`);
+  the removal deleted `/etc/security/limits.d/20-audio.conf` and the next `./eco apply` restored
+  it from `state/owned`, which is the whole point of the adoption. Two cleanups the removal
+  itself leaves: one dangling unit symlink
+  (`/etc/systemd/system/multi-user.target.wants/cachyos-iw-set-regdomain.path` — removed) and two
+  now-orphaned but load-bearing packages, `zram-generator` (owns `zram0`) and `wireless-regdb`
+  (regulatory data, `Required By: None`): `pacman -D --asexplicit zram-generator wireless-regdb`
+  so an orphan sweep cannot take them. Two vendor paths lost their owner and are already covered:
   `/usr/lib/udev/rules.d/60-ioschedulers.rules` (superseded by `61-eco-ioschedulers.rules`,
   `## io-stack`) and `/usr/lib/systemd/journald.conf.d/` (superseded by `99-eco-size.conf`).
 **Open.** No measurement backs the carried values — they are preserved behaviour, and nothing in
