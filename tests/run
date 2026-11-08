@@ -502,6 +502,58 @@ run_eco "$t22d" report
 assert_contains "case22 PPD action drop-in drift is caught" \
   "DRIFT EPP ppd-actions drop-in differs"
 
+# --- (23) ONE ceiling rule: topology decides the class (2026-11-08 audit). The reader
+# and the writer used to classify by different rules, so a low cpuinfo_max_freq
+# readback could cap Zen 5 at 3.2 GHz while logging nothing. The shared module
+# eco-ceil.sh is the fix; eco-power.sh must hold no literal of its own.
+t23=$(new_tree ceil-rule)
+mkdir -p "$t23/probe/zen5" "$t23/probe/zen5c" "$t23/probe/fallback"
+printf '0 1 2 3\n' > "$t23/probe/zen5/related_cpus"
+printf '3000000\n' > "$t23/probe/zen5/cpuinfo_max_freq"
+printf '4 5 6 7\n' > "$t23/probe/zen5c/related_cpus"
+printf '3289474\n' > "$t23/probe/zen5c/cpuinfo_max_freq"
+printf '5157895\n' > "$t23/probe/fallback/cpuinfo_max_freq"
+ceil23=$(
+  . "$ROOT/state/owned/usr/local/lib/eco-ceil.sh"
+  printf '%s %s %s' \
+    "$(eco_ceil_want_for_policy "$t23/probe/zen5")" \
+    "$(eco_ceil_want_for_policy "$t23/probe/zen5c")" \
+    "$(eco_ceil_want_for_policy "$t23/probe/fallback")"
+)
+assert_eq "case23 topology beats a low cpuinfo readback (one rule)" \
+  "$ceil23" "4700000 3200000 4700000"
+assert_eq "case23 writer sources the shared rule" \
+  "$(grep -cF 'ECO_CEIL_LIB=/usr/local/lib/eco-ceil.sh' "$ROOT/state/owned/usr/local/sbin/eco-power.sh" || true)" 1
+assert_eq "case23 writer restates no ceiling literal" \
+  "$(grep -cE '4700000|3200000|4400000' "$ROOT/state/owned/usr/local/sbin/eco-power.sh" || true)" 0
+
+# --- (24) CO/ECO assert the LIVE consumer file, not the repo mirror: a stale or
+# missing live hw-tune.fish used to report OK (2026-11-08 audit).
+t24=$(new_tree co-live)
+sed -i 's/^set -l coall -7$/set -l coall -5/' "$t24/home/zhangdm/.reserve/hw-tune.fish"
+run_eco "$t24" report
+assert_contains "case24 live hw-tune drift is DRIFT CO" "DRIFT CO "
+assert_contains "case24 live drift names the mirror" "live differs from state/owned mirror"
+t24b=$(new_tree co-missing)
+rm -f "$t24b/home/zhangdm/.reserve/hw-tune.fish"
+run_eco "$t24b" report
+assert_contains "case24 missing live hw-tune is DRIFT CO" \
+  "DRIFT CO live hw-tune.fish missing"
+
+# --- (25) managed record ownership comes from CHECK_MANAGED (registry), not a
+# hardcoded list inside check_profile (2026-11-08 audit).
+assert_eq "case25 readers do not restate the asusd record set" \
+  "$(grep -c 'asusd-ac-cmd asusd-bat-cmd' "$ROOT/lib/readers.sh" || true)" 0
+assert_eq "case25 CHECK_MANAGED[PROFILE] carries all five mute records" \
+  "$(grep -c 'asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat' \
+     "$ROOT/lib/registry.sh" || true)" 1
+t25=$(new_tree profile-record)
+sed -i 's/^    change_platform_profile_on_battery: false,$/    change_platform_profile_on_battery: true,/' \
+  "$t25/etc/asusd/asusd.ron"
+run_eco "$t25" report
+assert_contains "case25 a drift on the last table record is caught" \
+  "DRIFT PROFILE asusd.ron claimed line differs"
+
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
 if (( FAIL )); then exit 1; fi

@@ -109,10 +109,13 @@
   both stay under the hardware max readback (Zen 5 5157895, Zen 5c 3289474 kHz). Boost stays ON
   because the ceiling already clips it; disabling boost would drop the hardware max to ~2.0 GHz
   base.
-**Evidence.** `state/owned/usr/local/sbin/eco-power.sh` (re-asserts 4.7/3.2 per policy by
-  `cpuinfo_max_freq`); the CPU map `ceil_for_cpu` in `lib/readers.sh` (Zen 5 = CPUs 0–3,12–15; Zen
-  5c = 4–11,16–23; mirrored in `.github/copilot-instructions.md`). Check:
-  `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq` and the `./eco report` CEIL row.
+**Evidence.** One module owns the rule: `state/owned/usr/local/lib/eco-ceil.sh` (class map Zen 5 =
+  CPUs 0–3,12–15; 4.7/3.2 kHz constants; `eco_ceil_want_for_policy`). The eco CLI loads it through
+  `lib/ceiling.sh` and `state/owned/usr/local/sbin/eco-power.sh` sources the deployed copy, so the
+  reader (check CEIL) and the writer cannot classify a policy two ways — the 2026-11-08 audit closed
+  a divergence where the writer used `cpuinfo_max_freq` alone and could cap Zen 5 at 3.2 GHz with no
+  log line. Check: `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq` and the `./eco
+  report` CEIL row.
 **Rejected here.** boost off (hardware max drops to ~2.0 GHz base, below the 4.7 GHz sweet spot).
 **Reopen.** new voltage-sensitivity data showing the Zen 5c knee moved.
 
@@ -140,8 +143,9 @@
   validation predates the ceiling change.
   Packing mechanism: 16-bit two's complement, per-core payload `core_idx * 2^20 + offset`;
   `hw-tune.fish` is the single writer — never write CO values from anywhere else.
-**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer); the pinned
-  policy mirror in `lib/readers.sh` `check_co`. Check:
+**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (single SMU writer); `check_co`
+  asserts the LIVE file against that mirror — an intent-only read reported OK while live was stale
+  (2026-11-08 audit). Check:
   `sudo ryzenadj --info` — never the journal log (see `## ppt` Machine lies).
 **Reopen.** never opportunistically; only a new full stability campaign may move it deeper. A
   looser step is always allowed (stability direction) — record it here as a dated owner ruling.
@@ -176,7 +180,8 @@
   **Class:** tunable
 **Why.** Lowers the CCLK boost setpoint, so the SMU itself delays boost entry: idle race-to-sleep
   without any cap.
-**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (asserted by the single SMU writer).
+**Evidence.** `state/owned/home/zhangdm/.reserve/hw-tune.fish` (asserted by the single SMU writer);
+  `check_eco` asserts the LIVE file against that mirror (it, too, used to read intent only).
   Check: `sudo ryzenadj --info`, `CCLK Boost SETPOINT` row (never the log).
 **Reopen.** if a workload shows measurable harm.
 
@@ -196,7 +201,10 @@
   backstop: the watch pass is drift-only and touches only `scaling_max_freq` (no ryzenadj/SMU
   writes, no EPP writes — EPP is PPD-owned since 2026-10-30 and nothing in the repo writes it).
   The caught-drift log line (`CEIL DRIFT policyN <old> -> <new>`) is also the
-  overwriter probe: the overwriter is unidentified (TLP is proven innocent — its
+  overwriter probe — and the watch being *enabled* is itself load-bearing: 2026-11-08 found
+  `eco-ceil.timer` disabled (the `timers.target.wants` symlink dropped 2026-11-07; cause
+  unidentified) — the TIMER row caught it and it was re-enabled. A disabled watch silently turns
+  every later ceiling drift into a permanent one. The overwriter is unidentified (TLP is proven innocent — its
   `CPU_MAX_PERF` is intel_pstate-only and `CPU_SCALING_MAX_FREQ` is unset); correlate catch
   timestamps with journal events to name it (catches stamped at the boot/resume apply are the
   apply itself — the 24 at 2026-11-01 14:38:37 were the boot pass capping from hardware max; the

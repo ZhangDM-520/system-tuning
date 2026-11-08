@@ -37,10 +37,12 @@ declare -A CHECK_DOC=(
   [MISC]="rollback#misc"
 )
 
-# Checks that assert a managed (foreign-file line-patch) record.
+# Records each check asserts, as space-separated record IDs. This table is the ONE
+# list: readers drive managed assertions from it (managed_check_problems), so a check
+# never restates its record set. A record-backed check adds its IDs on this line.
 declare -A CHECK_MANAGED=(
-  [EPP]=ppd-conflict
-  [IO]=journald
-  [PROFILE]=asusd-epp
-  [MISC]=niri-autostart
+  [EPP]="ppd-conflict"
+  [IO]="journald"
+  [PROFILE]="asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat"
+  [MISC]="niri-autostart"
 )

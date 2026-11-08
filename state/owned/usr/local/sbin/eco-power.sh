@@ -17,6 +17,13 @@
 # still gets the full two-pass via the udev-triggered service.
 log() { echo "eco-power: $*" >&2; }
 
+# The ceiling rule is ONE module (owned at /usr/local/lib/eco-ceil.sh). Fail soft: a
+# first boot before apply deploys it must not break the boot chain — the 2-min ceil
+# watch converges once the file exists. Never restate the class map or kHz here.
+ECO_CEIL_LIB=/usr/local/lib/eco-ceil.sh
+# shellcheck source=/dev/null
+[ -r "$ECO_CEIL_LIB" ] && . "$ECO_CEIL_LIB"
+
 apply_cpu_power () {
   # All ryzenadj hardware tuning lives in ~/.reserve/hw-tune.fish (single writer:
   # CO undervolt, iGPU CO, flat 31 W envelope, --power-saving, PSI thresholds).
@@ -36,19 +43,21 @@ apply_cpu_power () {
 }
 
 apply_ceil () {
-  # Per-core-class ceilings (owner 2026-10-10): Zen5 = 4.7 GHz, Zen5c = 3.2 GHz (docs/findings.md
-  # ## ceil). Single writer of scaling_max_freq. Drift-only, with the caught value logged:
-  # the cap was observed overwritten to the hardware max (5.1/3.3) by an unidentified actor
-  # (owner 2026-10-29) — "CEIL DRIFT policyN <old> -> <new>" lines give the journal the
+  # Per-class ceilings via the shared rule (eco-ceil.sh): topology decides the class,
+  # so the reader and this writer can never disagree. Single writer of
+  # scaling_max_freq. Drift-only, with the caught value logged: the cap was observed
+  # overwritten to the hardware max (5.1/3.3) by an unidentified actor (owner
+  # 2026-10-29) — "CEIL DRIFT policyN <old> -> <new>" lines give the journal the
   # timestamps that identify the overwriter (findings.md ## timer).
   local pol want cur
+  if ! command -v eco_ceil_want_for_policy >/dev/null 2>&1; then
+    log "ceiling rule $ECO_CEIL_LIB missing — ceil pass skipped"
+    return 0
+  fi
   for pol in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -w "$pol/scaling_max_freq" ] || continue
-    if [ "$(cat "$pol/cpuinfo_max_freq" 2>/dev/null)" -gt 4400000 ]; then
-      want=4700000
-    else
-      want=3200000
-    fi
+    want=$(eco_ceil_want_for_policy "$pol")
+    [ -n "$want" ] || continue
     cur=$(cat "$pol/scaling_max_freq" 2>/dev/null)
     if [ "$cur" != "$want" ]; then
       echo "$want" > "$pol/scaling_max_freq" 2>/dev/null \

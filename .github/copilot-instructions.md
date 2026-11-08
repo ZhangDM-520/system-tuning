@@ -93,8 +93,9 @@ How a change propagates (none of this is visible from a single file):
   (owner decision) and necessarily holds live paths such as `state/owned/home/...` — that exposure
   is accepted; the rule above still binds `benchmarks/` prose because the subtree is republished
   outside the repo. Fact home: `AGENTS.md`.
-- **Hybrid CPU topology is hardcoded**: `ceil_for_cpu` in `lib/readers.sh` maps Zen 5 =
-  CPUs 0–3,12–15 (4.7 GHz ceiling) and Zen 5c = 4–11,16–23 (3.2 GHz). Per-CPU logic must reuse
+- **Hybrid CPU topology is hardcoded**: `eco_ceil_want_for_policy` in
+  `state/owned/usr/local/lib/eco-ceil.sh` maps Zen 5 = CPUs 0–3,12–15 (4.7 GHz ceiling) and
+  Zen 5c = 4–11,16–23 (3.2 GHz). Per-CPU logic must reuse
   that mapping; `benchmarks/TEST-BED.md` has the fuller machine picture.
 - **Project memory** (architecture: `~/.copilot/copilot-instructions.md` §0; map in `AGENTS.md`
   `## Memory architecture`): durable facts and long-term rules in `AGENTS.md`, session chronology

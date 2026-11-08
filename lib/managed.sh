@@ -69,6 +69,40 @@ managed_section_region() {
   SR_OK=1
 }
 
+# One human message for the probe that just ran (MP_* / MG_*). Returns 0 when the
+# record is healthy, 1 with the message on stdout when it is not. This is the single
+# place a managed problem is worded, so readers, plan and harvest cannot drift apart.
+managed_problem_text() {
+  local id=$1
+  case $MP_STATE in
+    ok) return 0 ;;
+    differs) printf '%s claimed line differs' "$(managed_label "$id")" ;;
+    nomatch | multimatch) printf '%s %s' "$(managed_label "$id")" "$MP_MSG" ;;
+    missing-target) printf '%s target %s missing' "$(managed_label "$id")" "$MG_TARGET" ;;
+    *) printf '%s probe=%s' "$(managed_label "$id")" "$MP_STATE" ;;
+  esac
+  return 1
+}
+
+# Append one message per unhealthy record owned by check $1 into the array named $2.
+# Record ownership is read from CHECK_MANAGED (lib/registry.sh) — the one list — so a
+# check never hardcodes its record set (check_profile used to restate five IDs).
+# Returns 0 when every record is healthy, 1 when at least one problem was appended.
+managed_check_problems() {
+  local cid=$1 id msg rc=0
+  local -n _mcp_out=$2
+  for id in ${CHECK_MANAGED[$cid]:-}; do
+    managed_probe "$id"
+    if msg=$(managed_problem_text "$id"); then
+      :
+    else
+      _mcp_out+=("$msg")
+      rc=1
+    fi
+  done
+  return "$rc"
+}
+
 # Probe one managed record against its live target. Sets:
 #   MP_STATE  ok | differs | nomatch | multimatch | missing-target
 #   MP_N      number of anchor matches in scope

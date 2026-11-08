@@ -1,16 +1,6 @@
 # readers.sh: one reader per registry check. Each reader emits exactly one verdict
 # line via emit() and never writes anything.
 
-# Zen 5 = CPUs 0-3,12-15 (ceiling 4700000); Zen 5c = CPUs 4-11,16-23 (ceiling 3200000).
-ceil_for_cpu() {
-  local c=$1
-  if (( (c >= 0 && c <= 3) || (c >= 12 && c <= 15) )); then
-    printf '4700000'
-  elif (( c >= 4 && c <= 11 || c >= 16 && c <= 23 )); then
-    printf '3200000'
-  fi
-}
-
 check_epp() {
   # The profile/EPP path is owned by power-profiles-daemon since 2026-10-30 (owner ruling:
   # asusd muted, PPD sole writer; the repo's EPP writer and TLP's EPP lines retired the same
@@ -21,12 +11,9 @@ check_epp() {
   st=$(trim "$(systemctl is-active power-profiles-daemon 2>&1 || true)")
   [[ $st == active ]] || bad+=("power-profiles-daemon is-active=${st:-unreadable}")
   # Coexistence guard: the stock unit's Conflicts=tlp.service would TERM TLP mid-run and fire
-  # its shutdown phase whenever either side starts (managed record `ppd-conflict` patches it).
-  managed_probe ppd-conflict
-  case $MP_STATE in
-    ok) ;;
-    *) bad+=("ppd-conflict:$MP_STATE ${MP_MSG:-}") ;;
-  esac
+  # its shutdown phase whenever either side starts (managed record `ppd-conflict` patches it —
+  # record ownership lives in CHECK_MANAGED, lib/registry.sh).
+  managed_check_problems EPP bad || true
   # PPD action/battery-aware surface (2026-11-03): battery-aware persists in
   # state.ini (the daemon's own store). The action flags are runtime-only —
   # configure-action does NOT persist (verified: a PPD restart reverts them) —
@@ -78,7 +65,7 @@ check_epp() {
 }
 
 check_ceil() {
-  local dir d cpu raw exp smax imax n=0 bad=() all_zen5=1 cpus=()
+  local dir d want smax n=0 bad=()
   dir=$(live_path "/sys/devices/system/cpu/cpufreq")
   if [[ ! -d $dir ]]; then
     emit DRIFT CEIL "no cpufreq policies found at $dir"
@@ -87,31 +74,16 @@ check_ceil() {
   for d in "$dir"/policy*/; do
     [[ -d $d ]] || continue
     n=$((n + 1))
+    # The classification lives in eco-ceil.sh, the same module eco-power.sh sources —
+    # a policy can never be classified two ways (see lib/ceiling.sh).
+    want=$(eco_ceil_want_for_policy "${d%/}")
     smax=$(trim "$(cat "$d/scaling_max_freq" 2>/dev/null || true)")
-    imax=$(trim "$(cat "$d/cpuinfo_max_freq" 2>/dev/null || true)")
-    raw=$(trim "$(cat "$d/related_cpus" 2>/dev/null || true)")
-    exp=''
-    if [[ -n $raw ]]; then
-      read -ra cpus <<<"$raw"
-      all_zen5=1
-      for cpu in "${cpus[@]}"; do
-        [[ $(ceil_for_cpu "$cpu") == 4700000 ]] || all_zen5=0
-      done
-      if (( all_zen5 )); then
-        exp=4700000
-      else
-        exp=3200000
-        for cpu in "${cpus[@]}"; do
-          [[ $(ceil_for_cpu "$cpu") == 3200000 ]] || exp=4700000
-        done
-      fi
+    if [[ -z $want ]]; then
+      bad+=("$(basename "${d%/}")=unclassifiable")
+      continue
     fi
-    # Classify by related_cpus; fall back to cpuinfo_max_freq > 4400000 = Zen5.
-    if [[ -z $exp ]]; then
-      if [[ -n $imax ]] && (( imax > 4400000 )); then exp=4700000; else exp=3200000; fi
-    fi
-    if [[ $smax != "$exp" ]]; then
-      bad+=("$(basename "${d%/}")=$smax want $exp")
+    if [[ $smax != "$want" ]]; then
+      bad+=("$(basename "${d%/}")=$smax want $want")
     fi
   done
   if (( n == 0 )); then
@@ -119,20 +91,28 @@ check_ceil() {
   elif (( ${#bad[@]} )); then
     emit DRIFT CEIL "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK CEIL "all $n policies capped 4700000 (Zen5) / 3200000 (Zen5c)"
+    emit OK CEIL "all $n policies capped $ECO_CEIL_ZEN5 (Zen5) / $ECO_CEIL_ZEN5C (Zen5c)"
   fi
 }
 
 check_co() {
+  # Assert the LIVE consumer file, not the repo mirror: an intent-only read reports
+  # OK while live is stale or missing (2026-11-08 audit). The mirror comparison is
+  # kept as the second fact — that is what apply converges.
   local f missing=()
-  f=$(owned_state_file "/home/zhangdm/.reserve/hw-tune.fish")
+  f=$(live_path "/home/zhangdm/.reserve/hw-tune.fish")
+  if [[ ! -f $f ]]; then
+    emit DRIFT CO "live hw-tune.fish missing ($f)"
+    return 0
+  fi
+  mirror_equal "$f" || missing+=("live differs from state/owned mirror")
   grep -qF 'set -l coall -7' "$f" 2>/dev/null || missing+=("set -l coall -7")
   grep -qF 'set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6' "$f" 2>/dev/null \
     || missing+=("set -l per_core_offsets -24 -24 -21 -21 -9 -11 -8 -6")
   if (( ${#missing[@]} )); then
-    emit DRIFT CO "state/owned hw-tune.fish missing: $(join_by ', ' "${missing[@]}")"
+    emit DRIFT CO "$(join_by ', ' "${missing[@]}")"
   else
-    emit OK CO "state/owned hw-tune.fish has coall -7 and the 8 per-core offsets"
+    emit OK CO "live hw-tune.fish has coall -7 + the 8 per-core offsets, matches state/owned"
   fi
 }
 
@@ -185,11 +165,15 @@ check_ppt() {
 
 check_eco() {
   local f
-  f=$(owned_state_file "/home/zhangdm/.reserve/hw-tune.fish")
-  if grep -qF -- '--power-saving' "$f" 2>/dev/null; then
-    emit OK ECO "state/owned hw-tune.fish has --power-saving"
+  f=$(live_path "/home/zhangdm/.reserve/hw-tune.fish")
+  if [[ ! -f $f ]]; then
+    emit DRIFT ECO "live hw-tune.fish missing ($f)"
+    return 0
+  fi
+  if mirror_equal "$f" && grep -qF -- '--power-saving' "$f" 2>/dev/null; then
+    emit OK ECO "live hw-tune.fish has --power-saving, matches state/owned"
   else
-    emit DRIFT ECO "--power-saving missing from state/owned hw-tune.fish"
+    emit DRIFT ECO "--power-saving missing from (or live drift in) hw-tune.fish"
   fi
 }
 
@@ -283,13 +267,7 @@ check_io() {
   ex=$(trim "$(sysctl -n vm.dirty_expire_centisecs 2>/dev/null || true)")
   [[ $wb == 6000 ]] || bad+=("vm.dirty_writeback_centisecs=${wb:-unreadable}")
   [[ $ex == 6000 ]] || bad+=("vm.dirty_expire_centisecs=${ex:-unreadable}")
-  managed_probe journald
-  case $MP_STATE in
-    ok) ;;
-    differs) bad+=("$(managed_label journald) claimed line differs") ;;
-    nomatch | multimatch) bad+=("$(managed_label journald) $MP_MSG") ;;
-    missing-target) bad+=("$(managed_label journald) target missing") ;;
-  esac
+  managed_check_problems IO bad || true
   if (( ${#bad[@]} )); then
     emit DRIFT IO "$(join_by ' ' "${bad[@]}")"
   else
@@ -308,7 +286,7 @@ check_profile() {
   # asusd power-profile handling is muted (owner 2026-10-30: all profile handling to
   # power-profiles-daemon): five records pin the mute surface — EPP/governor casts and the
   # AC/battery platform_profile switching. The profile VALUE is PPD's runtime choice.
-  local pf id bad=() f last2
+  local pf bad=() f last2
   f=$(live_path "/etc/asusd/asusd.ron")
   pf=$(trim "$(cat "$(live_path "/sys/firmware/acpi/platform_profile")" 2>/dev/null || true)")
   # asusd reverts the config when its file carries an empty end line (owner warning
@@ -317,15 +295,8 @@ check_profile() {
     last2=$(tail -c 2 "$f" | od -An -tx1 | tr -d ' \n')
     [[ $last2 == 0a0a ]] && bad+=("asusd.ron has an empty end line (asusd would revert)")
   fi
-  for id in asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat; do
-    managed_probe "$id"
-    case $MP_STATE in
-      ok) ;;
-      differs) bad+=("$(managed_label "$id"):$id claimed line differs") ;;
-      nomatch | multimatch) bad+=("$(managed_label "$id"):$id $MP_MSG") ;;
-      missing-target) bad+=("$(managed_label "$id"):$id target missing") ;;
-    esac
-  done
+  # The five mute records come from CHECK_MANAGED[PROFILE] — never restate them here.
+  managed_check_problems PROFILE bad || true
   case $pf in
     quiet | balanced | performance | custom) ;;
     *) bad+=("platform_profile=${pf:-unreadable}") ;;
@@ -385,13 +356,7 @@ check_misc() {
   else
     bad+=("localsearch-3=$out")
   fi
-  managed_probe niri-autostart
-  case $MP_STATE in
-    ok) ok+=("niri record matches") ;;
-    differs) bad+=("$(managed_label niri-autostart) claimed line differs") ;;
-    nomatch | multimatch) bad+=("$(managed_label niri-autostart) $MP_MSG") ;;
-    missing-target) bad+=("$(managed_label niri-autostart) target missing") ;;
-  esac
+  if managed_check_problems MISC bad; then ok+=("niri record matches"); fi
   if (( ${#bad[@]} )); then
     emit DRIFT MISC "$(join_by ' ' "${bad[@]}")"
   elif (( ${#skipped[@]} )); then
