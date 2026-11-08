@@ -1,13 +1,16 @@
 # state.sh: repo state layout, live-path seam, mirror comparison helpers.
 #
 # ECO_ROOT (default empty = live root) prefixes all live paths for reads and writes: the internal test seam.
+# ECO_STATE (default $ECO_HOME/state) relocates the intent tree: the test seam for the
+# deployable filter, which lives in the intent walk and cannot be reached through ECO_ROOT.
 
 : "${ECO_ROOT:=}"
 if [[ -n $ECO_ROOT ]]; then
   ECO_ROOT=$(cd -- "$ECO_ROOT" && pwd)
 fi
+: "${ECO_STATE:=$ECO_HOME/state}"
 
-STATE_DIR="$ECO_HOME/state"
+STATE_DIR="$ECO_STATE"
 OWNED_DIR="$STATE_DIR/owned"
 MANAGED_DIR="$STATE_DIR/managed"
 
@@ -19,7 +22,17 @@ MANAGED_DIR="$STATE_DIR/managed"
 # switching (inert once change_platform_profile_on_* is false).
 # trash-purge timer-cadence record retired 2026-11-03 (owner ruling: eco never controls systemd
 # timers — see docs/findings.md ## daemons).
-MANAGED_IDS=(asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat ppd-conflict journald niri-autostart)
+# Record IDs derive from the registry's CHECK_MANAGED table (one list; first-seen order).
+MANAGED_IDS=()
+for _cid in "${CHECK_IDS[@]}"; do
+  for _rid in ${CHECK_MANAGED[$_cid]:-}; do
+    case " ${MANAGED_IDS[*]:-} " in
+      *" $_rid "*) ;;
+      *) MANAGED_IDS+=("$_rid") ;;
+    esac
+  done
+done
+unset _cid _rid
 managed_label() {
   case "$1" in
     asusd-epp | asusd-ac-cmd | asusd-bat-cmd | asusd-profile-ac | asusd-profile-bat) printf 'asusd.ron' ;;
@@ -91,9 +104,32 @@ mirror_equal() {
   [[ -f $mirror && -e $live ]] && cmp -s "$mirror" "$live"
 }
 
-# All state/owned files, one absolute path per line, sorted (stable plan order).
+# A file under state/owned is deployable intent unless its name marks it as a backup or
+# editor artifact. The walk is filesystem-based (not git), so a local stray would
+# otherwise be written to live — and in system-sleep/ that file EXECUTES on every resume
+# (burned 2026-09-29).
+eco_deployable_name() {
+  case ${1##*/} in
+    *.bak | *.bak-* | *~ | *.orig | *.rej | *.swp | .#* | *.tmp) return 1 ;;
+  esac
+  return 0
+}
+
+# All deployable state/owned files, one absolute path per line, sorted (stable plan order).
 owned_state_files() {
-  find "$OWNED_DIR" -type f | sort
+  local f
+  while IFS= read -r f; do
+    eco_deployable_name "$f" && printf '%s\n' "$f"
+  done < <(find "$OWNED_DIR" -type f | sort)
+}
+
+# The strays the walk refuses, one per line. The plan prints them as SKIPPED: a silent
+# filter would just move the silent failure.
+owned_non_deployable_files() {
+  local f
+  while IFS= read -r f; do
+    eco_deployable_name "$f" || printf '%s\n' "$f"
+  done < <(find "$OWNED_DIR" -type f | sort)
 }
 
 # Preconditions shared by every verb: nothing may run against a half-present state tree.

@@ -9,6 +9,11 @@ into `AGENTS.md`). Memory architecture: see `AGENTS.md`.
 
 ---
 
+## 2026-11-09 — architecture audit Wave 2: deployable filter (strays under `state/owned` never deploy; `system-sleep/` additionally warns on stderr; new `ECO_STATE` seam), `APPLY-SCOPE` names each row's reach (full/file-only/none — apply exit 0 never implies report green), registry collapsed to one `TABLE` with `MANAGED_IDS` derived. Gate 117/117. → `.logs/action-2026-11-09-architecture-wave2.md`
+
+## 2026-11-08 (pm) — architecture audit Wave 1: one ceiling rule (`eco-ceil.sh` shared by reader and writer — the writer's `cpuinfo_max_freq`-only test could silently cap Zen 5 at 3.2 GHz), managed-record verification collapsed into `managed_check_problems` with `CHECK_MANAGED` made live, CO/ECO now assert the live file; also re-enabled `eco-ceil.timer` (found disabled since 2026-11-07 — the TIMER row caught it). Gate 106/106. → `.logs/action-2026-11-08-architecture-wave1.md`
+
+
 ## 2026-11-03 (pm) — PPD action surface enabled + made persistent: `amdgpu_panel_power`/`amdgpu_dpm` enabled (trickle_charge was on), battery-aware dynamics confirmed on; the flags are runtime-only (a PPD restart reverts them — verified) so the new owned drop-in `20-eco-actions.conf` re-asserts all four after every PPD start (survives restart proven); TLP's `RADEON_DPM_PERF_LEVEL_*`/`AMDGPU_ABM_LEVEL_*` retired (same attributes — two-writer race closed like the governor lines); check EPP asserts battery-aware + the drop-in mirror. → `.logs/action-2026-11-03-ppd-actions.md`
 
 ## 2026-11-03 — timer control removed from eco (owner ruling: systemd timers are essential): the 2026-10-13 cadence work reverted — `snapper-cleanup.timer.d` drop-in + `trash-purge` managed record retired, vendor cadences restored; the dead cadence drop-in had left `snapper-cleanup.timer` schedule-dead (`NextElapseUSecMonotonic=infinity`) → 3469 snap-pac pairs piled up and the limine-cleanup hook never ran (cleanup triggered manually; `## daemons` carries the full record). → `.logs/action-2026-11-03-timer-control-removal.md`

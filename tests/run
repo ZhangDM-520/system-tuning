@@ -38,6 +38,15 @@ run_eco() {
   RC=$?
 }
 
+# Same, with the intent tree relocated (the deployable filter lives in the intent walk,
+# which ECO_ROOT cannot reach).
+run_eco_state() {
+  local state=$1 tree=$2
+  shift 2
+  OUT=$(ECO_STATE="$state" ECO_ROOT="$tree" "$ECO" "$@" 2>&1)
+  RC=$?
+}
+
 new_tree() {
   local dest="$WORK/$1"
   rm -rf "$dest"
@@ -370,7 +379,7 @@ assert_contains "case17 --json summary carries skipped" '"skipped":'
 # the contract (AGENTS.md: an anchor is shorthand, not a filename).
 mapfile -t anchors19 < <(
   {
-    grep -oE '"[a-z-]+#[a-z0-9-]+"' "$ROOT/lib/registry.sh"
+    grep -oE '[a-z-]+#[a-z0-9-]+' "$ROOT/lib/registry.sh"
     grep -E '^[[:space:]]*emit ' "$ROOT/lib/readers.sh" | grep -oE '"[a-z-]+#[a-z0-9-]+"'
     grep -hE '^doc = ' "$ROOT"/state/managed/*.toml | grep -oE '"[a-z-]+#[a-z0-9-]+"'
   } | tr -d '"' | sort -u
@@ -553,6 +562,50 @@ sed -i 's/^    change_platform_profile_on_battery: false,$/    change_platform_p
 run_eco "$t25" report
 assert_contains "case25 a drift on the last table record is caught" \
   "DRIFT PROFILE asusd.ron claimed line differs"
+
+# --- (26) deployable filter (2026-11-08): a stray in state/owned is never deployed, and
+# one in system-sleep/ — which systemd-sleep executes on every resume — also warns on
+# stderr. ECO_STATE relocates the intent tree so the repo itself is not mutated.
+st26="$WORK/state26"
+rm -rf "$st26"
+cp -a "$ROOT/state" "$st26"
+printf 'stale\n' > "$st26/owned/usr/lib/systemd/system-sleep/eco-power.bak-20260929"
+printf 'note\n' > "$st26/owned/usr/lib/systemd/system-sleep/notes.tmp"
+t26=$(new_tree stray)
+run_eco_state "$st26" "$t26" apply --dry-run
+assert_eq "case26 dry-run with strays exits 0" "$RC" 0
+assert_contains "case26 stray .bak is skipped in the plan" \
+  "SKIPPED /usr/lib/systemd/system-sleep/eco-power.bak-20260929 (not deployable"
+assert_contains "case26 system-sleep stray names the hazard" \
+  "system-sleep executes every file"
+assert_contains "case26 generic stray is skipped too" \
+  "SKIPPED /usr/lib/systemd/system-sleep/notes.tmp (not deployable"
+run_eco_state "$st26" "$t26" apply
+assert_eq "case26 apply with strays exits 0" "$RC" 0
+if [[ -e $t26/usr/lib/systemd/system-sleep/eco-power.bak-20260929 ]]; then
+  bad "case26 stray .bak must not be deployed"
+else
+  ok "case26 stray .bak must not be deployed"
+fi
+
+# --- (27) apply scope (2026-11-08): report judges rows apply cannot reach, so apply
+# exiting 0 while a row DRIFTs is expected — and must be named, not hidden.
+t27=$(new_tree apply-scope)
+rm -f "$t27/etc/systemd/system/eco-ceil.timer"
+run_eco "$t27" report
+assert_eq "case27 report DRIFTs on the missing timer" "$RC" 1
+run_eco "$t27" apply --dry-run
+assert_eq "case27 apply still exits 0 on a non-apply-owned row" "$RC" 0
+assert_contains "case27 APPLY-SCOPE names the reachable rows" "APPLY-SCOPE full=CO,ECO,IO"
+assert_contains "case27 APPLY-SCOPE names TIMER out of reach" "none=CEIL,PPT,TIMER,SCHED,SD"
+
+# --- (28) one registry table (2026-11-08): the maps derive from it; tests/run keeps its
+# literal ID list on purpose (the independent oracle). case19's count is the guardrail
+# that the anchor collector still sees every row after any reshaping.
+reg28=$(ECO_HOME="$ROOT" bash -c \
+  '. "$ECO_HOME/lib/registry.sh"; . "$ECO_HOME/lib/state.sh"; set -- ${CHECK_MANAGED[PROFILE]}; \
+     printf "%s %s %s" "${#CHECK_IDS[@]}" "${#MANAGED_IDS[@]}" "$#"')
+assert_eq "case28 table derives 14 checks, 8 records, 5 profile records" "$reg28" "14 8 5"
 
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"

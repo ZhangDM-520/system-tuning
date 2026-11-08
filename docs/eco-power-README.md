@@ -31,6 +31,15 @@ interface from the failure.
 | 2 | precondition failure: bad argument, lock held by a concurrent converge run, missing state file | fix environment, retry |
 | 3 | apply failed partway | output lists applied and not-applied targets plus rollback anchors |
 
+`report` judges all 14 rows; `apply` writes owned files, managed lines and runtime sysctls only.
+Every plan therefore ends with an `APPLY-SCOPE` line naming each row's remedy: `full` (apply's own
+writes can turn the row green), `file-only` (apply owns the file half — the live effect has another
+owner: PPD, TLP, the module, or the user session) and `none` (out of reach — CEIL is the ceil
+watch, TIMER is systemd, PPT is firmware, SD is a runtime unbind, SCHED is dropped). `apply`
+exiting 0 never claims those rows are healthy; `report` does. A file under `state/owned` whose name
+marks it a backup or editor artifact is never deployed — it is printed as `SKIPPED`, and a stray in
+`system-sleep/` (which executes every file on resume) is additionally warned on stderr.
+
 ## Verdict classes
 
 - `OK`: live matches intent.

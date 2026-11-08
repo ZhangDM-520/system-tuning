@@ -56,5 +56,6 @@ hypothetical; two adapters make the seam real.
   unverified" caveat have exactly two homes — `docs/eco-power-README.md` and the `./eco` usage
   text — and a uniqueness guard keeps it that way.
 - 14 check IDs `EPP CEIL CO PPT ECO WIFI BT TLP TIMER IO SCHED PROFILE SD MISC`
-  (`lib/registry.sh:3`, `tests/run:61`).
+  (`lib/registry.sh` — one `TABLE`, every map derived; `tests/run` `want_ids` keeps the literal
+  on purpose: it is the independent oracle).
 - Report row `findings#ppt` (`tests/run:63–64, 293–294`) — renames only in lockstep with tests.

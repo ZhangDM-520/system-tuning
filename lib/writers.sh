@@ -57,7 +57,17 @@ PLAN_SKIP=()
 plan_collect() {
   local dry=${1:-0}
   PLAN_KIND=() PLAN_TARGET=() PLAN_SRC=() PLAN_ID=() PLAN_ANOMALY=() PLAN_SKIP=()
-  local src rel live id lp
+  local src rel live id lp stray srel
+  # Strays the deployable filter refuses are surfaced, never silently dropped.
+  while IFS= read -r stray; do
+    srel=${stray#"$OWNED_DIR"/}
+    case $srel in
+      usr/lib/systemd/system-sleep/*)
+        PLAN_SKIP+=("/$srel (not deployable — system-sleep executes every file; remove it)") ;;
+      *)
+        PLAN_SKIP+=("/$srel (not deployable: backup/scratch name)") ;;
+    esac
+  done < <(owned_non_deployable_files)
   while IFS= read -r src; do
     rel=${src#"$OWNED_DIR"/}
     live=$(live_path "/$rel")
@@ -162,6 +172,30 @@ plan_print() {
   for i in "${!PLAN_SKIP[@]}"; do
     printf '  SKIPPED %s\n' "${PLAN_SKIP[$i]}"
   done
+  # The recovery-domain stray gets a second, louder surface: stderr, once per run.
+  for i in "${!PLAN_SKIP[@]}"; do
+    case ${PLAN_SKIP[$i]} in
+      *'system-sleep executes'*)
+        printf 'eco: apply: %s\n' "${PLAN_SKIP[$i]}" >&2
+        ;;
+    esac
+  done
+  plan_scope_line
+}
+
+# Name what apply can and cannot reach, so `PLAN 0` is never read as "the machine is
+# healthy": report judges all 14 rows, apply writes files/lines/sysctls only.
+plan_scope_line() {
+  local id full='' fileonly='' none=''
+  for id in "${CHECK_IDS[@]}"; do
+    case ${CHECK_APPLY[$id]:-none} in
+      full) full="${full:+$full,}$id" ;;
+      file-only) fileonly="${fileonly:+$fileonly,}$id" ;;
+      *) none="${none:+$none,}$id" ;;
+    esac
+  done
+  printf 'APPLY-SCOPE full=%s file-only=%s none=%s\n' \
+    "${full:--}" "${fileonly:--}" "${none:--}"
 }
 
 # Backup step: cp -p <file> <file>.bak-YYYYMMDD alongside every target about to be

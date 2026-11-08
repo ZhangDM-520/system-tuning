@@ -62,9 +62,13 @@ How a change propagates (none of this is visible from a single file):
    points it at fixture trees copied from
    `tests/fixtures/`, stubs `systemctl`/`sysctl`/`iw`/`lspci`/`ryzenadj` via `PATH`
    (`tests/stubs/`), and asserts on exit codes, report text, and byte-level write guarantees.
-4. **Report ↔ registry ↔ docs ↔ tests are locked together.** Adding or renaming a check touches
-   `lib/registry.sh`, a reader in `lib/readers.sh`, a real `##` doc anchor, and `tests/run`
-   (case1/case7 hardcode the 14-ID list). `CHECK_DOC` values like `findings#epp`,
+   `ECO_STATE` relocates the *intent* tree (default `$ECO_HOME/state`) — needed because the
+   deployable filter lives in the intent walk, which `ECO_ROOT` cannot reach.
+4. **Report ↔ registry ↔ docs ↔ tests are locked together.** `lib/registry.sh` is ONE table
+   (`id|reader|doc anchor|managed records|apply reach`); the arrays derive from it, so adding or
+   renaming a check is one row plus a reader in `lib/readers.sh`, a real `##` doc anchor, and the
+   literal ID list in `tests/run` (case1/case7 — deliberately independent, the oracle that a
+   vanished check fails). `CHECK_DOC` values like `findings#epp`,
    `findings#wifi`, `findings#asusd`, `rollback#sd` are evidence handles into the docs, not
    decoration. Verdict semantics are test-contracted: case17
    fails if `docs/eco-power-README.md` stops defining `SKIPPED`.

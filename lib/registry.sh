@@ -1,48 +1,40 @@
-# registry.sh: check vocabulary. Maps each check ID to its reader function and doc anchor.
-# Report IDs are exactly these 14, in this order.
-
-CHECK_IDS=(EPP CEIL CO PPT ECO WIFI BT TLP TIMER IO SCHED PROFILE SD MISC)
-
-declare -A CHECK_READER=(
-  [EPP]=check_epp
-  [CEIL]=check_ceil
-  [CO]=check_co
-  [PPT]=check_ppt
-  [ECO]=check_eco
-  [WIFI]=check_wifi
-  [BT]=check_bt
-  [TLP]=check_tlp
-  [TIMER]=check_timer
-  [IO]=check_io
-  [SCHED]=check_sched
-  [PROFILE]=check_profile
-  [SD]=check_sd
-  [MISC]=check_misc
-)
-
-declare -A CHECK_DOC=(
-  [EPP]="findings#epp"
-  [CEIL]="findings#ceil"
-  [CO]="findings#co"
-  [PPT]="findings#ppt"
-  [ECO]="findings#eco"
-  [WIFI]="findings#wifi"
-  [BT]="findings#bt"
-  [TLP]="findings#pcie"
-  [TIMER]="findings#timer"
-  [IO]="findings#writeback"
-  [SCHED]="findings#sched"
-  [PROFILE]="findings#asusd"
-  [SD]="rollback#sd"
-  [MISC]="rollback#misc"
-)
-
-# Records each check asserts, as space-separated record IDs. This table is the ONE
-# list: readers drive managed assertions from it (managed_check_problems), so a check
-# never restates its record set. A record-backed check adds its IDs on this line.
-declare -A CHECK_MANAGED=(
-  [EPP]="ppd-conflict"
-  [IO]="journald"
-  [PROFILE]="asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat"
-  [MISC]="niri-autostart"
-)
+# registry.sh: check vocabulary. ONE table; every map below derives from it.
+#
+# Row fields: id | reader | doc anchor | managed records (space-separated) | apply reach
+# CHECK_IDS order is report order. Adding a check is one row here plus its reader
+# function and a real `##` heading at the anchor. tests/run keeps its own literal ID
+# list on purpose: that is the independent oracle (a check that silently vanishes must
+# fail the gate), not a restatement.
+#
+# apply reach (printed as APPLY-SCOPE by the planner):
+#   full      — apply's own writes can turn the row green
+#   file-only — apply owns the file/intent half; the live effect has another owner
+#   none      — apply cannot reach the row at all
+declare -A CHECK_READER=() CHECK_DOC=() CHECK_MANAGED=() CHECK_APPLY=()
+CHECK_IDS=()
+while IFS='|' read -r _id _reader _doc _records _apply; do
+  [[ -n $_id ]] || continue
+  CHECK_IDS+=("$_id")
+  CHECK_READER[$_id]=$_reader
+  CHECK_DOC[$_id]=$_doc
+  if [[ -n $_records ]]; then
+    CHECK_MANAGED[$_id]=$_records
+  fi
+  CHECK_APPLY[$_id]=${_apply:-none}
+done <<'TABLE'
+EPP|check_epp|findings#epp|ppd-conflict|file-only
+CEIL|check_ceil|findings#ceil||none
+CO|check_co|findings#co||full
+PPT|check_ppt|findings#ppt||none
+ECO|check_eco|findings#eco||full
+WIFI|check_wifi|findings#wifi||file-only
+BT|check_bt|findings#bt||file-only
+TLP|check_tlp|findings#pcie||file-only
+TIMER|check_timer|findings#timer||none
+IO|check_io|findings#writeback|journald|full
+SCHED|check_sched|findings#sched||none
+PROFILE|check_profile|findings#asusd|asusd-epp asusd-ac-cmd asusd-bat-cmd asusd-profile-ac asusd-profile-bat|file-only
+SD|check_sd|rollback#sd||none
+MISC|check_misc|rollback#misc|niri-autostart|file-only
+TABLE
+unset _id _reader _doc _records _apply
