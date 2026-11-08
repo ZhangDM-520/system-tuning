@@ -16,5 +16,5 @@ UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /srv           btrfs   subvol=/@srv,de
 UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/cache     btrfs   subvol=/@cache,defaults,noatime,compress=zstd:1,nodiscard 0 0
 UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/tmp       btrfs   subvol=/@tmp,defaults,noatime,compress=zstd:1,nodiscard 0 0
 UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/log       btrfs   subvol=/@log,defaults,noatime,compress=zstd:1,nodiscard 0 0
-tmpfs                                     /tmp           tmpfs   defaults,noatime,mode=1777 0 0
+UUID=8f027a2f-ebbc-4b82-a6a5-146c970d40b7 /tmp          f2fs    defaults,noatime,nodiscard,lazytime,nobarrier,compress_algorithm=lz4:0,compress_chksum,compress_mode=fs,compress_cache,atgc,gc_merge,checkpoint_merge,flush_merge,fsync_mode=nobarrier,inline_xattr,inline_data,inline_dentry 0 0
 UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /snapshots    btrfs   subvol=/@snapshots,defaults,noatime,nodiscard 0 0

@@ -141,6 +141,22 @@ Installed 2026-09-26; the btrfs-era rows carry their 2026-10-05 date. Verify liv
   (record: `docs/archive/XFS-TUNING.md`), as are the daily `duperemove.{service,timer}` +
   `duperemove-daily.sh` (dedupe duty now the bees row above). The btrfs online-verification
   duty is the scrub row above; everything else on this list is filesystem-agnostic and stays.
+- **`/tmp` boot wipe + age GC** (2026-11-08) — `/etc/tmpfiles.d/tmp.conf` (owned mirror
+  `state/owned/etc/tmpfiles.d/tmp.conf`; the same basename overrides `/usr/lib/tmpfiles.d/tmp.conf`)
+  carries `D! /tmp` (wipe the contents at every boot — the emulated tmpfs volatility), `x
+  /tmp/lost+found` (keep the f2fs repair directory) and `e /tmp - - - 10d` (age GC through the
+  stock `systemd-tmpfiles-clean.timer`), plus `q /var/tmp 1777 root root 30d` so the replaced
+  stock `/var/tmp` rule survives. `/tmp` itself is a 24 GiB f2fs partition
+  (`/dev/nvme0n1p4`; the fstab entry is the owned mirror's — rationale and option list
+  `docs/findings.md` `## f2fs-tmp`). Nothing durable belongs there: the wipe is unconditional at
+  boot and the mount trades crash ordering (`nobarrier`, `fsync_mode=nobarrier`) for scratch
+  latency.
+- **Per-user RAM tmpfs at 80% RAM** (2026-11-08) — `/etc/systemd/logind.conf.d/20-runtime-dir-size.conf`
+  (`RuntimeDirectorySize=80%`, owned mirror) makes `/run/user/<uid>` ~25 GiB on this 30 GiB box;
+  `/etc/systemd/system/user-runtime-dir@.service.d/10-user-tmp.conf` (owned) creates
+  `/run/user/<uid>/tmp` mode 0700 on every login with a non-fatal `ExecStartPost` (a failed
+  install never blocks the login chain). `~/tmp` is a symlink to it — scratch that must not
+  outlive the session.
 - **smartd.service** (enabled + active) — `/etc/smartd.conf`: `DEVICESCAN -a -o on -S on
   -n standby,q -s (S/../../7/04) -W 5,45,55 -m /dev/null -M exec
   /usr/local/sbin/smart-alert.sh`. Weekly short self-test Sunday 04:00 (`7` = Sunday;
@@ -191,6 +207,16 @@ Installed 2026-09-26; the btrfs-era rows carry their 2026-10-05 date. Verify liv
   ENOSPC pressure despite reported free space — and then usage-filtered and chunk-limited
   (`usage=`/`limit=`). Never on a timer. When used, record before/after
   `btrfs filesystem usage` and the job's wall time.
+
+### `/tmp`: volatile by contract (2026-11-08)
+
+- Never put pre-images, journals, benchmark rows, or anything a rollback might need in `/tmp`:
+  `D! /tmp` wipes it at every boot and the mount is configured for scratch latency, not crash
+  durability (`nobarrier`, `fsync_mode=nobarrier`).
+- Never widen the wipe to "keep this one file across boots" — a `/tmp` exclusion is how scratch
+  becomes undocumented persistent state. Anything that must survive belongs in a real path (and,
+  if it is intent, under `state/`). In-memory scratch that may die with the session goes to
+  `~/tmp` (`/run/user/<uid>/tmp`).
 
 ### btrfs refusals (2026-10-05 — refusals, not tunings)
 
@@ -244,6 +270,10 @@ sudo btrfs scrub status /             # last run, errors, unfinished/cancelled s
 sudo btrfs device stats -c /          # all-zero check (exit 64+ if nonzero)
 sudo btrfs subvolume list /           # layout + snapshot inventory drift
 findmnt -no OPTIONS /                 # compress + no autodefrag (never-run rules above)
+findmnt -no SOURCE,FSTYPE,OPTIONS /tmp ; df -h /tmp   # f2fs partition (never-run: no discard)
+cat /sys/fs/f2fs/nvme0n1p4/compr_{written,saved}_block  # real compression; df stays nominal
+systemd-tmpfiles --cat-config | grep -E '^(D!|e|x|q) /(tmp|var/tmp)'
+findmnt -no OPTIONS "/run/user/$(id -u)" ; ls -ld "/run/user/$(id -u)/tmp"
 systemctl list-timers --all | grep -E 'btrfs|fstrim|smartd'
 systemctl status 'beesd@*'            # dedupe duty alive on the right FSUUID
 nvme smart-log /dev/nvme0 | grep -iE 'percentage_used|available_spare|media_errors|temperature'

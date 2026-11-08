@@ -1,6 +1,6 @@
 # AGENTS.md — global memory (system-tuning)
 
-Last reviewed: 2026-10-31 (migrated from `docs/MEMORY.md`; per-row fact dates preserved below).
+Last reviewed: 2026-11-09 (migrated from `docs/MEMORY.md`; per-row fact dates preserved below).
 
 ## Memory architecture
 
@@ -55,6 +55,8 @@ republished outside the repo.
 | A file under `state/owned` whose name marks it a backup or editor artifact is never deployed (`*.bak*`, `*~`, `*.orig`, `*.rej`, `*.swp`, `.#*`, `*.tmp`) | Dated 2026-11-08: the walk is filesystem-based, so a local stray would otherwise be written to live — and in `system-sleep/` it executes on every resume. The plan prints `SKIPPED` and stderr warns for that directory. Tests relocate the intent tree with `ECO_STATE` (`ECO_ROOT` cannot reach it) |
 | Persistence outside `state/` dies silently at reinstall and is invisible to the repo: the NVMe queue drifted to vendor `kyber`/256 because the ledger's "foreign file" `/etc/udev/rules.d/60-ioschedulers.rules` was never owned | Burned 2026-10-05 (found by `docs/research/btrfs-tunables.md` §0). Now owned `state/owned/etc/udev/rules.d/61-eco-ioschedulers.rules` (61- keeps vendor sda/mmcblk rules; scheduler line first — elevator switches reset queue depth). Any knob whose persistence is "a foreign file" is a future repeat: check `docs/findings.md` Evidence lines for non-`state/` persistence |
 | `ionice`/`IOSchedulingClass=idle` is dispatch-inert unless the elevator is mq-deadline or bfq (kernel doc `Documentation/block/ioprio.rst` + `block/mq-deadline.c`; zero `ioprio` use in kyber/NVMe driver) | Dated 2026-10-05, evidence in `docs/research/btrfs-tunables.md` §2.1. The installed `btrfs-scrub(8)` `-c/-n` deprecation note claims the opposite — man page is wrong; the flags are deprecated anyway |
+| `/tmp` is a 24 GiB f2fs partition (`/dev/nvme0n1p4`) with a `D! /tmp` boot wipe, and `/run/user/<uid>` is an 80%-RAM tmpfs with a per-login `tmp/` (`~/tmp`); the old tmpfs `/tmp` is gone | Dated 2026-11-08. Rationale and option list `docs/findings.md` `## f2fs-tmp`; automation rows and the "nothing durable in `/tmp`" rule `docs/rollback.md` `## Storage ops`. A pre-image or journal written to `/tmp` is not recoverable — in-memory scratch goes to `~/tmp` |
+| f2fs compression on `/tmp` works but is **invisible to space accounting**: uniform data compresses 4:1 (each 16 KiB cluster floors at one 4 KiB block) — a 1 GiB `f` write moves `compr_saved_block` +196 608 of 262 144 nominal blocks — yet `df`, `stat`, `du` and the ENOSPC path all reserve nominal blocks, so free space never grows | Measured 2026-11-09 on `7.4.0-rc1-1-zeus` (independent oracle: a tmpfs-hosted f2fs image grew ~270 MB of real pages for 1 GiB nominal). The purchase is fewer bytes written to the device (write amp, endurance), never capacity — a 2 GiB fs still fills at ~2 GiB nominal. Never measure it with `df`/`du`; read `/sys/fs/f2fs/<dev>/compr_{written,saved}_block`; `f2fs_io get_cblocks` is the saved-block count, not a size (`docs/findings.md` `## f2fs-tmp`) |
 | Git file modes are load-bearing for deploy: `lib/writers.sh` `write_owned` is `cp src tgt` — source mode wins when the target is new, old mode is kept when it exists | Burned 2026-10-05: `eco-power.sh`/`hw-tune.fish` sat at 100644 in git; a fresh deploy made them non-executable (service 203/EXEC; hw-tune's `[ -x ]` gate skips silently). Exec-bit drift is invisible to the suite and masked while the old live file pre-exists |
 | `kernel.sysrq` bitmask: the task-dump group (p/t/m/l) is 0x08 — the popular "safe" value 438 omits it | Read the bitmask table in `Documentation/admin-guide/sysrq.rst` before choosing a mask; the repo's capture+rescue mask and its rationale live in `state/owned/etc/sysctl.d/97-sysrq.conf` (dated 2026-10-08) |
 | A "knob is inert" claim needs the installed entrypoint and clean stderr: the 2026-10-08 claim "TLP never calls `set_sound_power_mode`" came from grepping `/usr/share/tlp/tlp` (does not exist) with `2>/dev/null`, which hid the error — the entrypoint is `/usr/sbin/tlp:47` and the knob is live | Burned 2026-10-08, caught by an independent diff review. Grep call sites in the real entrypoint (`grep -n <fn> /usr/sbin/tlp`), never silence stderr when searching for absence, and read the consumer (`cat /sys/module/snd_hda_intel/parameters/power_save{,_controller}`) before declaring any knob decorative |
@@ -76,13 +78,16 @@ republished outside the repo.
 
 Folded from host-level `~/docs/CURRENT.md` at the 2026-10-31 memory-architecture migration (host file retired). Dated snapshots of volatile host values that must not be baked into static docs (architecture: `~/.copilot/copilot-instructions.md` §0). Every entry is dated; re-probe before trusting. When a value here is re-measured, replace the entry — no history accumulation.
 
-### Host snapshot — 2026-10-29 (probes: `uname -r`, `free -h`, `df -h /`, `pacman -Qkk pacman`, `snapper list`)
+### Host snapshot — 2026-11-09 (probes: `uname -r`, `free -h`, `df -h / /tmp`, `pacman -Qkk pacman`, `snapper list`)
 
-- kernel: `7.3.1-1-KISS-cachyos-lto` (re-probed 2026-11-01 23:04 boot — the **settled** rebuild: MODE=4, `PCIEASPM_POWER_SUPERSAVE`, `# CONFIG_CPU_MITIGATIONS is not set`, pstore armed; same version string as the pre-flip 14:38 build — identify by `zcat /proc/config.gz`, never by version string)
-- RAM: 30Gi total / 15Gi available
-- `/`: 920G btrfs (181G used / 721G avail)
-- `/etc/makepkg.conf`: locally modified (`pacman -Qkk pacman` → modification time + size mismatch) — not stock
-- snapper `root`: 6 number snapshots (NUMBER_LIMIT 24 + 6 important; bulk prune 1620→6 on 2026-10-29; timer cadence fixed)
+- kernel: `7.4.0-rc1-1-zeus` (the owner's self-built tree, clang 24). The previous snapshot's
+  `7.3.1-1-KISS-cachyos-lto` is history — identify a build by `zcat /proc/config.gz`, never by
+  version string alone
+- RAM: 30Gi total / 14Gi available
+- `/`: 896G btrfs (302G used / 570G avail) — shrunk 24 GiB on 2026-11-08 for the `/tmp` partition
+- `/tmp`: 24G f2fs (`/dev/nvme0n1p4`, 514M used) — see `docs/findings.md` `## f2fs-tmp`
+- `/etc/makepkg.conf`: locally modified (`pacman -Qkk pacman` → checksum mismatch) — not stock
+- snapper `root`: 39 snapshots (NUMBER_LIMIT 36 + 6 important; `snapper-cleanup.timer` active)
 
 ### Compositor config state — 2026-10-22 (re-probe: `ps -eo comm= | grep -E 'niri|umbriel'`, `ls /run/user/1000/wayland-*`, `busctl --user status org.freedesktop.ScreenSaver`)
 

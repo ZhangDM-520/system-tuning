@@ -520,6 +520,59 @@
   scans 0 files as non-root (libblkid UUID lookup) and exits 0; `--read-hashes` is a different,
   non-SQLite hash format and does nothing on a `--hashfile` database.
 
+## f2fs-tmp
+
+**Verdict.** `/tmp` is a dedicated 24 GiB f2fs partition (`/dev/nvme0n1p4`, label `f2fs-tmp`,
+  UUID `8f027a2f-ebbc-4b82-a6a5-146c970d40b7`) mounted with `nodiscard` and lz4 compression
+  options, volatile by contract (boot wipe); the former tmpfs `/tmp` is retired — applied
+  2026-11-08. Compression works (≈4:1 on uniform data) but **space accounting stays nominal**
+  (measured 2026-11-09) · **Class:** tunable
+**Why.** Owner decision (2026-11-08): `/tmp` moved from RAM to disk so a large `/tmp` cannot
+  pressure memory, while intentional in-memory scratch got its own place (`/run/user/<uid>/tmp`
+  via `~/tmp`, 80% RAM). The btrfs root was shrunk online by 24 GiB (`btrfs filesystem resize`
+  + `sfdisk --no-reread` GPT rewrite; the zram-writeback swap partition untouched); the new
+  partition was made with `mkfs.f2fs -H` (write hints) `-O
+  extra_attr,compression,inode_checksum,sb_checksum,flexible_inline_xattr,inode_crtime`, and
+  `/tmp` got `chmod 1777` + `chattr +c` so the compression flag inherits to every file. Mount
+  options are mechanism-motivated, not measured: `compress_algorithm=lz4:0` (fastest level),
+  `compress_mode=fs`, `compress_chksum`, `compress_cache`; `inline_xattr,inline_data,
+  inline_dentry` for small payloads; `atgc,gc_merge,checkpoint_merge,flush_merge` for f2fs
+  housekeeping; `nodiscard` per `## fstrim` (batch trim, never per-op discard). `nobarrier` +
+  `fsync_mode=nobarrier` deliberately trade crash ordering for scratch latency: a power loss
+  may leave `/tmp` unusable, which is acceptable **only** because `D! /tmp` wipes it at boot
+  (`docs/rollback.md` `## Storage ops`). The mount is boot-time: `./eco apply` owns the fstab
+  file (`state/owned/etc/fstab`) but neither apply nor its daemon-reload touch live mounts, so
+  a mid-session change needs a reboot or an explicit remount. Auto-mount is generated from
+  fstab (`tmp.mount`), never hand-written.
+**Compression works, but not in the space accounting (measured).** On kernel `7.4.0-rc1-1-zeus`
+  compression is real and capped by design: f2fs packs each 16 KiB cluster into **at least one
+  4 KiB block**, so uniform data tops out at 4:1. Live counters around a 1 GiB `f` write:
+  `compr_written_block` +65 544 and `compr_saved_block` +196 608 of 262 144 nominal blocks —
+  exactly 3/4 saved. Independent oracle: an f2fs image hosted on tmpfs grew by ~270 MB of real
+  pages for 1 GiB written *nominal*, while that filesystem's own `df` reported 1.18 GB. That is
+  the trap — **f2fs reserves and reports nominal blocks**: `df`, `stat %b` and the ENOSPC path
+  all treat every cluster as 4 blocks, so a 2 GiB filesystem still fills at ~2 GiB nominal
+  (measured: a 3.75 GiB write died with ENOSPC). The purchase is fewer bytes written to the
+  device — write amplification, endurance, sustained write speed — **never more free space**.
+  Measure it only via `/sys/fs/f2fs/<dev>/compr_saved_block` and `compr_written_block` deltas;
+  `f2fs_io get_cblocks` returns the saved-block count (`i_compr_blocks`), not the compressed
+  size, so it reads ~75% and looks broken to anyone expecting a size.
+**Evidence.** `state/owned/etc/fstab`; `docs/rollback.md` (`## Storage ops` — `/tmp` wipe/GC row,
+  per-user tmpfs row, re-check commands); `docs/JOURNAL.md` 2026-11-08; partition-table dumps in
+  `.logs/`. Check: `findmnt -no SOURCE,FSTYPE,OPTIONS /tmp` (expect `nvme0n1p4 f2fs` + `lz4` +
+  no `discard`), `systemd-tmpfiles --cat-config | grep -E '^(D!|e|x|q) /tmp'`, and the
+  compression counters before/after a compressible write:
+  `R=/sys/fs/f2fs/nvme0n1p4; cat $R/compr_{written,saved}_block`.
+**Machine lies.** `df`, `stat %b` and `du` all report nominal blocks on this filesystem — they do
+  not move when compression saves 3/4 of the writes — and `f2fs_io get_cblocks` is a saved-block
+  count, not a size.
+**Rejected here.** mount `discard` on any mount (`## fstrim`); treating `/tmp` as storage
+  (pre-images, journals and benchmark rows live under `.logs/`, never `/tmp`).
+**Open.** What the 4:1 write reduction is worth in device wear and sustained write speed on this
+  NVMe (no A/B exists — and no A/B for f2fs-vs-tmpfs or for any single option either; this is a
+  layout decision with a mechanism story, not a measured win, so never quote a speed number).
+  Watch whether `compress_percent`/`compress_watermark` change the trigger on mixed data.
+
 ## xfs-logbsize
 
 **Verdict.** `logbsize=256k` (with `logbufs=8`) live via `rootflags=logbsize=256k` — applied;
