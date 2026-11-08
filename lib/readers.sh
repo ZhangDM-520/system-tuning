@@ -178,15 +178,20 @@ check_eco() {
 }
 
 check_wifi() {
-  local iw nm bad=()
+  local iw nm reg bad=()
   iw=$(iw dev wlan0 get power_save 2>&1 || true)
   nm=$(live_path "/etc/NetworkManager/conf.d/99-wifi-powersave.conf")
+  reg=$(iw reg get 2>&1 || true)
   grep -qiE 'power save:[[:space:]]*on' <<<"$iw" || bad+=("iw power_save=$(trim "$iw")")
   grep -qF 'wifi.powersave = 3' "$nm" 2>/dev/null || bad+=("NM wifi.powersave != 3")
+  # The regulatory domain comes from eco-wireless-regdom.service (adopted 2026-11-09);
+  # "country 00" is the world domain — 5/6 GHz channels and legal TX limits are lost.
+  grep -qE '^country [A-Z][A-Z]' <<<"$reg" \
+    || bad+=("regdomain unset ($(trim "$(head -1 <<<"$reg")"))")
   if (( ${#bad[@]} )); then
     emit DRIFT WIFI "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK WIFI "iw power_save on, NM wifi.powersave = 3"
+    emit OK WIFI "iw power_save on, NM wifi.powersave = 3, regdomain $(awk '/^country [A-Z][A-Z]/{print $2}' <<<"$reg" | tr -d ':')"
   fi
 }
 
@@ -262,16 +267,21 @@ check_timer() {
 }
 
 check_io() {
-  local wb ex bad=()
+  local wb ex db dbb bad=()
   wb=$(trim "$(sysctl -n vm.dirty_writeback_centisecs 2>/dev/null || true)")
   ex=$(trim "$(sysctl -n vm.dirty_expire_centisecs 2>/dev/null || true)")
+  db=$(trim "$(sysctl -n vm.dirty_bytes 2>/dev/null || true)")
+  dbb=$(trim "$(sysctl -n vm.dirty_background_bytes 2>/dev/null || true)")
   [[ $wb == 6000 ]] || bad+=("vm.dirty_writeback_centisecs=${wb:-unreadable}")
   [[ $ex == 6000 ]] || bad+=("vm.dirty_expire_centisecs=${ex:-unreadable}")
+  # Volume caps adopted from the vendor file (findings ## writeback ## Foreign state).
+  [[ $db == 268435456 ]] || bad+=("vm.dirty_bytes=${db:-unreadable}")
+  [[ $dbb == 67108864 ]] || bad+=("vm.dirty_background_bytes=${dbb:-unreadable}")
   managed_check_problems IO bad || true
   if (( ${#bad[@]} )); then
     emit DRIFT IO "$(join_by ' ' "${bad[@]}")"
   else
-    emit OK IO "dirty writeback/expire 6000, journald record matches"
+    emit OK IO "dirty writeback/expire 6000, bytes caps 256M/64M, journald record matches"
   fi
 }
 

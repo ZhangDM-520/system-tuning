@@ -607,6 +607,20 @@ reg28=$(ECO_HOME="$ROOT" bash -c \
      printf "%s %s %s" "${#CHECK_IDS[@]}" "${#MANAGED_IDS[@]}" "$#"')
 assert_eq "case28 table derives 14 checks, 8 records, 5 profile records" "$reg28" "14 8 5"
 
+# --- (29) multi-value sysctl re-assert (2026-11-09): `kernel.printk = 3 3 3 3` carries
+# spaces. Capturing only the first token made want a prefix, so a converged value was
+# re-asserted forever and every apply ended in "drift persisted" (exit 1). Adopting the
+# vendor sysctl set is what surfaced it.
+t29=$(new_tree multi-sysctl)
+s29="$WORK/state29"
+rm -rf "$s29"
+cp -a "$ROOT/state" "$s29"
+sed -i 's|^kernel.printk = .*|kernel.printk = 4 4 4 4|' "$s29/owned/etc/sysctl.d/10-eco-kernel-base.conf"
+run_eco_state "$s29" "$t29" apply --dry-run
+assert_eq "case29 multi-value sysctl dry-run exits 0" "$RC" 0
+assert_contains "case29 whole value is compared, not its first token" \
+  "SYSCTL kernel.printk runtime=3 3 3 3 want=4 4 4 4"
+
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
 if (( FAIL )); then exit 1; fi

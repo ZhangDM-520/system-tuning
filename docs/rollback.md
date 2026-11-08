@@ -79,6 +79,30 @@ Whole-file owned targets mirror their live paths under `state/owned/` (naming ru
 `docs/eco-power-README.md` `## State layout`). Foreign-file edits
 (anchor-replaced single lines) roll back the same way: restore the line from the dated backup.
 
+## Adopted vendor settings (2026-11-09)
+
+The `cachyos-settings` file set now lives in `state/owned/` (ledger: `docs/findings.md`
+`## vendor-settings`). Undo has two shapes:
+
+- **Take the settings back** — `sudo pacman -S cachyos-settings` reinstalls the `/usr/lib`
+  originals, and re-introduces the `ananicy-cpp` dependency (remove again with
+  `pacman -R cachyos-settings`). To revert one knob only, restore its `.bak-*` sibling, delete the
+  owned file, then `./eco apply --dry-run` to prove the plan is empty again.
+- **Change a live effect without touching the package** — these are ordinary files, so edit the
+  *owned* file (repo first, `## Converge a change`) rather than live-edit + harvest. Three effects
+  are not plain files: the blacklisted watchdog modules need `modprobe <name>` or a reboot; the
+  THP pair is written by `systemd-tmpfiles --create` at boot; `w!` tmpfiles lines are
+  runtime-only, so a runtime patch does not survive a reboot.
+
+Ordering traps worth remembering when undoing or re-applying:
+
+- `/etc` beats `/usr/lib` for the same basename, and a drop-in is read **after** its main file —
+  `journald.conf`'s 256M lost to a `/usr/lib` 50M drop-in until `99-eco-size.conf` existed.
+- A `60-`-numbered udev rule loses to a later number: that is why the NVMe scheduler override is
+  `61-eco-ioschedulers.rules` and the audio rule is `70-eco-audio-pm.rules`.
+- `systemd-tmpfiles` `w!` writes are runtime-only; `e`/`q` also create and clean; `D!` wipes at
+  boot only.
+
 ## sd
 
 The SD reader (GL9755 on `0000:c2:00.0`, sdhci-pci) was unbound at runtime with no card inserted

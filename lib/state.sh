@@ -55,6 +55,18 @@ trim() {
   printf '%s' "$s"
 }
 
+# Whitespace-normalized comparison form for a sysctl value: `sysctl -n` renders
+# multi-value keys with tabs (3\t3\t3\t3), a file may hold spaces. Both sides go
+# through this so equality is about values, not separators.
+norm_sysctl_value() {
+  local s=$1
+  s=${s//$'\t'/ }
+  s=${s//$'\n'/ }
+  s=$(trim "$s")
+  while [[ $s == *'  '* ]]; do s=${s//  / }; done
+  printf '%s' "$s"
+}
+
 join_by() {
   local sep=$1 out='' e
   shift

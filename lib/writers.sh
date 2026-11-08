@@ -124,10 +124,17 @@ runtime_collect() {
       *) continue ;;
     esac
     while IFS= read -r line || [[ -n $line ]]; do
-      [[ $line =~ ^[[:space:]]*([A-Za-z0-9_.]+)[[:space:]]*=[[:space:]]*([^[:space:]#]+) ]] || continue
+      # A sysctl value may contain spaces (kernel.printk = 3 3 3 3, net.ipv4
+      # .ip_local_port_range = 32768 60999): capture to end of line, then drop a
+      # trailing comment. Stopping at the first space made `want` a prefix, which
+      # re-asserted forever and turned a converged apply into exit 1.
+      [[ $line =~ ^[[:space:]]*([A-Za-z0-9_.]+)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
       key=${BASH_REMATCH[1]} want=${BASH_REMATCH[2]}
+      want=${want%%#*}
+      want=$(norm_sysctl_value "$want")
+      [[ -n $want ]] || continue
       cur=$(sysctl -n "$key" 2>/dev/null || true)
-      cur=$(trim "$cur")
+      cur=$(norm_sysctl_value "$cur")
       [[ $cur == "$want" ]] && continue
       RUNTIME_KEY+=("$key") RUNTIME_WANT+=("$want") RUNTIME_CUR+=("${cur:-unreadable}")
     done <"$f"

@@ -237,8 +237,11 @@
   (owner-settled for wakeup/radio-sleep doctrine); the latency cost is the recorded known trade.
   That era's NM files were also self-contradictory (a `d`-sorting file silently won).
 **Evidence.** `state/owned/etc/NetworkManager/conf.d/99-wifi-powersave.conf`;
-  `state/owned/etc/udev/rules.d/81-wifi-powersave.rules`; `state/owned/etc/tlp.d/01-eco.conf`.
-  Check: `iw dev wlan0 get power_save`, `grep -R powersave /etc/NetworkManager/`, and the
+  `state/owned/etc/udev/rules.d/81-wifi-powersave.rules`; `state/owned/etc/tlp.d/01-eco.conf`;
+  `state/owned/usr/local/lib/iw-set-regdomain` + `eco-wireless-regdom.{service,path}` (regulatory
+  domain, adopted 2026-11-09 — see `## vendor-settings`). Check:
+  `iw dev wlan0 get power_save`, `grep -R powersave /etc/NetworkManager/`, `iw reg get` (a
+  `country 00` global domain means the TX limits and 5/6 GHz channels are gone), and the
   `./eco report` WIFI row.
 
 ## bt
@@ -293,6 +296,26 @@
   writer-agnostically (`[powersupersave]`), so it guards either writer.
 **Reopen.** link-level instability under L1.2 (NVMe errors, WiFi drops) → policy back to
   `powersave`; a kernel with a per-device ASPM lever (none exists today).
+
+## snd-hda-pm
+
+**Verdict.** `snd_hda_intel` `power_save=0` while on AC, the stashed value (10 s default)
+  restored on battery — applied via udev + a helper (adopted 2026-11-09, `## vendor-settings`) ·
+  **Class:** tunable
+**Why.** On AC the 10 s runtime-suspend of the HDA codec buys almost nothing and costs a
+  stream-start latency that shows up as a click/crackle at the head of the first sound after
+  silence. On battery the codec may still suspend — that is where the wakeup saving has a
+  chance of mattering. `power_save_controller=Y` is left alone (it is the controller-side timer,
+  not the codec policy). The rule is `70-eco-audio-pm.rules`; the helper is
+  `/usr/local/lib/audio-pm-ctl` (init on card add, `battery`/`ac` on power-supply change), and
+  the pre-suspend value is stashed in `/run/udev/snd-hda-intel-powersave`.
+**Evidence.** `state/owned/etc/udev/rules.d/70-eco-audio-pm.rules`;
+  `state/owned/usr/local/lib/audio-pm-ctl`. Check:
+  `cat /sys/module/snd_hda_intel/parameters/power_save` (expect `0` on AC; a 10 s-class value on
+  battery), `cat /run/udev/snd-hda-intel-powersave`, and `udevadm info -a` on the card to confirm
+  `DRIVERS=="snd_hda_intel"` still matches.
+**Open.** No measurement: the crackle is audible, not quantified, and no A/B establishes that
+  battery-side suspension saves anything measurable on this host. Do not quote a power number.
 
 ## sched
 
@@ -393,12 +416,14 @@
   `sysctl vm.dirty_writeback_centisecs vm.dirty_expire_centisecs` — read the runtime values, never
   the files alone (TLP was the resetter).
 **Rejected here.** lowering `xfssyncd_centisecs` (measured-worse, more wakeups).
-**Foreign state (observed 2026-10-05, values unchanged).** vendor
-  `/usr/lib/sysctl.d/70-cachyos-settings.conf` also writes `vm.dirty_bytes=256 MiB`,
+**Foreign state (observed 2026-10-05, values unchanged; owned since 2026-11-09).** vendor
+  `/usr/lib/sysctl.d/70-cachyos-settings.conf` also wrote `vm.dirty_bytes=256 MiB`,
   `vm.dirty_background_bytes=64 MiB` and `vm.dirty_writeback_centisecs=1500`; the first two are
-  unowned (recorded here so a clobber is visible), the third loses to `99-eco-writeback.conf`
-  (99 > 70 in sysctl.d order) and to the re-assert belt. Check: `sysctl vm.dirty_bytes
-  vm.dirty_background_bytes vm.dirty_writeback_centisecs`.
+  now carried by `state/owned/etc/sysctl.d/10-eco-kernel-base.conf` (the volume caps; the timer
+  pair stays 6000/6000 here and wins because 99 > 70), and check IO asserts all four keys.
+  This matters more now than it did as a foreign file: dropping cachyos-settings removes it, so
+  without the owned copy the caps silently revert to kernel defaults. Check:
+  `sysctl vm.dirty_bytes vm.dirty_background_bytes vm.dirty_writeback_centisecs`.
 **Open.** no measured J/min confirmation for the whole writeback/wakeup family (6000/6000, xfssyncd,
   `speculative_prealloc_lifetime`): the timer-policy pair (xfssyncd 10000 → 30000, prelife 300 →
   1800) was INCONCLUSIVE at n=2/arm usable (MW-U minimum p = 0.333; one window
@@ -416,8 +441,16 @@
   (Q2/Q3/Q11), then raised to 256M on 2026-09-28 after the 32M cap vacuumed an entire freeze boot
   mid-investigation — the journal is forensics capacity, not just disk hygiene. Superseded with
   scope: the 32M verdict and its 2026-09-26 baseline readback (47.9M against a 32M cap).
-**Evidence.** `state/managed/journald.toml` (anchored line `SystemMaxUse=256M`). Check:
-  `journalctl --disk-usage`, `grep SystemMaxUse /etc/systemd/journald.conf`.
+**Evidence.** `state/managed/journald.toml` (anchored line `SystemMaxUse=256M`),
+  `state/owned/etc/systemd/journald.conf.d/99-eco-size.conf`. Check:
+  `journalctl --disk-usage`, `grep SystemMaxUse /etc/systemd/journald.conf`, and the precedence
+  layer: `systemd-analyze cat-config systemd/journald.conf | grep SystemMaxUse` (last line wins).
+**Machine lies.** The managed line and the effective cap are different questions. Until
+  2026-11-09 the file said 256M while the *effective* value was 50M: cachyos-settings shipped
+  `/usr/lib/systemd/journald.conf.d/00-journal-size.conf` with `SystemMaxUse=50M`, and drop-ins
+  are applied after the main file (and by filename order across directories). `./eco report`
+  said "journald record matches" throughout — it was right about the file and wrong about the
+  cap. Fixed by owning the `99-` drop-in, which sorts last.
 
 ## io-stack
 
@@ -893,6 +926,78 @@
   presented as AC-on; fixed by one plug cycle after resume) — treat it as advisory during weirdness
   and re-plug before diagnosing anything power-source-dependent; firmware derates can latch across a
   replug and clear only at some charge threshold or a full power-off (EC discharge).
+
+## vendor-settings
+
+**Verdict.** The `cachyos-settings` package's settings are **adopted into `state/owned`** (2026-11-09)
+  so the package can be removed without losing them; two of its values are deliberately **not**
+  adopted because this repo's own rulings are better · **Class:** mixed (the carried values are
+  habits-of-the-machine; the two refusals are settled)
+**Why.** `cachyos-settings 1:1.4.1` hard-depends on `ananicy-cpp` and `cachyos-ananicy-rules`;
+  `aranicy` **Conflicts With: ananicy-cpp** (owner's custom replacement), so every `-Syu` that
+  wants to reinstall the dependency chain fails. The package owns ~20 configuration files under
+  `/usr/lib` and `/etc` that this host actually runs — dropping it silently reverts each one at
+  the next boot. Every adopted file carries its provenance in its own header comment; the live
+  files it replaced have dated `.bak-*` siblings from `./eco apply`.
+**Adopted (all deployed by `./eco apply`, all under `state/owned/`).** *Carried-over live state,
+  not a tuning claim — the host already ran exactly these values.*
+  - `etc/sysctl.d/10-eco-kernel-base.conf` — `vfs_cache_pressure=50`, `dirty_bytes=256M`,
+    `dirty_background_bytes=64M`, `page-cluster=0`, `nmi_watchdog=0`,
+    `unprivileged_userns_clone=1`, `printk=3 3 3 3`, `kptr_restrict=2`,
+    `netdev_max_backlog=4096`, `file-max=2097152`. Named 10- so every later owned sysctl file
+    still wins.
+  - `etc/tmpfiles.d/50-eco-thp.conf` (`defrag=defer+madvise`), `50-eco-thp-shrinker.conf`
+    (`max_ptes_none=409`), `50-eco-coredump.conf` (3d retention).
+  - `etc/modprobe.d/99-eco-watchdog-blacklist.conf` (`iTCO_wdt`, `sp5100_tco`, `wdat_wdt`) and
+    `etc/modules-load.d/ntsync.conf` (Proton's NT primitives; `/dev/ntsync`).
+  - `etc/systemd/journald.conf.d/99-eco-size.conf` — see `## journald`: this one *fixed* a silent
+    drift (effective 50M from the vendor drop-in) rather than merely preserving it.
+  - `etc/systemd/{system,user}.conf.d/10-eco-{timeout,limits}.conf` (15 s/10 s start/stop
+    defaults, NOFILE 2048:2097152 / 1024:1048576), `system.slice.d` + `user-.slice.d` OOM
+    defaults (kill on swap/memory pressure, 80 %), `session.slice.d` `ManagedOOMPreference=omit`
+    (never kill the session), `user@.service.d` controller delegation,
+    `rtkit-daemon.service.d` `LogLevelMax=info` (inert while rtkit is disabled).
+  - `etc/security/limits.d/20-audio.conf` (`@audio` rtprio 99 / nice −11),
+    `etc/NetworkManager/conf.d/99-eco-dns.conf` (`dns=systemd-resolved`),
+    `etc/systemd/timesyncd.conf.d/10-eco-ntp.conf`.
+  - `etc/udev/rules.d/70-eco-audio-pm.rules` + `usr/local/lib/audio-pm-ctl` — `snd_hda_intel`
+    `power_save=0` on AC, the stashed value restored on battery (`## snd-hda-pm` owns the knob).
+  - `usr/local/lib/iw-set-regdomain` + `etc/systemd/system/eco-wireless-regdom.{service,path}`
+    (ISC headers kept). **The biggest loss otherwise:** without it `iw reg get` falls back to the
+    world domain `00`, dropping 5/6 GHz channels and legal TX limits (`## wifi`). Ours also runs
+    at boot (`WantedBy=multi-user.target`), not only when `/etc/localtime` changes.
+  - `etc/systemd/zram-generator.conf` — was a *local* `/etc` file the repo never owned (the exact
+    persistence gap in `AGENTS.md`); adopted unchanged.
+**Rejected here (this repo's ruling wins).** `vm.swappiness=100` — `95-zram-swappiness.conf` pins
+  150 for zram (`## io-stack`); `kernel.sysrq=1` — `97-sysrq.conf` pins the 190 capture+rescue
+  mask (`## recovery`). Not adopted because nothing here uses them: the xswap generator and its
+  zram drop-in (`/sys/kernel/mm/xswap` absent, `CONFIG_ZSWAP` unset), `30-zram.rules` (writes
+  swappiness and disables zswap — superseded and inert), the SATA/hdparm rules (no SATA disk or
+  HDD), `amdgpu si_support/cik_support` and `nvidia.conf` (Strix Point iGPU / no NVIDIA),
+  `pci-latency` (disabled, inactive), `40-hpet-permissions` + `99-cpu-dma-latency` (permission
+  grants for a latency-critical audio path this host does not have), the X11 touchpad file and the
+  glib login-screen schema (Wayland/desktop cosmetics).
+**Lost on removal (tools, not settings — owner's call).** `topmem`, `kerver`, `pci-latency`,
+  `game-performance`, `zink-run`, `dlss-swapper`, `paste-cachyos`, `sbctl-batch-sign`,
+  `cachyos-bugreport.sh`, `eac-status`. Only `game-performance` touches a repo-owned surface (it
+  drives PPD — `## epp`); PPD's own action surface covers that here.
+**Evidence.** `find state/owned -type f` (the adopted set is the `10-eco-*`/`50-eco-*`/`70-eco-*`/
+  `99-eco-*` names); `docs/rollback.md` (`## Adopted vendor settings` — undo); upstream
+  `CachyOS/CachyOS-Settings` at `3691abc` (2026-11-08). Check: `./eco apply --dry-run` (PLAN 0 when
+  converged), `pacman -Q cachyos-settings`, `systemd-analyze cat-config systemd/journald.conf |
+  grep SystemMaxUse`, `iw reg get`, `lsmod | grep -E 'iTCO_wdt|sp5100_tco|wdat_wdt'`,
+  `cat /sys/kernel/mm/transparent_hugepage/defrag`.
+**Before removing the package.** `pacman -R cachyos-settings` — not `-Rns` (its other deps are
+  wanted) and not `-Rdd` (that skips the integrity question, not the dependency one). Keep
+  `wireless-regdb` (regulatory data, otherwise only an orphan) and `zram-generator` (owns
+  `zram0`); mark them explicit (`pacman -D --asexplicit wireless-regdb zram-generator`) so an
+  orphan sweep cannot take them. Two vendor paths lose their owner and are already covered:
+  `/usr/lib/udev/rules.d/60-ioschedulers.rules` (superseded by `61-eco-ioschedulers.rules`,
+  `## io-stack`) and `/usr/lib/systemd/journald.conf.d/` (superseded by `99-eco-size.conf`).
+**Open.** No measurement backs the carried values — they are preserved behaviour, and nothing in
+  this entry may be quoted as a win. Whether `nmi_watchdog=0` plus the three blacklisted watchdog
+  timers actually move idle power here was never A/B'd (all were already in force before the repo
+  existed); the same holds for the THP pair and the `vm.dirty_*` volume caps.
 
 ## daemons
 

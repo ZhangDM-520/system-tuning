@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
-# tests/stubs/iw: canned wifi power-save state for the fixture tree.
-echo "Power save: on"
+# tests/stubs/iw: canned wifi state for the fixture tree — power-save for the
+# per-interface query, a regulatory domain for `iw reg get`.
+case "$*" in
+  *"reg get"*) printf 'global\ncountry TW: DFS-FCC\n\nphy#0\n' ;;
+  *) echo "Power save: on" ;;
+esac
 exit 0
