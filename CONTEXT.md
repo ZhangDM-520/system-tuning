@@ -3,7 +3,9 @@
 Written 2026-09-29 during the architecture review. This file names the concepts the docs
 restructure talks about; it is the vocabulary shared by every design dossier and migration wave.
 Status: **implemented 2026-09-29** — the modules below are the live doc set (gated by `./tests/run`
-and the anchor/one-home guards).
+and the anchor/one-home guards). Engine status 2026-11-10: the shell `eco` engine is retired for
+this host (native `genarch` converges it; `eco apply` refuses — see `AGENTS.md` `## Engine
+status`), while these doc modules and their gates are unchanged.
 
 ## The domain
 

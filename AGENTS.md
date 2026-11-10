@@ -2,6 +2,19 @@
 
 Last reviewed: 2026-11-10 (migrated from `docs/MEMORY.md`; per-row fact dates preserved below).
 
+## Engine status (2026-11-10): the host runs `genarch`, not `eco`
+
+The live host is converged by the native Rust engine at `~/Projects/genarch-settings`. The shell
+`eco` stack in this tree is **retired**: `state/RETIRED.md` is the marker, `eco` refuses a real
+apply (exit 2), and `tests/run` case30 pins that refusal. `./eco report` and `./eco apply
+--dry-run` still work; they report the retirement as drift, which is expected, not a fault.
+
+Intent moved to `/usr/lib/genarch` + `/etc/genarch`, ownership is `/var/lib/genarch/manifest.toml`,
+units are `genarch.*` (the `eco-*` units are disabled and their live files removed, every one with
+a dated `.bak-20261110` pre-image). Everything below still describes the shell engine accurately —
+as history, as the rollback artifact, and as the parity reference for the native engine. The
+live-change rules now apply to the genarch tree (`genarch-settings/docs/CUTOVER.md`).
+
 ## Memory architecture
 
 - **Global memory — this file:** project overview, pitfalls, long-term rules. Established by
@@ -18,19 +31,20 @@ Last reviewed: 2026-11-10 (migrated from `docs/MEMORY.md`; per-row fact dates pr
 ## Project overview
 
 The canonical single-host tuning repo (merged 2026-09-28 from `eco-power` +
-`System-Tuning-Benchmarks`): eco/power convergence machinery (`eco`, `lib/`, `state/`, `tests/`),
-benchmark methodology + studies (`benchmarks/`), filesystem maintenance (XFS campaign archived
-2026-10-05 at `docs/archive/XFS-TUNING.md`; root is btrfs since the reinstall). Public since
-2026-10-17 (owner decision): live paths such as `state/owned/home/...` are exposed in-tree (they
-are load-bearing, e.g. the `eco-power.service` ExecStart), while the `benchmarks/` subtree keeps
-its stricter publication privacy rule (see `benchmarks/docs/MEMORY.md`) since that material is
-republished outside the repo.
+`System-Tuning-Benchmarks`): the retired shell convergence machinery (`eco`, `lib/`, `state/`,
+`tests/` — see `## Engine status`), benchmark methodology + studies (`benchmarks/`), filesystem
+maintenance (XFS campaign archived 2026-10-05 at `docs/archive/XFS-TUNING.md`; root is btrfs
+since the reinstall). Public since 2026-10-17 (owner decision): live paths such as
+`state/owned/home/...` are exposed in-tree, while the `benchmarks/` subtree keeps its stricter
+publication privacy rule (see `benchmarks/docs/MEMORY.md`) since that material is republished
+outside the repo.
 
 ## Facts that are easy to get wrong
 
 | Fact | How to check / why it matters |
 | --- | --- |
-| The test gate is `./tests/run` — one sequential bash script, 17 cases / 92 assertions (as of 2026-10-10; four section-scoping cases retired with the scx record — `docs/findings.md` `## sched`), no case selector | Run and filter labelled output (`./tests/run \| grep 'case3'`); `tests/work/` is wiped and regenerated every run |
+| The test gate is `./tests/run` — one sequential bash script, 30 cases / 126 assertions (as of 2026-11-10; four section-scoping cases retired with the scx record — `docs/findings.md` `## sched`), no case selector | Run and filter labelled output (`./tests/run \| grep 'case3'`); `tests/work/` is wiped and regenerated every run |
+| `eco apply` is retired for this host (2026-11-10 cutover to `genarch`): the guard in `eco` refuses an empty-`ECO_ROOT` (live) apply with exit 2 while `state/RETIRED.md` exists; fixture applies stay allowed because the gate needs them | case30 pins the refusal, both message lines, the seam behaviour, and that the guard is dispatched before `cmd_apply`. **Never falsify it through the verb**: `cmd_apply` re-execs through `sudo`, so a red guard deploys the shell engine from inside the gate (happened 2026-11-10; live was re-converged with `genarch apply`, PLAN 0) |
 | No build, no lint config, no CI | `bash -n` / ad-hoc `shellcheck`; the suite is the only gate |
 | Report IDs are locked to `lib/registry.sh` *and* hardcoded in `tests/run` (case1/case7) | Changing the check set means registry + reader + doc anchor + test list in one change |
 | `CHECK_DOC` anchors are shorthand, not filenames: `findings#asusd` lives in `docs/findings.md` | Follow the string from `lib/registry.sh` to the `##` heading, not from the filename |

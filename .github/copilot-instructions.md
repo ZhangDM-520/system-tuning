@@ -4,11 +4,12 @@ Single-host system tuning for this machine (CachyOS, Ryzen AI 9 HX 370, hybrid Z
 btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of work in one tree:
 
 - **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
-  gate). The live system converges to this repo at boot (`eco-power.service`; `eco apply` runs as
-  the second, failure-tolerant `ExecStart=-` of the same chain), and the resume hook re-asserts the
-  SMU runtime knobs — the 600 s backstop timer and the AC-event trigger were dropped 2026-10-11;
-  the 4.7/3.2 cpufreq ceiling has its own drift-only watch (`eco-ceil.timer` + power-event udev,
-  no SMU writes) since 2026-10-29 — so live is never the place to make a change.
+  gate). **Retired for this host on 2026-11-10**: the live system is converged by the native
+  `genarch` engine (`~/Projects/genarch-settings`), and `./eco apply` refuses (exit 2,
+  `state/RETIRED.md`) so the shell engine can never become a second writer. The tree stays as the
+  rollback artifact and parity reference; `./eco report` / `apply --dry-run` still work and show
+  the retirement as drift. Everything below about `eco-*` units, `state/` layout and the shell
+  gate describes that retired engine.
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
 - **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS
@@ -80,9 +81,10 @@ How a change propagates (none of this is visible from a single file):
 
 ## Conventions
 
-- **Repo first.** Live hand edits are reverted by the 600 s convergence chain by design; the one
-  change flow is `docs/rollback.md` `## Converge a change`, and `./eco harvest` captures
-  deliberate live experiments before the converger reverts them.
+- **Repo first.** The one change flow is edit intent → apply → verify, never a live hand edit. For
+  the retired shell engine that flow is now closed (`./eco apply` refuses, exit 2); the live flow
+  is the native engine's (`genarch-settings/docs/CUTOVER.md`). `docs/rollback.md` `## Converge a
+  change` remains the shell-era description.
 - **Pre-images before every live write** — the mechanism is `docs/rollback.md`
   `## Undo: universal mechanism`.
 - **Commit messages carry the check ID** (`CEIL: Zen5c ceiling 2.9 -> 3.0GHz`) so

@@ -621,6 +621,45 @@ assert_eq "case29 multi-value sysctl dry-run exits 0" "$RC" 0
 assert_contains "case29 whole value is compared, not its first token" \
   "SYSCTL kernel.printk runtime=3 3 3 3 want=4 4 4 4"
 
+# --- (30) retirement guard (2026-11-10): the host was flipped to the native `genarch` engine.
+# The guard refuses a real `eco apply` against the live root, because that restores the shell
+# engine beside genarch and gives the host two writers for the same files. It keys on the seam,
+# not on the host: an empty ECO_ROOT is the live root (refuse), a set ECO_ROOT is a fixture tree
+# (allowed — this gate applies into fixtures).
+# Tested through the function, never the verb: `apply` with an empty ECO_ROOT re-execs through
+# sudo, so a red guard would deploy the shell engine from inside the gate (exactly what happened
+# on 2026-11-10; live was re-converged with `genarch apply`). ECO_LIB_ONLY=1 skips dispatch.
+OUT=$(cd "$ROOT" && ECO_LIB_ONLY=1 ECO_HOME="$ROOT" ECO_STATE="$ROOT/state" ECO_ROOT= bash -c \
+  '. "$ECO_HOME/eco"; refuse_retired_apply; printf "fell-through\n"' 2>&1)
+assert_eq "case30 live-root apply is refused after retirement" "$?" 2
+assert_contains "case30 refusal names the retirement marker" \
+  "eco: retired: this tree no longer owns the host"
+assert_contains "case30 refusal points at the native engine" "use genarch (report/apply)"
+if grep -qF 'fell-through' <<<"$OUT"; then
+  bad "case30 refusal must end the run, not fall through to a deploy"
+else
+  ok "case30 refusal must end the run, not fall through to a deploy"
+fi
+
+OUT=$(cd "$ROOT" && ECO_LIB_ONLY=1 ECO_HOME="$ROOT" ECO_STATE="$ROOT/state" ECO_ROOT="$t1" bash -c \
+  '. "$ECO_HOME/eco"; refuse_retired_apply; printf "allowed\n"' 2>&1)
+assert_eq "case30 fixture root is not guarded (the gate applies into fixtures)" "$OUT" "allowed"
+
+OUT=$(cd "$ROOT" && ECO_LIB_ONLY=1 ECO_HOME="$ROOT" ECO_STATE="$WORK/state30-empty" ECO_ROOT= \
+  bash -c '. "$ECO_HOME/eco"; refuse_retired_apply; printf "allowed\n"' 2>&1)
+assert_eq "case30 the marker is read from the intent tree, not the code tree" "$OUT" "allowed"
+
+# Dispatch order, asserted as source order rather than by running the verb: running `apply` with
+# an empty ECO_ROOT is only safe while the guard is correct, and a red guard is exactly the case
+# a gate must survive.
+g30=$(grep -n '|| refuse_retired_apply' "$ECO" | cut -d: -f1)
+a30=$(grep -n 'cmd_apply "\$dry"' "$ECO" | cut -d: -f1)
+if [[ -n $g30 && -n $a30 ]] && (( g30 < a30 )); then
+  ok "case30 the guard is dispatched before cmd_apply"
+else
+  bad "case30 the guard is dispatched before cmd_apply (guard=${g30:-absent} apply=${a30:-absent})"
+fi
+
 say ""
 say "tests: $((PASS + FAIL)) run, $PASS passed, $FAIL failed"
 if (( FAIL )); then exit 1; fi

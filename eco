@@ -40,6 +40,22 @@ usage_err() {
   exit 2
 }
 
+refuse_retired_apply() {
+  # 2026-11-10: the host is converged by the native `genarch` engine. A real apply here would
+  # restore the shell engine beside it and give the host two writers for the same files — the
+  # one failure mode the cutover exists to prevent. Dry-run stays available (read-only).
+  # Only the live root is guarded: a set ECO_ROOT is a fixture tree, and the gate itself
+  # applies into fixtures. The intent-tree seam (ECO_STATE) decides where the marker is read.
+  [[ -z $ECO_ROOT ]] || return 0
+  if [[ -e $ECO_STATE/RETIRED.md ]]; then
+    {
+      printf 'eco: retired: this tree no longer owns the host (state/RETIRED.md)\n'
+      printf 'eco: use genarch (report/apply) — refusing to deploy the shell engine again\n'
+    } >&2
+    exit 2
+  fi
+}
+
 cmd_report() {
   local json=$1 id
   require_state
@@ -81,6 +97,7 @@ main() {
       ;;
     apply)
       (( json == 0 )) || usage_err "--json"
+      (( dry )) || refuse_retired_apply
       cmd_apply "$dry"
       ;;
     harvest)
@@ -90,4 +107,7 @@ main() {
   esac
 }
 
-main "$@"
+# Sourcing seam: tests/run case30 exercises `refuse_retired_apply` below the dispatch. It has to
+# stay below, because a real apply with an empty ECO_ROOT re-execs through sudo — a red guard
+# tested through the verb would deploy the shell engine from inside the gate (it did, 2026-11-10).
+[[ ${ECO_LIB_ONLY:-0} == 1 ]] || main "$@"

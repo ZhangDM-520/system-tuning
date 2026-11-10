@@ -10,6 +10,10 @@ never restated here; backups are never deleted (`## Undo: universal mechanism`);
 recipes speak the report's row vocabulary (OK/ACCEPTED/WARN/DRIFT/SKIPPED), defined in
 `docs/eco-power-README.md`, not here.
 
+**Retired for this host (2026-11-10).** The shell `eco` engine no longer owns the live system —
+the native `genarch` engine does, and `./eco apply` refuses (exit 2, `state/RETIRED.md`). The
+shell recipes below are the rollback reference; the live runbook is `genarch-settings/docs/CUTOVER.md`.
+
 ## Converge a change
 
 The one change flow — sysctl, owned file, or managed foreign line: edit `state/` →
