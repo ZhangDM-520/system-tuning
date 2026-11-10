@@ -28,6 +28,14 @@ live-change rules now apply to the genarch tree (`genarch-settings/docs/CUTOVER.
 - Single source of truth: never duplicate rules or lists across docs — link with explicit
   Markdown pointers. Stamp entries `Last reviewed: YYYY-MM-DD` and re-verify on edit.
 
+## Cross-repo contract (2026-11-11)
+
+`docs/contract.tsv` is this repo's owner copy of the engine contract: one `ID<TAB>anchor` row per
+check, anchored into `docs/findings.md`. The native engine ships a pinned copy at
+`genarch-settings/tests/contract.tsv` and its gate asserts the two are equal, equal to its
+compiled registry, and that every anchor resolves to a real `##` heading. Edit both copies in one
+change; the engine gate goes red otherwise.
+
 ## Project overview
 
 The canonical single-host tuning repo (merged 2026-09-28 from `eco-power` +
