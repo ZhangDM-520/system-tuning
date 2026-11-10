@@ -1007,6 +1007,48 @@
   timers actually move idle power here was never A/B'd (all were already in force before the repo
   existed); the same holds for the THP pair and the `vm.dirty_*` volume caps.
 
+## intent
+
+**Verdict.** The host's declared state is one **intent**, owned by the `genarch` engine
+  (`~/Projects/genarch-settings`); `system-tuning` keeps the ledger and the benchmarks, not the
+  state — mixed (the layout is settled; the engine migration is in progress) · **Class:** tunable
+**Why.** The shell engine kept `state/owned` as byte-exact mirrors plus `state/managed` line
+  records, and that pair was correct but untyped: a stray file deployed itself, a sysctl value
+  lived in two places (a `sysctl.d` file and a runtime re-assert), and ordering decided
+  precedence. The intent keeps the same two primitives and adds what was learned: `mirror/` for
+  files the engine must not interpret, typed TOML for values it computes, and an explicit
+  `prune` list for paths that must disappear (at cutover the engine's manifest is empty, so
+  "what should be removed" cannot be inferred). Precedence is whole-file: `/etc/genarch`
+  overrides `/usr/lib/genarch`, nothing merges.
+**Evidence.** `~/Projects/genarch-settings/intent/` (the package data), `docs/DESIGN.md`
+  (why hybrid), `CONTEXT.md` (vocabulary). The migration derives the first intent with
+  `genarch import`, whose acceptance is a round-trip property — import → load → render must
+  reproduce the shell tree byte for byte. Check: `genarch report` (row MIRROR) and
+  `genarch apply --dry-run` (the plan must be explainable line by line).
+**Rejected here.** Structured TOML for *every* target (it would make the engine a parser for
+  `fstab`, `tlp.conf` and `asusd.ron` — each parser is a way to silently rewrite a vendor file's
+  meaning); a merge/override chain (two answers to "what is the value").
+**Open.** Cutover: the shell engine still converges this host until the units are flipped, and
+  both engines must never own the same file (`state/` retires in the same step).
+
+## managed
+
+**Verdict.** Anchored single-line patches against files the engine only partly owns — the
+  primitive that lets one file carry both a vendor's content and our value — applied
+  (`genarch` action surface) · **Class:** tunable
+**Why.** Eight records exist (`/etc/asusd/asusd.ron` ×5, `journald.conf`, `ppd-conflict`,
+and the retired `niri-autostart`). Identity is the anchor **pattern**, never a line number, so a
+  package update that inserts lines cannot make the engine edit the wrong thing. Zero matches and
+  several matches are both hard errors that write nothing: choosing between two candidates is how
+  a config silently becomes wrong. Everything around the matched line survives byte for byte,
+  including the trailing-newline state; the write is atomic (sibling temp + rename).
+**Evidence.** `~/Projects/genarch-settings/src/managed.rs` (the one implementation;
+  `managed::replace`/`probe`), the ported gate in `~/Projects/genarch-settings/tests/converge.rs`
+  (unclaimed bytes, zero-match, multi-match, section scoping). Check: `genarch report` row
+  MANAGED, or per-record via the plan: `genarch apply --dry-run`.
+**Rejected here.** Line-number addressing; "first match wins"; regex replacement of the whole
+  file (it cannot promise that the unclaimed bytes survive).
+
 ## daemons
 
 **Verdict.** No timer storm — system + 1 user timer at **vendor cadences**; the 2026-10-13
