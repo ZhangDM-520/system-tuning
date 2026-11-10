@@ -149,10 +149,23 @@ The SD reader (GL9755 on `0000:c2:00.0`, sdhci-pci) was unbound at runtime with 
 Installed 2026-09-26; the btrfs-era rows carry their 2026-10-05 date. Verify live with
 `## Storage ops — re-check commands` — this list is the record, not the readback:
 
-- **beesd@\<FSUUID\>.service** (2026-10-05) — continuous dedupe duty: `bees` (extra repo,
-  "Best-Effort Extent-Same", btrfs extent-scrub daemon), config `/etc/bees/beesd.conf`,
-  upstream-default throttling as shipped in the unit (Nice 19, IOWeight 10,
-  IOSchedulingClass idle). Replaces the retired daily duperemove job. **bees has no
+**Scope boundary (owner ruling 2026-11-10).** Dedupe (`beesd@`) and SMART monitoring
+(`smartd` + `/usr/local/sbin/smart-alert.sh`) are **the host's own setup, not repo-managed**:
+their files were removed from `state/owned` on 2026-11-10 after another session added them
+without the owner steering it. `./eco apply` neither writes nor repairs them, and no check
+observes them — a change there is invisible to `eco report`, deliberately. The rows below stay as
+the record of what runs (so a reboot surprise has a documented baseline) and their re-check
+commands stay as **observation only**. To change one: edit the live file directly (there is no
+intent copy to converge), and keep the dated backup convention above.
+
+- **beesd@\<FSUUID\>.service / .timer** (2026-10-05, scheduled 2026-11-09) — *host setup, not
+  repo-managed* (scope boundary above). Nightly dedupe duty: `bees`
+  (extra repo, "Best-Effort Extent-Same", btrfs extent-scrub daemon), config `/etc/bees/beesd.conf`.
+  Switched 2026-11-09 from 24/7 continuous daemon to a nightly scheduled window (00:30–04:00) via
+  `beesd@.timer` (`OnCalendar=*-*-* 00:30:00`, `Persistent=false`) and `beesd-stop@.timer`
+  (`OnCalendar=*-*-* 04:00:00`, `Persistent=true`) plus drop-in `RuntimeMaxSec=3h 30min` (`Restart=no`).
+  Frees ~1 GiB RAM and eliminates CPU contention during daytime work while preserving crawl progress
+  in `.beeshome/`. Replaces the retired daily duperemove job. **bees has no
   per-directory exclusion** — the old script's known-bad-tree exclusions cannot be carried
   over as-is (`docs/findings.md` `## fstrim`).
 - **fstrim.timer** (weekly, systemd stock) — pre-existing, left as-is.
@@ -181,7 +194,9 @@ Installed 2026-09-26; the btrfs-era rows carry their 2026-10-05 date. Verify liv
   `/run/user/<uid>/tmp` mode 0700 on every login with a non-fatal `ExecStartPost` (a failed
   install never blocks the login chain). `~/tmp` is a symlink to it — scratch that must not
   outlive the session.
-- **smartd.service** (enabled + active) — `/etc/smartd.conf`: `DEVICESCAN -a -o on -S on
+- **smartd.service** (enabled + active) — *host setup, not repo-managed*: `/etc/smartd.conf` and
+  `/usr/local/sbin/smart-alert.sh` left `state/owned` 2026-11-10, so `-M exec` now points at a file
+  the repo does not carry — a reinstall must restore both together. Config `DEVICESCAN -a -o on -S on
   -n standby,q -s (S/../../7/04) -W 5,45,55 -m /dev/null -M exec
   /usr/local/sbin/smart-alert.sh`. Weekly short self-test Sunday 04:00 (`7` = Sunday;
   `.` in the day field means *every* day — a code-review catch), temp thresholds 5/45/55 C.
@@ -299,7 +314,8 @@ cat /sys/fs/f2fs/nvme0n1p4/compr_{written,saved}_block  # real compression; df s
 systemd-tmpfiles --cat-config | grep -E '^(D!|e|x|q) /(tmp|var/tmp)'
 findmnt -no OPTIONS "/run/user/$(id -u)" ; ls -ld "/run/user/$(id -u)/tmp"
 systemctl list-timers --all | grep -E 'btrfs|fstrim|smartd'
-systemctl status 'beesd@*'            # dedupe duty alive on the right FSUUID
+systemctl list-timers 'beesd*'        # nightly dedupe window (00:30) — observation only, not ours
+systemctl show 'beesd@*' -p RuntimeMaxSec -p Restart ; ls /etc/systemd/system/beesd@.service.d/
 nvme smart-log /dev/nvme0 | grep -iE 'percentage_used|available_spare|media_errors|temperature'
 smartctl -H /dev/nvme0                # overall health
 journalctl --disk-usage

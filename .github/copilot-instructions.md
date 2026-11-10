@@ -12,9 +12,10 @@ btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of wo
 - **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
   scripts), `data/` (append-only jsonl rows), `studies/01..04`.
 - **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS
-  campaign module) and the storage ops runbook (`docs/rollback.md` `## Storage ops`), plus the
-  `state/owned` units behind them (bees and the btrfs scrub timer, smartd + `smart-alert.sh`)
-  — converged by the same `eco apply` like every other owned file.
+  campaign module) and the storage ops runbook (`docs/rollback.md` `## Storage ops`). The scrub
+  timer and fstrim are stock systemd units; **dedupe (`beesd@`) and SMART (`smartd` +
+  `smart-alert.sh`) were removed from `state/owned` on 2026-11-10 — host setup, not
+  repo-managed** (owner ruling; the runbook's scope boundary is the home for it).
 
 Merged 2026-09-28 from the `eco-power` and `System-Tuning-Benchmarks` repos (both histories
 preserved; old checkouts are read-only backup). This repo is canonical.

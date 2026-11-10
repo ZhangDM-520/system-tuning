@@ -523,8 +523,10 @@
   findings the accounting must know: identical-file groups are quadratic-ish (an 87k-member
   group pegged a core >55 min) — the old duperemove script excluded such trees, but **bees
   (the dedupe duty since 2026-10-05) has no per-directory exclusion**, so that mitigation does
-  not transfer as-is and the   hazard is bounded only by bees' shipped throttling (watch it —
-  `docs/rollback.md` `## Storage ops`). Drift closed 2026-10-13: since the 2026-10-05 reinstall the
+  not transfer as-is and the hazard is bounded only by bees' shipped throttling (watch it —
+  `docs/rollback.md` `## Storage ops`). Since 2026-11-10 dedupe is **host setup, not
+  repo-managed**: `./eco apply` no longer writes `/etc/bees/beesd.conf` or the beesd units, and
+  no check observes them (owner ruling, `docs/rollback.md` scope boundary). Drift closed 2026-10-13: since the 2026-10-05 reinstall the
   mounts ran the kernel default `discard=async` (dmesg "turning on async discard"); `fstab` now
   carries `nodiscard` on all 8 btrfs mounts, is a repo-owned mirror (`state/owned/etc/fstab`), and
   the runtime was remounted the same day (btrfs shows `discard=async` in the option string only
@@ -1023,9 +1025,10 @@
   power-source events; the asusd/PPD two-writer precedent is closed by muting asusd —
   `## asusd`). The scheduled set is maintenance:
   weekly fstrim + smartd self-test and monthly `btrfs-scrub@-.timer` (stock unit); dedupe is the
-  continuous `beesd@` service (daily duperemove job retired 2026-10-05; xfs-scrub retired with
-  the XFS era). The duty-by-duty record lives in
-  `docs/rollback.md` `## Storage ops — what runs automatically`.
+  nightly `beesd@.timer` window (00:30–04:00, retired 24/7 daemon mode 2026-11-09; daily duperemove
+  job retired 2026-10-05; xfs-scrub retired with the XFS era). Dedupe and SMART are **host setup,
+  not repo-managed** since 2026-11-10 — out of `state/`, out of `eco report`. The duty-by-duty
+  record lives in `docs/rollback.md` `## Storage ops — what runs automatically`.
 **Timer-control retired (owner ruling 2026-11-03).** eco must never control systemd timers — they
   are essential maintenance infrastructure. The 2026-10-13 wakeup-reduction cadence work (owned
   drop-in `snapper-cleanup.timer.d/10-cadence.conf` 1h→6h; managed record `trash-purge` 1h→1d)
