@@ -5,7 +5,7 @@ btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of wo
 
 - **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
   gate). **Retired for this host on 2026-11-10**: the live system is converged by the native
-  `genarch` engine (`~/Projects/genarch-settings`), and `./eco apply` refuses (exit 2,
+  `genarch-settings` engine (`~/Projects/genarch-settings`), and `./eco apply` refuses (exit 2,
   `state/RETIRED.md`) so the shell engine can never become a second writer. The tree stays as the
   rollback artifact and parity reference; `./eco report` / `apply --dry-run` still work and show
   the retirement as drift. Everything below about `eco-*` units, `state/` layout and the shell

@@ -7,6 +7,10 @@
 - machine overrides: `/etc/genarch/`
 - ownership record: `/var/lib/genarch/manifest.toml`
 
+The engine and its live paths were renamed `genarch-settings` in 0.4.0
+(`/usr/lib/genarch-settings`, `/etc/genarch-settings`, `/var/lib/genarch-settings`); the paths
+above are the 2026-11-10 record, kept verbatim.
+
 `eco-*` units are disabled and their live files were removed by the genarch cutover (every one has
 a dated `.bak-20261110` pre-image beside it). The shell files stay in this tree — and in git — on
 purpose: they are the rollback artifact and the parity reference for the native engine.

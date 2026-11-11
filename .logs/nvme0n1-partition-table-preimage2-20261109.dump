@@ -1,0 +1,12 @@
+label: gpt
+label-id: E057D63F-F5D9-4C52-86FA-F9DF6EEFD27D
+device: /dev/nvme0n1
+unit: sectors
+first-lba: 2048
+last-lba: 2000409230
+sector-size: 512
+
+/dev/nvme0n1p1 : start=        4096, size=     8388608, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=F92C424F-4B70-48DE-8EF1-173A002147C8
+/dev/nvme0n1p2 : start=     8392704, size=  1877721088, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=6B0F5E00-8FFC-434B-9DD1-0498AAE45D99, name="root"
+/dev/nvme0n1p3 : start=  1936445440, size=    63963791, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=A868CE29-DDFD-4CF1-9C2E-F3EF28978E1B, name="zram-writeback", attrs="GUID:63"
+/dev/nvme0n1p4 : start=  1886113792, size=    50331648, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=6334D8CC-B926-4E7B-9344-085D797F869F, name="f2fs-tmp"

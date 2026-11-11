@@ -41,7 +41,7 @@ usage_err() {
 }
 
 refuse_retired_apply() {
-  # 2026-11-10: the host is converged by the native `genarch` engine. A real apply here would
+  # 2026-11-10: the host is converged by the native `genarch-settings` engine. A real apply here would
   # restore the shell engine beside it and give the host two writers for the same files — the
   # one failure mode the cutover exists to prevent. Dry-run stays available (read-only).
   # Only the live root is guarded: a set ECO_ROOT is a fixture tree, and the gate itself
@@ -50,7 +50,7 @@ refuse_retired_apply() {
   if [[ -e $ECO_STATE/RETIRED.md ]]; then
     {
       printf 'eco: retired: this tree no longer owns the host (state/RETIRED.md)\n'
-      printf 'eco: use genarch (report/apply) — refusing to deploy the shell engine again\n'
+      printf 'eco: use genarch-settings (report/apply) — refusing to deploy the shell engine again\n'
     } >&2
     exit 2
   fi

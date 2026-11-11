@@ -1,0 +1,20 @@
+# /etc/fstab: static file system information. — repo-owned mirror (system-tuning), 2026-10-13.
+# Hand edits here are reverted by the boot-time converge; edit state/owned/etc/fstab instead.
+# nodiscard (2026-10-13, owner-approved): batch TRIM via fstrim.timer instead of kernel
+# discard=async — async discard keeps the NVMe busy and fights APST (docs/findings.md ## fstrim).
+#
+# Use 'blkid' to print the universally unique identifier for a device; this may
+# be used with UUID= as a more robust way to name devices that works even if
+# disks are added and removed. See fstab(5).
+#
+# <file system>             <mount point>  <type>  <options>  <dump>  <pass>
+UUID=BD75-F777                            /boot          vfat    defaults,umask=0077 0 2
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /              btrfs   subvol=/@,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /home          btrfs   subvol=/@home,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /root          btrfs   subvol=/@root,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /srv           btrfs   subvol=/@srv,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/cache     btrfs   subvol=/@cache,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/tmp       btrfs   subvol=/@tmp,defaults,noatime,compress=zstd:1,nodiscard 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /var/log       btrfs   subvol=/@log,defaults,noatime,compress=zstd:1,nodiscard 0 0
+tmpfs                                     /tmp           tmpfs   defaults,noatime,mode=1777 0 0
+UUID=521bbdbd-77e2-4a70-a8f7-9bda99558cde /snapshots    btrfs   subvol=/@snapshots,defaults,noatime,nodiscard 0 0

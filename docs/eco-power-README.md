@@ -1,6 +1,6 @@
 # eco-power
 
-> **Retired for this host (2026-11-10).** The live system is converged by the native `genarch`
+> **Retired for this host (2026-11-10).** The live system is converged by the native `genarch-settings`
 > engine (`~/Projects/genarch-settings`); `./eco apply` refuses (exit 2, `state/RETIRED.md`), and
 > `./eco report` reports the retirement as drift. This page documents the shell engine as it was
 > — keep it accurate as history and as the rollback reference, not as current live intent.
