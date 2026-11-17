@@ -280,9 +280,9 @@
   `cat /sys/module/pcie_aspm/parameters/policy`, `lspci -vv` (`LnkSta` per link),
   `grep . /sys/bus/pci/devices/*/power/control`, and the `./eco report` TLP row.
 **Arm (f) 2026-10-08 → closed 2026-10-13.** `performance` (= ASPM off) ran as the freeze-
-  investigation arm (H2, ACPI/PCIe power-state wedge — `docs/JOURNAL.md` 2026-10-08) and ended by
-  owner selection: the policy read `[powersave]` again (readback verified 2026-10-13). The arm
-  history stays recorded for the freeze work.
+  investigation arm (H2, ACPI/PCIe power-state wedge — journal 2026-10-08, retired to the private
+  warehouse) and ended by owner selection: the policy read `[powersave]` again (readback verified
+  2026-10-13). The arm history stays recorded for the freeze work.
 **Prior state (superseded, scope preserved).** `powersupersave` / L1.2 forcing was
   "instability-proven here" and rejected (no per-device lever exists) — overturned by the
   2026-10-29 ruling above; the prior text lives in git history.
@@ -333,8 +333,9 @@
 **Observed 2026-10-10 (unmanaged).** live sched_ext is an out-of-tree scheduler (`enabled+all`;
   identity owner-managed and deliberately not recorded in this repo) — not
   the scheduler of the prior verdict and not repo-controlled. That matters for the freeze work
-  (`docs/JOURNAL.md` 2026-10-08, H5): an out-of-tree scheduler was live during the 2026-09-20
-  hung_task record. Check: `cat /sys/kernel/sched_ext/state /sys/kernel/sched_ext/root/ops`.
+  (journal 2026-10-08, H5 — retired to the private warehouse): an out-of-tree scheduler was live
+  during the 2026-09-20 hung_task record. Check:
+  `cat /sys/kernel/sched_ext/state /sys/kernel/sched_ext/root/ops`.
 **Observed 2026-10-14 (unmanaged).** live sched_ext is owner-managed direct-attach via session
   autostart (identity deliberately not recorded, owner policy). `scx_loader` stopped and **masked**
   2026-10-14: it is only D-Bus-activated anyway, `scxctl` is unusable until unmasked, and the
@@ -535,8 +536,8 @@
   config marker permanently, `seq == max` are never processed, and setting all seq=0 hides files
   *below* the marker.
 **Evidence.** `docs/rollback.md` (`## Storage ops` — dedupe/fstrim operations, automation,
-  re-check commands); `docs/archive/XFS-TUNING.md` (reflink / `xfs_fsr` rules);
-  `~/docs/NOTE.md:3762-3855` (session chronology behind the 2026-09-26..28 FS/XFS work: dedupe
+  re-check commands); `docs/archive/XFS-TUNING.md` (reflink / `xfs_fsr` rules); the private
+  warehouse (session chronology behind the 2026-09-26..28 FS/XFS work, retired 2026-11-17: dedupe
   semantics, pitfalls, overrides). Dated FS baseline (2026-09-26): `/dev/nvme0n1p2` XFS
   `reflink=1`, 950G total, ~39% used, inodes 2%, pacman pkg cache 0 bytes (XFS-era history —
   root is btrfs since the 2026-10-05 reinstall). Check:
@@ -593,16 +594,16 @@
   `f2fs_io get_cblocks` returns the saved-block count (`i_compr_blocks`), not the compressed
   size, so it reads ~75% and looks broken to anyone expecting a size.
 **Evidence.** `state/owned/etc/fstab`; `docs/rollback.md` (`## Storage ops` — `/tmp` wipe/GC row,
-  per-user tmpfs row, re-check commands); `docs/JOURNAL.md` 2026-11-08; partition-table dumps in
-  `.logs/`. Check: `findmnt -no SOURCE,FSTYPE,OPTIONS /tmp` (expect `nvme0n1p4 f2fs` + `lz4` +
-  no `discard`), `systemd-tmpfiles --cat-config | grep -E '^(D!|e|x|q) /tmp'`, and the
+  per-user tmpfs row, re-check commands); the private warehouse (journal 2026-11-08 and the
+  partition-table dumps). Check: `findmnt -no SOURCE,FSTYPE,OPTIONS /tmp` (expect `nvme0n1p4 f2fs` +
+  `lz4` + no `discard`), `systemd-tmpfiles --cat-config | grep -E '^(D!|e|x|q) /tmp'`, and the
   compression counters before/after a compressible write:
   `R=/sys/fs/f2fs/nvme0n1p4; cat $R/compr_{written,saved}_block`.
 **Machine lies.** `df`, `stat %b` and `du` all report nominal blocks on this filesystem — they do
   not move when compression saves 3/4 of the writes — and `f2fs_io get_cblocks` is a saved-block
   count, not a size.
 **Rejected here.** mount `discard` on any mount (`## fstrim`); treating `/tmp` as storage
-  (pre-images, journals and benchmark rows live under `.logs/`, never `/tmp`).
+  (pre-images, journals and benchmark rows live in the private warehouse, never `/tmp`).
 **Open.** What the 4:1 write reduction is worth in device wear and sustained write speed on this
   NVMe (no A/B exists — and no A/B for f2fs-vs-tmpfs or for any single option either; this is a
   layout decision with a mechanism story, not a measured win, so never quote a speed number).
@@ -1148,8 +1149,8 @@ and the retired `niri-autostart`). Identity is the anchor **pattern**, never a l
   and reverted the conservative actions) vs the cs35l56 re-init hang; sched_ext BPF scheduler (`enabled+all`; out-of-tree "pandemonium"
   was live during the 09-20 hung_task) vs whole-system freeze. Owner defers all experiments until
   a freeze recurs; runbook then is one variable at a time, ≥5 resume cycles on AC and 5 on
-  battery, results to `docs/JOURNAL.md`: (a) baseline = current state; (b) quiet asusd: hold the
-  platform_profile re-apply (asusd.ron `platform_profile_on_battery`) — revert restores the
+  battery, results to the private warehouse: (a) baseline = current state; (b) quiet asusd: hold
+  the platform_profile re-apply (asusd.ron `platform_profile_on_battery`) — revert restores the
   managed line via `./eco apply`; (c) TB/USB4: drop `NHI0/NHI1` from the wakeup toggle list in
   `eco-power.sh` and add `thunderbolt` to `RUNTIME_PM_DRIVER_DENYLIST` in `01-eco.conf` — both
   revert by git; (d) `SOUND_POWER_SAVE_ON_*=0` in `01-eco.conf` — **applied prospectively
@@ -1178,6 +1179,6 @@ and the retired `niri-autostart`). Identity is the anchor **pattern**, never a l
 **Rejected here.** blaming the experimental 7.3 LTO kernel as sole cause: the stall vector was
   provably ours and the freeze vectors interact with repo-owned resume-time writes; a kernel A/B
   is the escalation path only after the tuning-side experiments are clean.
-**Reopen.** After the experiment matrix (`docs/JOURNAL.md` 2026-09-29 suspend/resume entry) names
-  the culprit, this entry becomes the settled verdict; any freeze recurrence with pstore evidence
-  reopens it with the captured record.
+**Reopen.** After the experiment matrix (the 2026-09-29 suspend/resume entry, in the private
+  warehouse) names the culprit, this entry becomes the settled verdict; any freeze recurrence with
+  pstore evidence reopens it with the captured record.

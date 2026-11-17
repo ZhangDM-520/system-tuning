@@ -382,8 +382,8 @@ safer for sharing.
 ## 6. Suspend/wake + APST hazard — the knobs that actually touch it
 
 Host history: APST PS3 after 100 ms / PS4 after 2 s with PS5 gated (`docs/findings.md` `## nvme`,
-settled), plus a measured freeze/wake-window record (`docs/findings.md` `## suspend-resume`;
-`docs/JOURNAL.md` wake-window entries). Devices-sleep and reduce-wakeups are doctrine
+settled), plus a measured freeze/wake-window record (`docs/findings.md` `## suspend-resume`; the
+private warehouse's wake-window entries). Devices-sleep and reduce-wakeups are doctrine
 (`docs/judgment.md:14-21`).
 
 1. **Async discard is the standing trickle-vs-sleep question.** The `## fstrim` entry (settled,

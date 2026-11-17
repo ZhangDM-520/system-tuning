@@ -67,7 +67,7 @@ than believed. Prose and data are CC BY 4.0; `tools/` is MIT.
 | The four campaigns | `studies/01-scheduler-selection`, `studies/02-boot-and-power`, `studies/03-filesystem-latency`, `studies/04-xfs-tuning` |
 | Shared data and its dictionary | `data/README.md`, `data/*.jsonl`, `data/traces/`, `data/probes/`, `data/analysis/`, `data/logs/` |
 | The harness | `tools/README.md` and `tools/` |
-| Decisions, changes and incidents | `docs/NOTE.md` |
+| Decisions, changes and incidents | the maintainer's private warehouse |
 
 ## Verification
 
