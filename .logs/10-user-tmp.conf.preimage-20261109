@@ -1,2 +1,0 @@
-# Ensure user tmp directory exists with appropriate permissions inside XDG_RUNTIME_DIR
-d /run/user/1000/tmp 0700 zhangdm zhangdm -
