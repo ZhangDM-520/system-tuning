@@ -1,189 +1,47 @@
-# AGENTS.md — global memory (system-tuning)
+# AGENTS.md — system-tuning
 
-Last reviewed: 2026-11-10 (migrated from `docs/MEMORY.md`; per-row fact dates preserved below).
+Single-host Linux tuning in one tree: the retired shell converger (`eco`, `lib/`, `state/`, `tests/`), four publishable benchmark campaigns (`benchmarks/`), and the storage/ops documentation. The repository is public, so nothing here may carry personal identifiers, hostnames, UUIDs, IP or MAC addresses, or credentials.
 
-## Engine status (2026-11-10): the host runs `genarch-settings`, not `eco`
+## Engine status (read first)
 
-The live host is converged by the native Rust engine at `~/Projects/genarch-settings`. The shell
-`eco` stack in this tree is **retired**: `state/RETIRED.md` is the marker, `eco` refuses a real
-apply (exit 2), and `tests/run` case30 pins that refusal. `./eco report` and `./eco apply
---dry-run` still work; they report the retirement as drift, which is expected, not a fault.
+Live convergence belongs to the `genarch-settings` repository since 2026-11-10: it owns the installed engine, units and manifest, and live changes follow its `docs/CUTOVER.md`. The shell `eco` here is **retired, not deleted** — `./eco apply` refuses a live run with exit `2` (`state/RETIRED.md`), while `./eco report` and `apply --dry-run` still work as the parity and rollback reference. Never revive live convergence in this tree.
 
-Intent moved to `/usr/lib/genarch-settings` + `/etc/genarch-settings`, ownership is `/var/lib/genarch-settings/manifest.toml`,
-units are `genarch-settings.*` (the `eco-*` units are disabled and their live files removed, every one with
-a dated `.bak-20261110` pre-image). Everything below still describes the shell engine accurately —
-as history, as the rollback artifact, and as the parity reference for the native engine. The
-live-change rules now apply to the genarch-settings tree (`genarch-settings/docs/CUTOVER.md`).
+## Mental model
 
-## Memory architecture
+- `state/` is intent: byte-exact `state/owned/<live-path>` mirrors plus flat-TOML `state/managed/*.toml` anchored line records. `find state/owned -type f` is authoritative.
+- `lib/` is the shell engine, sourced in glob order by `eco`; `lib/registry.sh` is the single check table every derived map reads.
+- `tests/run` is the gate: fixtures plus `PATH` stubs, pointed at the tree through `ECO_ROOT` (empty means the live root) and `ECO_STATE` (intent root).
+- `benchmarks/` is a self-contained publishable unit: methodology, a time-stamped test bed, append-only `data/*.jsonl`, and studies re-derived from the shipped data.
+- `docs/` is the prose: engine contract (`eco-power-README.md`), knob ledger (`findings.md`, one `##` entry per knob), change/claim gates (`judgment.md`), operator runbook (`rollback.md`), archived XFS campaign (`archive/XFS-TUNING.md`), primary-sourced mechanism reports (`research/`).
 
-- **Global memory — this file:** project overview, pitfalls, long-term rules. Established by
-  inspection or decision; none of it should need re-derivation.
-- **Active buffer — `.logs/scratchpad.md`:** current task state and working scratch; reset after
-  each action.
-- **Historical log — `docs/JOURNAL.md`:** chronological action journal, newest entry first; new
-  entries are one-line summary pointers to `.logs/action-<date>-<name>.md` summaries.
-- `benchmarks/` keeps its own memory pair (`benchmarks/docs/MEMORY.md`, `benchmarks/docs/NOTE.md`)
-  under its stricter publication privacy rule — pointer, not copy; one fact, one home.
-- Single source of truth: never duplicate rules or lists across docs — link with explicit
-  Markdown pointers. Stamp entries `Last reviewed: YYYY-MM-DD` and re-verify on edit.
+## How to work here
 
-## Cross-repo contract (2026-11-11)
+1. Read the knob's entry in `docs/findings.md` before touching it; the owning module carries the depth.
+2. Edit intent under `state/`. Never hand-edit live configuration.
+3. Dry-run the plan, apply, then run `./tests/run` and read it.
+4. Commit one knob per commit, with its check ID in the subject line.
 
-`docs/contract.tsv` is this repo's owner copy of the engine contract: one `ID<TAB>anchor` row per
-check, anchored into `docs/findings.md`. The native engine ships a pinned copy at
-`genarch-settings/tests/contract.tsv` and its gate asserts the two are equal, equal to its
-compiled registry, and that every anchor resolves to a real `##` heading. Edit both copies in one
-change; the engine gate goes red otherwise.
+The docs teach how to check a claim; current state is measured on the host, never written down here.
 
-## Project overview
+## Durable rules
 
-The canonical single-host tuning repo (merged 2026-09-28 from `eco-power` +
-`System-Tuning-Benchmarks`): the retired shell convergence machinery (`eco`, `lib/`, `state/`,
-`tests/` — see `## Engine status`), benchmark methodology + studies (`benchmarks/`), filesystem
-maintenance (XFS campaign archived 2026-10-05 at `docs/archive/XFS-TUNING.md`; root is btrfs
-since the reinstall). Public since 2026-10-17 (owner decision): live paths such as
-`state/owned/home/...` are exposed in-tree, while the `benchmarks/` subtree keeps its stricter
-publication privacy rule (see `benchmarks/docs/MEMORY.md`) since that material is republished
-outside the repo.
+- **Repo first, one place per knob.** A live value has exactly one home under `state/`; `grep -rn <value> state/` returns one hit. Two writers on one attribute is a silent race.
+- **The contract is four-way.** `lib/registry.sh`, `tests/run`, `docs/contract.tsv` and `genarch-settings/tests/contract.tsv` move together; anchors are `##` headings, not filenames.
+- **Run the gate before claiming anything.** `./tests/run` is sequential and wipes `tests/work/`; never run two at once. Live failures (a dead sysctl, an absent foreign target) turn it red on a clean tree, so dry-run live before blaming the tree.
+- **Gate claims through `docs/judgment.md`.** Work per joule, no power caps, stability outranks everything; a claim needs a measurement that clears both statistical gates, and a kernel change is a new baseline.
+- **The recovery domain is sacred.** Nothing may endanger tty login, the bootloader or the initramfs. Bootloader cmdline edits touch both `/boot/limine.conf` and `/etc/default/limine`, with a pre-image first.
+- **Backups before writes, never deleted.** Pre-images are dated `cp -p` siblings; the one exception is `system-sleep/`, whose pre-images go to a sibling directory because systemd executes every file in it.
+- **Return codes and verdicts are contract.** 0 green · 1 drift · 2 precondition · 3 partial apply. `SKIPPED` is unverified, not healthy; `ACCEPTED` is settled and never "fixed".
+- **Benchmarks privacy.** Strip personal and host identifiers from prose, JSONL `cmd` fields and scripts; hardware identity is the product, personal identity is not.
 
-## Facts that are easy to get wrong
+## Pitfalls
 
-| Fact | How to check / why it matters |
-| --- | --- |
-| The test gate is `./tests/run` — one sequential bash script, 30 cases / 126 assertions (as of 2026-11-10; four section-scoping cases retired with the scx record — `docs/findings.md` `## sched`), no case selector | Run and filter labelled output (`./tests/run \| grep 'case3'`); `tests/work/` is wiped and regenerated every run |
-| `eco apply` is retired for this host (2026-11-10 cutover to `genarch-settings`): the guard in `eco` refuses an empty-`ECO_ROOT` (live) apply with exit 2 while `state/RETIRED.md` exists; fixture applies stay allowed because the gate needs them | case30 pins the refusal, both message lines, the seam behaviour, and that the guard is dispatched before `cmd_apply`. **Never falsify it through the verb**: `cmd_apply` re-execs through `sudo`, so a red guard deploys the shell engine from inside the gate (happened 2026-11-10; live was re-converged with `genarch-settings apply`, PLAN 0) |
-| No build, no lint config, no CI | `bash -n` / ad-hoc `shellcheck`; the suite is the only gate |
-| Report IDs are locked to `lib/registry.sh` *and* hardcoded in `tests/run` (case1/case7) | Changing the check set means registry + reader + doc anchor + test list in one change |
-| `CHECK_DOC` anchors are shorthand, not filenames: `findings#asusd` lives in `docs/findings.md` | Follow the string from `lib/registry.sh` to the `##` heading, not from the filename |
-| Verdict semantics are test-contracted | case17 asserts `SKIPPED` (and its "counted green" semantics) appear in both `docs/eco-power-README.md` and the `eco` usage text |
-| Frozen contract (owner Q1, never move unilaterally): the case17 pair — literal `SKIPPED` and its counted-green semantics sentence (docs/eco-power-README.md + ./eco), `CHECK_IDS` (14 IDs, `lib/registry.sh`), `rollback#sd`/`rollback#misc` emit strings (`lib/readers.sh`, 4 sites) and their `## sd`/`## misc` headings | case17 pins the strings; case19 pins resolution; a `## misc` repoint of *outbound* handles is allowed, the headings/undo text are not; never quote the semantics sentence literally outside the case20 allowlist |
-| case19/case20 are the doc-contract guards: case19 = every `PREFIX#slug` consumer anchor (registry, emit 4th args, `doc =` records) resolves to a real `##` heading; case20 = the SKIPPED-semantics phrase has exactly one canonical pair plus allowlisted copies | Added by the 2026-09-29 docs unification (suite was 20 cases / 107 assertions then); they turn the anchor and one-home rules into red tests |
-| Every live read/write goes through `live_path()` with the `ECO_ROOT` seam | Empty `ECO_ROOT` = live root; tests point it at fixture trees; `assert_in_root` refuses any write outside it |
-| `state/managed` records are flat TOML (`toml_get` reads top-level `key = 'value'` only) | No tables, arrays, or multi-line values in a record; a missing required key hard-fails |
-| State layout is a naming rule, not a map: owned = `state/owned/<live-path-without-leading-slash>`; managed = the record's own `target` key (`docs/eco-power-README.md` `## State layout`) | `find state/owned -type f` is authoritative. The File map burned once (rows vs files drift, fixed 2026-09-29) and was deleted in favor of the rule |
-| A systemd-sleep hook blocks the `user.slice` thaw — never `sleep` in one | Measured 5.1 s stall per resume from the `sleep 5` second pass in `eco-power.sh`; the resume path is now single-pass (`state/owned/usr/lib/systemd/system-sleep/eco-power`). Verify with the "System returned from sleep" → "Successfully thawed" journal delta |
-| Journald `SystemMaxUse` is forensics capacity, not just disk hygiene | The 32 M cap vacuumed a whole freeze boot (2026-09-28) mid-investigation; raised to 256 M. Check `journalctl --disk-usage` and `journalctl --list-boots` before trusting a boot is gone |
-| Hard freezes leave evidence only if pstore is armed — and the arming is fragile: this kernel ships `CONFIG_EFI_VARS_PSTORE_DEFAULT_DISABLE=y`, so only the cmdline override arms it | **Verified LOST 2026-11-01** (`efi_pstore.pstore_disable=0` dropped from both limine files by a regeneration; `pstore_disable=Y`, `/sys/fs/pstore` empty). **Ruled 2026-11-01: config flip** in the kernel recipe (`EFI_VARS_PSTORE_DEFAULT_DISABLE=n`) — **armed again at the 23:04 boot** (`pstore_disable=N`, `Registered efi_pstore`; the four stale 2026-09 panic records visible again in `/sys/fs/pstore`); contract home `docs/findings.md` `## suspend-resume`. Stale `hung_task` panic records from 2026-09-19/20 recovered in `~/Workspace/suspend-forensics/pstore-existing/` |
-| `AE_AML_LOOP_TIMEOUT` in `dmesg`/journal = ACPI interpreter gave up after ~30 s on a looping method | A stall marker (seen on `\_SB.ALIB`/`EC0._QDA`), not proof of the culprit — correlate with asusd platform_profile writes and TB/USB4 D3 refusals (`docs/findings.md` `## suspend-resume`) |
-| systemd-sleep executes EVERY file in `/usr/lib/systemd/system-sleep/`, including `.bak` pre-images | Burned 2026-09-29: a stale backup hook ran the old two-pass resume path for hours (stalled every thaw ~5 s and contaminated the SMU experiment). Pre-images for that dir go to `system-sleep-backups/` (`lib/writers.sh` `backup_step`; rule home `docs/rollback.md` `## Undo: universal mechanism`) |
-| Every rule has one doc home (findings / judgment / rollback / eco-power-README / the archived `docs/archive/XFS-TUNING.md`); `.github/copilot-instructions.md` carries agent synthesis only and never restates contract rules | Anchor routing — the only "doc map", there is no map table — is `docs/eco-power-README.md` `## Finding the writeup`; when any instruction file and a doc disagree, the doc wins and the instruction file is what gets fixed |
-| A dead key in a `state/owned/etc/sysctl.d/*` file makes `./eco apply` fail **partway** (exit 3): `runtime_apply` runs `sysctl -w … \|\| die3_partial` *after* the file writes, and `reload_step`'s `sysctl --system` hard-fails too | Burned 2026-10-05: the XFS-era `fs.xfs.xfssyncd_centisecs` key died with the btrfs reinstall. Before apply, check every owned sysctl key exists live (`sysctl -n <key>`) |
-| `./tests/run` case16 exercises the **live** `./eco apply --dry-run` | A broken live environment (missing managed foreign file, dead sysctl, …) reddens the gate on a pristine tree — run the dry-run before suspecting the repo (burned 2026-10-05: 111/112, red cleared by restoring `/etc/scx_loader.toml`) |
-| EPP `dynamic(profile:…)` mode is kernel-branch-locked: the 7.3.0-rc* cachyos branch accepts `echo dynamic` and renders `dynamic(profile:<profile>)`; 7.2.9-1-cachyos rejects the write (EINVAL) and renders `default` as `balance_performance` — its `energy_performance_available_preferences` also lies (lists `custom`, whose store fails) | Dated 2026-10-05. Settled by extracting each `/usr/lib/modules/<k>/vmlinuz` and grepping `dynamic(profile`: present in 7.3.0-rc5-bore-lto, absent in 7.2.9. The check contract wants `dynamic*`, so EPP DRIFTs on 7.2.9 until the owner boots the rc family or reopens findings#epp |
-| Dedupe and SMART are **host setup, out of repo scope** (owner ruling 2026-11-10): `beesd@` units + `/etc/bees/beesd.conf`, and `smartd` + `/usr/local/sbin/smart-alert.sh`, are not under `state/` and no check observes them — `eco apply` will not repair them | Removed from `state/owned` 2026-11-10 because another session added them unsteered. Editing them is a live edit with the dated-backup convention (`docs/rollback.md` `## Storage ops` scope boundary). Live hashes at removal: beesd.conf `7af49302…`, smartd.conf `535427f3…`, smart-alert.sh `0fcfca5f…` |
-| `beesd@.service`'s instance is the btrfs **filesystem UUID**, not a path: beesd greps `/etc/bees/*.conf` for `UUID=<instance>` and mounts subvolid=5 itself (hash DB lives in a `.beeshome` subvol it creates) | Dated 2026-10-05 (duperemove retired same day); **host fact only since 2026-11-10** — the repo no longer deploys bees. bees has **no per-directory exclusion** — the old duperemove known-bad-tree mitigation does not transfer (`docs/rollback.md` `## Storage ops`) |
-| Two concurrent `./tests/run` runs corrupt each other: the gate wipes and rebuilds `tests/work/` at start | In fleet work, exactly one agent runs the gate (the manager); all others use `bash -n`/grep checks only |
-| `eco apply` and `eco report` answer different questions: apply writes owned files, managed lines and runtime sysctls only, and prints `APPLY-SCOPE full=… file-only=… none=…` | Dated 2026-11-08. 10 of 14 rows are outside apply (CEIL is the ceil watch, TIMER is systemd, PPT is firmware, SD is a runtime unbind, EPP/PROFILE are PPD's). apply exit 0 never implies report green — measured: report exit 1 while apply exit 0 on the same tree |
-| A file under `state/owned` whose name marks it a backup or editor artifact is never deployed (`*.bak*`, `*~`, `*.orig`, `*.rej`, `*.swp`, `.#*`, `*.tmp`) | Dated 2026-11-08: the walk is filesystem-based, so a local stray would otherwise be written to live — and in `system-sleep/` it executes on every resume. The plan prints `SKIPPED` and stderr warns for that directory. Tests relocate the intent tree with `ECO_STATE` (`ECO_ROOT` cannot reach it) |
-| Persistence outside `state/` dies silently at reinstall and is invisible to the repo: the NVMe queue drifted to vendor `kyber`/256 because the ledger's "foreign file" `/etc/udev/rules.d/60-ioschedulers.rules` was never owned | Burned 2026-10-05 (found by `docs/research/btrfs-tunables.md` §0). Now owned `state/owned/etc/udev/rules.d/61-eco-ioschedulers.rules` (61- keeps vendor sda/mmcblk rules; scheduler line first — elevator switches reset queue depth). Any knob whose persistence is "a foreign file" is a future repeat: check `docs/findings.md` Evidence lines for non-`state/` persistence |
-| `ionice`/`IOSchedulingClass=idle` is dispatch-inert unless the elevator is mq-deadline or bfq (kernel doc `Documentation/block/ioprio.rst` + `block/mq-deadline.c`; zero `ioprio` use in kyber/NVMe driver) | Dated 2026-10-05, evidence in `docs/research/btrfs-tunables.md` §2.1. The installed `btrfs-scrub(8)` `-c/-n` deprecation note claims the opposite — man page is wrong; the flags are deprecated anyway |
-| `/tmp` is a 24 GiB f2fs partition (`/dev/nvme0n1p4`) with a `D! /tmp` boot wipe, and `/run/user/<uid>` is an 80%-RAM tmpfs with a per-login `tmp/` (`~/tmp`); the old tmpfs `/tmp` is gone | Dated 2026-11-08. Rationale and option list `docs/findings.md` `## f2fs-tmp`; automation rows and the "nothing durable in `/tmp`" rule `docs/rollback.md` `## Storage ops`. A pre-image or journal written to `/tmp` is not recoverable — in-memory scratch goes to `~/tmp` |
-| f2fs compression on `/tmp` works but is **invisible to space accounting**: uniform data compresses 4:1 (each 16 KiB cluster floors at one 4 KiB block) — a 1 GiB `f` write moves `compr_saved_block` +196 608 of 262 144 nominal blocks — yet `df`, `stat`, `du` and the ENOSPC path all reserve nominal blocks, so free space never grows | Measured 2026-11-09 on `7.4.0-rc1-1-zeus` (independent oracle: a tmpfs-hosted f2fs image grew ~270 MB of real pages for 1 GiB nominal). The purchase is fewer bytes written to the device (write amp, endurance), never capacity — a 2 GiB fs still fills at ~2 GiB nominal. Never measure it with `df`/`du`; read `/sys/fs/f2fs/<dev>/compr_{written,saved}_block`; `f2fs_io get_cblocks` is the saved-block count, not a size (`docs/findings.md` `## f2fs-tmp`) |
-| Git file modes are load-bearing for deploy: `lib/writers.sh` `write_owned` is `cp src tgt` — source mode wins when the target is new, old mode is kept when it exists | Burned 2026-10-05: `eco-power.sh`/`hw-tune.fish` sat at 100644 in git; a fresh deploy made them non-executable (service 203/EXEC; hw-tune's `[ -x ]` gate skips silently). Exec-bit drift is invisible to the suite and masked while the old live file pre-exists |
-| `kernel.sysrq` bitmask: the task-dump group (p/t/m/l) is 0x08 — the popular "safe" value 438 omits it | Read the bitmask table in `Documentation/admin-guide/sysrq.rst` before choosing a mask; the repo's capture+rescue mask and its rationale live in `state/owned/etc/sysctl.d/97-sysrq.conf` (dated 2026-10-08) |
-| A "knob is inert" claim needs the installed entrypoint and clean stderr: the 2026-10-08 claim "TLP never calls `set_sound_power_mode`" came from grepping `/usr/share/tlp/tlp` (does not exist) with `2>/dev/null`, which hid the error — the entrypoint is `/usr/sbin/tlp:47` and the knob is live | Burned 2026-10-08, caught by an independent diff review. Grep call sites in the real entrypoint (`grep -n <fn> /usr/sbin/tlp`), never silence stderr when searching for absence, and read the consumer (`cat /sys/module/snd_hda_intel/parameters/power_save{,_controller}`) before declaring any knob decorative |
-| A managed foreign file dies silently when its owning package changes layout (scx_loader → scx-tools-git, 2026-10-10: `/etc/scx_loader.toml` removed) — and a missing managed target hard-fails **all** of `./eco apply`, so every wave stops, not just the scx one | Burned 2026-10-10: convergence halted ~10 h and live silently kept old values (it looked like "the daemon restored my edits"). After any package update run `./eco apply --dry-run`; `pacman -Qo <target>` names the owner of a foreign file; verify live == state by consumer readback, never by assumption |
-| Benchmark arms must interleave + rotate inside one window; merging rows across windows is unsound | Dated 2026-10-14: 5 h of continuous load moved the energy floor (bore light phase_J 670→758 J; the 04:42 anchor fell outside the night control's own spread in 20/43 cells). Falsify drift with a same-arm anchor series before merging; evidence `benchmarks/studies/05-sched-comprehensive-benchmark/README.md` `### Sensitivity and robustness` |
-| Direct-attach `sched_ext` needs root (CAP_BPF/RLIMIT_MEMLOCK); `scxctl stop` hangs while a direct-attach scheduler holds sched_ext | Burned 2026-10-14: a non-root start dies at `libbpf -EPERM` before any kernel event, and a restore step that sent its evidence to `/dev/null` looked successful. Kill direct-attach first and verify it died, then `scxctl stop`; a restore must log its own output and poll `sched_ext/state` for `enabled` |
-| `scx_mlfq` 1.3.11 crashes at attach on this kernel: kernel runtime error `non-existent DSQ 0x100c`/`0x101b` in `mlfq_sched_switch`, sched_ext auto-disables | Dated 2026-10-14: 4/12 starts survived the night run, 3/50 in a top-up — REJECT, upstream bug candidate. Any slot harness must treat a failed attach as one invalid marker row and never let it poison later arms (`benchmarks/studies/05-sched-comprehensive-benchmark/README.md`) |
-| Version strings in a report must be read from the live source at write time, never copied from an older doc | Burned 2026-10-14: study 05's intro shipped `7.3-rc4` copied from study 04 (September) while the run kernel was `7.3.0-rc6-1-cachyos-bore-lto`. `uname -r` + `who -b` (prove the kernel spans the measurement window) before writing any kernel claim |
-| The owner's scheduler identity is deliberately never recorded in repo docs (owner policy, 2026-10-14) | Refer to "the owner's direct-attach scheduler" only. Tooling resolves the command at runtime: `$BENCH_RESTORE_CMD` or the uncommented `scx_*` session-autostart entry (`benchmarks/tools/night-run.sh`) — never hardcode or name it in scripts, logs, or prose |
-| Dated volatile snapshots (kernel, RAM, disk, host config state) live in `AGENTS.md` `## Current state` (folded from host-level `~/docs/CURRENT.md`, retired 2026-10-31) | Entries are dated and replaced on re-measure, never accumulated; never bake volatile values into static doctrine docs. Burned 2026-10-15: a session handoff pointed its read-order at a repo `docs/CURRENT.md` that never existed — know which home a file lives in before writing a path |
-| TLP is not a `scaling_max_freq` writer on this box: `CPU_SCALING_MAX_FREQ_*` unset → "not_configured", `CPU_MAX_PERF_*` is intel_pstate-only → no-op on amd-pstate | Dated 2026-10-29. Probe `/usr/share/tlp/func.d/10-tlp-func-cpu` (the real module — the entrypoint delegates) before blaming TLP for cpufreq cap clobbers; the observed overwriter is still unidentified and the ceil watch logs `CEIL DRIFT policyN <old> -> <new>` to name it (`docs/findings.md` `## timer`) |
-| TLP also self-defers EPP to power-profiles-daemon: with PPD running, `set_cpu_perf_policy` returns early (`nop_ppd_active`) and warns instead of writing | Dated 2026-10-30. `/usr/share/tlp/func.d/10-tlp-func-cpu`; the repo's `CPU_ENERGY_PERF_POLICY_*` lines were removed the same day anyway (PPD sole writer — `docs/findings.md` `## epp`) |
-| `asusd.ron` must never end with an empty line: asusd reverts the config when it finds one (owner warning) | Dated 2026-10-30. After every patch verify EOF bytes (`tail -c 2 /etc/asusd/asusd.ron \| od -An -tx1` → must not be `0a 0a`); check PROFILE now guards this (`docs/findings.md` `## asusd`) |
-| A drop-in `Conflicts=` (empty assignment) does NOT clear a vendor unit's list on systemd 262 — the vendor value survives | Dated 2026-10-30. To remove one entry from a package unit's list, use a managed line-patch of the vendor file (`state/managed/`), not a drop-in; burned while neutering PPD's `Conflicts=tlp.service` (`docs/findings.md` `## epp`) |
-| amd-pstate EPP attrs exist in **active mode only** (`epp_visibility()`, `drivers/cpufreq/amd-pstate.c`); under guided/passive their absence is by design, not breakage | Dated 2026-11-01. The recipe's guided default is inert (skip-when-unset; shipped 7.3.1-1 = MODE=3) and TLP pins runtime mode `active` (`CPU_DRIVER_OPMODE_*`); `check_epp` is mode-aware (mode-labelled absence = OK). Contract home `docs/findings.md` `## epp` |
-| eco must never control systemd timers (owner ruling 2026-11-03) — wakeup reduction never touches timer cadence | The 2026-10-13 cadence drop-in left `snapper-cleanup.timer` schedule-dead on systemd 262 (`NextElapseUSecMonotonic=infinity`, never fired) → 3469 snap-pac pairs accumulated and the limine-cleanup hook died with it; a stray uncommitted drop-in edit compounded the silent divergence (nothing checked the file). Vendor timers stay stock; contract home `docs/findings.md` `## daemons` |
-| A vendor package's settings die with the package: `cachyos-settings` blocked every `-Syu` (hard dep `ananicy-cpp`, which `aranicy` `Conflicts With`), so its whole config set was adopted into `state/owned` on 2026-11-09 | `docs/findings.md` `## vendor-settings` is the digest: adopted / rejected-because-this-repo-rules / not-applicable / lost tools. Nothing there is a measured win — it is preserved behaviour. Before removing a settings package, `pacman -Ql <pkg>`, adopt what the host actually runs, then `./eco apply --dry-run` must print `PLAN 0` |
-| A drop-in is read **after** its main config file, so a vendor `/usr/lib/.../x.conf.d/` entry silently overrides your `/etc/x.conf` — the file can be right while the effect is wrong | Burned 2026-11-09: `/etc/systemd/journald.conf` said `SystemMaxUse=256M` (managed line, `eco report` green) while `/usr/lib/systemd/journald.conf.d/00-journal-size.conf` capped the journal at 50M. Fix: own a `99-` drop-in so intent wins the drop-in layer. Verify with `systemd-analyze cat-config <file>` (last line wins), never by grepping the main file alone |
-| eco's runtime sysctl re-assert must compare the **whole** value: multi-word values (`kernel.printk = 3 3 3 3`) captured only the first token, so `want` was a prefix and every apply ended in "drift persisted" (exit 1) | Fixed 2026-11-09 (`runtime_collect` + `norm_sysctl_value`; `sysctl -n` renders tabs, the file holds spaces). Falsified by reverting the parser: 8 gate assertions red. tests/run case29 is the guard; the sysctl stub mirrors the same rule |
+- `cmd_apply` re-execs through `sudo`, so a falsified retirement guard deploys the shell engine from inside the gate. Test the guard through `refuse_retired_apply`, never through the verb.
+- A second `apply` plans nothing, and `PLAN 0` is not a health claim; `APPLY-SCOPE` names each row's reach.
+- `tests/work/` is generated output, never source, and is gitignored.
+- A test-bed figure is scoped to its kernel: a re-run elsewhere is a new baseline, not a reproduction, and historical numbers are never edited to match.
+- Two engines must never own one file; that is the failure mode the retirement exists to prevent.
 
-## Current state (volatile dated snapshots)
+## Memory
 
-Folded from host-level `~/docs/CURRENT.md` at the 2026-10-31 memory-architecture migration (host file retired). Dated snapshots of volatile host values that must not be baked into static docs (architecture: `~/.copilot/copilot-instructions.md` §0). Every entry is dated; re-probe before trusting. When a value here is re-measured, replace the entry — no history accumulation.
-
-### Host snapshot — 2026-11-09 (probes: `uname -r`, `free -h`, `df -h / /tmp`, `pacman -Qkk pacman`, `snapper list`)
-
-- kernel: `7.4.0-rc1-1-zeus` (the owner's self-built tree, clang 24). The previous snapshot's
-  `7.3.1-1-KISS-cachyos-lto` is history — identify a build by `zcat /proc/config.gz`, never by
-  version string alone
-- RAM: 30Gi total / 14Gi available
-- `/`: 896G btrfs (302G used / 570G avail) — shrunk 24 GiB on 2026-11-08 for the `/tmp` partition
-- `/tmp`: 24G f2fs (`/dev/nvme0n1p4`, 514M used) — see `docs/findings.md` `## f2fs-tmp`
-- `/etc/makepkg.conf`: locally modified (`pacman -Qkk pacman` → checksum mismatch) — not stock
-- snapper `root`: 39 snapshots (NUMBER_LIMIT 36 + 6 important; `snapper-cleanup.timer` active)
-
-### Compositor config state — 2026-10-22 (re-probe: `ps -eo comm= | grep -E 'niri|umbriel'`, `ls /run/user/1000/wayland-*`, `busctl --user status org.freedesktop.ScreenSaver`)
-
-- Active WM: **umbriel** (`umbriel-git`, `umbriel msg <action> …`) on `wayland-0`; the Noctalia
-  shell stack (`noctalia msg …`, plugins, idle chain) runs on it. **Niri retired 2026-10-22**
-  (no niri process; `~/.config/niri/` unchanged, kept for rollback).
-- umbriel config at `~/.config/umbriel/` — `umbriel config validate` → `config: ok`;
-  terminal **ghostty** (`Mod+Return`), full theme palette in `noctalia.toml` (now
-  `[include.optional]`), output has `tearing`/`bit_depth=10`/`xwayland_native_resolution`,
-  touchpad retuned.
-- Open items for the owner: `Ctrl+Shift+3` screenshot-window bind (needs slurp or an upstream
-  action), `Mod+Ctrl+C` center-visible-columns, mouse `scroll-factor 2`. Rationale lives in
-  `~/docs/NOTE.md` 2026-10-19 — the config files carry no comments by request.
-- `~/.config/noctalia/config.toml` + `~/.local/state/noctalia/settings.toml` are **not** part of
-  this translation; Noctalia also pushes a theme at runtime that can override `[colors]`.
-- Verified on umbriel 2026-10-22 (plugin work): idle chain logs in the journal
-  (`[idle] …` from `umbriel[...]`), `org.freedesktop.ScreenSaver` exposes only
-  `Inhibit`/`UnInhibit` (no `SimulateUserActivity`), logind blocker suppresses behaviours
-  (`screen-off suppressed (screensaver inhibit locks=1)`).
-
-### Boot config state — 2026-10-21
-
-- `/boot/limine.conf` regenerated mid-session by `limine-entry-tool` (ALPM hook, 2026-10-21 11:48–11:49):
-  172,881 B / 204 `protocol: linux` entries (sha256 `e13ec7eb…`) — was 172,814 B at 10:26. The 6 MB
-  failing artifact stays preserved as `/boot/limine.conf.full-20261020` (7de97d12…, unchanged).
-
-### Ananicy rules state — 2026-10-21
-
-- `ananicy-cpp.service` enabled+active (re-enabled by owner same day; had been disabled+masked since
-  2026-10-06 for set_priority spam). Config: `check_freq=60`, `loglevel=critical`, `log_applied_rule=false`.
-- Rule corpus 15828 = package 15813 + `/etc/ananicy.d/10-local.rules` 17; IN_DIFF count now **0**
-  (was 10). Local files: `10-local.rules`; package files locally edited (9) — pre-images in
-  `~/docs/backups/2026-10-21-ananicy/`. Owner's own edit: `00-types.types` `Game` nice -8→-6 (+`Launcher` type).
-- Not covered by name (runtime argv[0] is dynamic): zen contentprocs, netease gpu/renderer/utility
-  (main+zygote ARE covered via `app.asar` / zygote alias). Unruled by choice: systemd core, kernel
-  threads, copilot CLI, the owner's direct-attach scheduler (sched_ext **enabled** — re-probed
-  2026-10-21, supersedes the 2026-10-15 "disabled" note; identity never recorded here — owner policy).
-
-### Aranicy daemon state — 2026-10-28 (probes: `pacman -Q aranicy`, `systemctl is-active aranicy`, `ls /var/lib/aranicy`)
-- Host package: **aranicy 0.2.1-1** scratch build from the local working tree
-  (~/Workspace/aranicy-pkgbuild; local-tarball PKGBUILD variant) — official
-  v0.2.1 tag/package NOT cut (disposition pending). Rollback:
-  `sudo pacman -U ~/Projects/gentoo-style-arch/packages/stable/aranicy/aranicy-0.2.0-1-x86_64.pkg.tar.zst`.
-- aranicy.service active (eBPF exec events; StateDirectory=aranicy).
-  The owner's direct-attach scheduler runs manually (command never recorded here — owner policy;
-  tooling resolves it at runtime).
-- /etc/ananicy.d/ananicy.conf carries `bias_group.build = ^(cc1.*|lto1.*|collect2|as|ld.*)$`
-  (backup: ananicy.conf.bak-20261028-1210). bias_* knobs/bias_group need a
-  service restart to take effect (--reload swaps rules/config only).
-- /var/lib/aranicy/bias-state populated (unprivileged `aranicy dump bias`).
-- Evidence tree for the fuzzy/sensitivity wave: ~/Workspace/aranicy-build-val/evidence/;
-  open follow-up: sparse-window confidence decay (bias-confidence-sparse).
-
-### Default applications / MIME state — 2026-10-29 (probes: `xdg-mime query default <mime>`, `grep -c ... ~/.config/mimeapps.list`)
-- `~/.config/mimeapps.list` active (pre-image backup: `~/.config/mimeapps.list.bak-20261029-2226`).
-- Total broken desktop references: **0**.
-- Office suite: LibreOffice (`libreoffice-writer`, `libreoffice-calc`, `libreoffice-impress`, `libreoffice-draw`, `libreoffice-math`). OnlyOffice uninstalled and all associations retired.
-- Code / markup / configs: VSCodium (`vscodium.desktop` via `/usr/bin/codium %F`).
-- Browser / Web: Zen Browser (`userapp-Nightly-XE01W3.desktop` / `zen-browser.desktop`).
-- PDF / XPS: `zen-browser.desktop` (PDF), `org.gnome.Evince.desktop` (PostScript/XPS).
-
-### 2026-10-30 — noctalia annotation zoom/pan (delivered, awaiting maintainer actions)
-
-- Upstream PR #5111 open (noctalia-dev/noctalia, from fork ZhangDM-520): zoom/pan for the
-  screenshot annotation editor. Awaiting upstream review; rebase the gsa patch when main moves.
-- gsa tree commit f2d0e98: `packages/git/noctalia-git/0001-capture-annotate-zoom-pan.patch` +
-  PKGBUILD prepare(); built `noctalia-git-5.4.0.r6061.gaa66386ce-1-x86_64.pkg.tar.zst` (makepkg,
-  PGO) — NOT installed. Install + live smoke (Ctrl+wheel / Ctrl+drag / toolbar zoom) pending.
-
-### scx scheduler host facts — 2026-10-30 (probes: `scx_mavd` runs, `ps -eo comm=`, socket probe)
-- scx-scheds-git 1.1.4.r111.gda3c98b30; the owner's direct-attach scheduler runs manually.
-- **scx_mavd is unrunnable on kernel 7.3.0-rc6**: BPF load fails at `scx_lib_init_probe` (-EINVAL, flag-independent) — its experimental sub-scheduler kernel ops are missing. Any future mavd live check needs a newer kernel first.
-- aranicy.service = packaged 0.2.1-1 (the multi-scheduler sampler is committed but not yet packaged/released).
+Durable agent memory, action logs, distilled lessons, research digests and open decisions live in the maintainer's private warehouse. Start with its `AGENTS.md`: the knob ledger and the judgement/measurement lessons answer most "why is it like this" questions before the long-form docs do. Nothing from it is copied back into this tree.

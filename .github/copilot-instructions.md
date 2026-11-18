@@ -1,120 +1,37 @@
 # system-tuning — Copilot instructions
 
-Single-host system tuning for this machine (CachyOS, Ryzen AI 9 HX 370, hybrid Zen 5 / Zen 5c,
-btrfs on NVMe since the 2026-10-05 reinstall; XFS before it). Three bodies of work in one tree:
+Repo rules only. Canonical prose lives in `docs/`: engine contract `docs/eco-power-README.md`, knob ledger `docs/findings.md`, change/claim gates `docs/judgment.md`, runbook `docs/rollback.md`. On disagreement the doc wins and this file gets fixed.
 
-- **eco/power convergence** — `eco` (CLI), `lib/` (its modules), `state/` (intent), `tests/` (the
-  gate). **Retired for this host on 2026-11-10**: the live system is converged by the native
-  `genarch-settings` engine (`~/Projects/genarch-settings`), and `./eco apply` refuses (exit 2,
-  `state/RETIRED.md`) so the shell engine can never become a second writer. The tree stays as the
-  rollback artifact and parity reference; `./eco report` / `apply --dry-run` still work and show
-  the retirement as drift. Everything below about `eco-*` units, `state/` layout and the shell
-  gate describes that retired engine.
-- **benchmarks** — `benchmarks/`: `METHODOLOGY.md`, `TEST-BED.md`, `tools/` (recording + analysis
-  scripts), `data/` (append-only jsonl rows), `studies/01..04`.
-- **filesystem maintenance / storage tuning** — `docs/archive/XFS-TUNING.md` (archived XFS
-  campaign module) and the storage ops runbook (`docs/rollback.md` `## Storage ops`). The scrub
-  timer and fstrim are stock systemd units; **dedupe (`beesd@`) and SMART (`smartd` +
-  `smart-alert.sh`) were removed from `state/owned` on 2026-11-10 — host setup, not
-  repo-managed** (owner ruling; the runbook's scope boundary is the home for it).
+## Scope
 
-Merged 2026-09-28 from the `eco-power` and `System-Tuning-Benchmarks` repos (both histories
-preserved; old checkouts are read-only backup). This repo is canonical.
+- Single-host tuning: the retired shell converger (`eco`, `lib/`, `state/`, `tests/`) plus four publishable benchmark campaigns (`benchmarks/`).
+- Live convergence moved to the `genarch-settings` repo on 2026-11-10. `./eco apply` refuses live with exit `2`; `report` and `apply --dry-run` are the parity and rollback reference. Never revive live convergence here.
+- Public repo: no personal identifiers, hostnames, UUIDs, IP or MAC addresses, credentials.
 
-**Precedence: when this file and a doc disagree, the doc wins and this file is what gets fixed.**
-The docs carry the contract — tool (`docs/eco-power-README.md`), knob ledger (`docs/findings.md`),
-judgment (`docs/judgment.md`), runbook (`docs/rollback.md`); this file only carries the seams
-between them.
+## Commands
 
-## Commands (agent workflow)
-
-| Command | Effect |
-|---|---|
-| `./tests/run` | the only test gate: plain bash, no framework. Wipes and rebuilds `tests/work/` every run; takes tens of seconds |
-| `bash -n <script>` | syntax check; there is no lint config in the repo (`shellcheck` appears ad hoc) |
-
-There is no build step. **Single test:** `tests/run` is one sequential script with no case
-selector — run the suite and filter its labelled output (`./tests/run | grep 'case3'`), or
-comment out later cases while iterating on one. `tests/work/` is generated output, never source.
-The eco verbs, exit codes, and verdict classes are contract (`docs/eco-power-README.md`), never
-restated here.
-
-Benchmark re-analysis needs no setup and no root:
-`FSLAT_RESULTS=$PWD/data/tuning-results.jsonl python3 benchmarks/tools/perf-stats.py show|cmp|test LABEL...`.
-Run `show` on the control first: an effect inside the control's own spread is not a result. The
-recording tools need root, hardware, and about an hour; per-tool dependencies and the
-"learned the hard way" list are in `benchmarks/tools/README.md`.
+- Test gate: `./tests/run` — plain bash, sequential, wipes `tests/work/`, no case selector (`./tests/run | grep 'case3'` to filter). Never run two concurrently.
+- Syntax check: `bash -n <script>`. No build step, no lint config, no CI.
+- Benchmark analysis (no root, no setup): `FSLAT_RESULTS=$PWD/data/tuning-results.jsonl python3 benchmarks/tools/perf-stats.py show|cmp|test LABEL...`. Run `show` on the control first: an effect inside the control's own spread is not a result.
+- Live parity readback: `./eco report`, `./eco apply --dry-run` (root adds the SMU rows; drift there is the retirement, not a fault).
 
 ## Architecture
 
-How a change propagates (none of this is visible from a single file):
-
-1. **`state/` is the intent.** Two ownership models: byte-exact owned mirrors of live files, and
-   managed records that own one anchored line inside a foreign file. The layout (naming rule +
-   record spec) is contract: `docs/eco-power-README.md` `## State layout`; `find state/owned
-   -type f` is authoritative for owned files.
-2. **`lib/` is the machinery**, sourced by `eco` in glob order; modules define functions and call
-   each other only at run time. `registry.sh` = check vocabulary (`CHECK_IDS` order is report
-   order; `CHECK_READER`, `CHECK_DOC`, `CHECK_MANAGED`). `readers.sh` = one read-only reader per
-   check, each emitting exactly one verdict line. `report.sh` = verdict formatting + exit-code
-   derivation. `writers.sh` = apply/harvest adapters, the apply lock, backup convention.
-   `managed.sh` = the line-patch engine. `state.sh` = state layout and the `ECO_ROOT` seam.
-3. **`ECO_ROOT` is the test seam.** Every live path goes through `live_path()`; an empty
-   `ECO_ROOT` means the live root, and `assert_in_root` refuses any write outside it. The suite
-   points it at fixture trees copied from
-   `tests/fixtures/`, stubs `systemctl`/`sysctl`/`iw`/`lspci`/`ryzenadj` via `PATH`
-   (`tests/stubs/`), and asserts on exit codes, report text, and byte-level write guarantees.
-   `ECO_STATE` relocates the *intent* tree (default `$ECO_HOME/state`) — needed because the
-   deployable filter lives in the intent walk, which `ECO_ROOT` cannot reach.
-4. **Report ↔ registry ↔ docs ↔ tests are locked together.** `lib/registry.sh` is ONE table
-   (`id|reader|doc anchor|managed records|apply reach`); the arrays derive from it, so adding or
-   renaming a check is one row plus a reader in `lib/readers.sh`, a real `##` doc anchor, and the
-   literal ID list in `tests/run` (case1/case7 — deliberately independent, the oracle that a
-   vanished check fails). `CHECK_DOC` values like `findings#epp`,
-   `findings#wifi`, `findings#asusd`, `rollback#sd` are evidence handles into the docs, not
-   decoration. Verdict semantics are test-contracted: case17
-   fails if `docs/eco-power-README.md` stops defining `SKIPPED`.
-5. **Benchmarks flow is rows in, claims out.** Recording tools append identity-checked rows to
-   `data/*.jsonl` (append-only; `scx-relabel.py` is the only rewriter and demands an explicit
-   path), analysis tools answer questions from those rows with the standard library only, and
-   `studies/` publish tables that are re-derived from the shipped data rather than transcribed.
+1. `state/` — intent: `state/owned/<live-path>` byte mirrors; `state/managed/*.toml` anchored single-line records (`target`, `match`, `line`, `doc`, optional `section`).
+2. `lib/` — shell engine, sourced in glob order; `lib/registry.sh` holds the one check table.
+3. Test seams — all live I/O goes through `live_path()`/`assert_in_root()`; `ECO_ROOT` repoints the live tree (empty = live), `ECO_STATE` relocates intent.
+4. Contract — `lib/registry.sh` ↔ `tests/run` ↔ `docs/contract.tsv` ↔ `genarch-settings/tests/contract.tsv`; anchors are `##` headings. A new or renamed check ID edits all four at once.
+5. Benchmarks — append-only `data/*.jsonl`, stdlib-only analysis, `studies/` tables re-derive from the shipped data.
 
 ## Conventions
 
-- **Repo first.** The one change flow is edit intent → apply → verify, never a live hand edit. For
-  the retired shell engine that flow is now closed (`./eco apply` refuses, exit 2); the live flow
-  is the native engine's (`genarch-settings/docs/CUTOVER.md`). `docs/rollback.md` `## Converge a
-  change` remains the shell-era description.
-- **Pre-images before every live write** — the mechanism is `docs/rollback.md`
-  `## Undo: universal mechanism`.
-- **Commit messages carry the check ID** (`CEIL: Zen5c ceiling 2.9 -> 3.0GHz`) so
-  `git log --grep CEIL` is the history of one knob; every commit also carries the
-  `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer.
-- **Recovery domain is sacred** (tty login, bootloader, initramfs) — rule home `docs/judgment.md`
-  (Derived rules).
-- **Proposing tuning or making claims** goes through `docs/judgment.md` (`## May I change?` /
-  `## May I claim?`) — doctrine, the adoption gates, and what is not a measurement all live there.
-- **`benchmarks/` keeps its publication privacy rule** (`benchmarks/docs/MEMORY.md`): hardware
-  identity stays, personal identity is stripped — new `benchmarks/` prose names no home paths,
-  machine name, user, UUID, IP, or private host log. The repo root is **public since 2026-10-17**
-  (owner decision) and necessarily holds live paths such as `state/owned/home/...` — that exposure
-  is accepted; the rule above still binds `benchmarks/` prose because the subtree is republished
-  outside the repo. Fact home: `AGENTS.md`.
-- **Hybrid CPU topology is hardcoded**: `eco_ceil_want_for_policy` in
-  `state/owned/usr/local/lib/eco-ceil.sh` maps Zen 5 = CPUs 0–3,12–15 (4.7 GHz ceiling) and
-  Zen 5c = 4–11,16–23 (3.2 GHz). Per-CPU logic must reuse
-  that mapping; `benchmarks/TEST-BED.md` has the fuller machine picture.
-- **Project memory** (architecture: `~/.copilot/copilot-instructions.md` §0; map in `AGENTS.md`
-  `## Memory architecture`): durable facts and long-term rules in `AGENTS.md`, session chronology
-  in `docs/JOURNAL.md` (newest entry first; new entries are one-line summary pointers to
-  `.logs/action-*.md` summaries), active buffer in `.logs/scratchpad.md`; `benchmarks/` keeps its
-  own pair at `benchmarks/docs/` under its stricter publication rules. Mine journal entries upward
-  into `AGENTS.md` instead of duplicating them. Journal entries are self-contained; anchor insert
-  edits on the entry below, keeping preserved headings out of the edit span.
-- **Cold start**: `docs/eco-power-README.md` `## Cold start and change flow`.
-- **Contract rules have one home and are never restated here**: commands, exit codes, verdict
-  classes (including never "fixing" an `ACCEPTED` row), state layout, one place per knob,
-  idempotence, backups, foreign-file patching — `docs/eco-power-README.md` + `docs/rollback.md`;
-  registry policy labels (`settled`/`tunable`/`habit`/`recovery-only`) — `docs/findings.md`.
-  One place per knob extends to the test seam: fixtures mirror converged live and tests read
-  expectations from the record, never from literals.
+- **Repo first.** Never hand-edit live tuning; the converger and TLP re-write it. Capture a deliberate experiment (`./eco harvest`) before it reverts.
+- **One place per knob.** `grep -rn <value> state/` returns one hit. Two writers on one sysfs attribute is a silent race.
+- **Idempotence.** A second `apply` plans nothing; `PLAN 0` is not a health claim (`APPLY-SCOPE` names each row's reach).
+- **Backups are never deleted.** Dated `cp -p` sibling per write; `system-sleep/` pre-images go to a sibling directory, because systemd executes every file there.
+- **Return codes:** 0 green · 1 drift · 2 precondition · 3 apply failed partway. `SKIPPED` is unverified, not healthy; `ACCEPTED` is settled — never "fix" it.
+- **Recovery domain:** nothing may block tty login; bootloader cmdline edits touch `/boot/limine.conf` + `/etc/default/limine` with a pre-image; FS repair is offline only.
+- **Judgment gates:** `docs/judgment.md` before proposing a change (work per joule, no caps, stability first) or publishing a claim (two statistical gates, n floors, arm identity). A kernel change is a new baseline.
+- **Commits** carry the check ID (`CEIL: …`); no `Co-authored-by` trailer.
+- **Benchmarks:** strip personal and host identifiers from prose, JSONL `cmd` fields and scripts. Never name the owner's direct-attach scheduler.
+- **Hybrid topology:** Zen 5 = CPUs `0–3,12–15`; Zen 5c = `4–11,16–23` (`eco_ceil_want_for_policy`, `benchmarks/TEST-BED.md`).

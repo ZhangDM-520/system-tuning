@@ -14,9 +14,10 @@
   `benchmarks/studies/…`, `benchmarks/METHODOLOGY.md`, `docs/archive/XFS-TUNING.md`,
   `docs/rollback.md`, `./tests/run`) plus the live readback command that settles the claim on
   this host — you verify with the command, never with a log line. Kernel-scoped claims per
-  `benchmarks/docs/MEMORY.md`: benchmark numbers are stamped to the campaign kernel
-  `7.2.5-1-cachyos-rt-bore-lto` and the host has since moved on; a re-run on a different kernel is a
-  new baseline, not a reproduction, and historical figures are never edited to match. XFS-era
+  `docs/judgment.md` (`## Conditions and non-measurements`) and `benchmarks/TEST-BED.md`: benchmark
+  numbers are stamped to the campaign kernel `7.2.5-1-cachyos-rt-bore-lto` and the host has since
+  moved on; a re-run on a different kernel is a new baseline, not a reproduction, and historical
+  figures are never edited to match. XFS-era
   mount-option behaviour was kernel-version-specific; the `## xfs-*` entries below are XFS-era
   history (root moved to btrfs 2026-10-05, campaign archived at `docs/archive/XFS-TUNING.md`)
   and no longer describe anything operative.
@@ -1021,8 +1022,8 @@
   `prune` list for paths that must disappear (at cutover the engine's manifest is empty, so
   "what should be removed" cannot be inferred). Precedence is whole-file: `/etc/genarch-settings`
   overrides `/usr/lib/genarch-settings`, nothing merges.
-**Evidence.** `~/Projects/genarch-settings/intent/` (the package data), `docs/DESIGN.md`
-  (why hybrid), `CONTEXT.md` (vocabulary). The migration derives the first intent with
+**Evidence.** `~/Projects/genarch-settings/intent/` (the package data), its `docs/DESIGN.md`
+  (why hybrid) and `CONTEXT.md` (vocabulary). The migration derives the first intent with
   `genarch-settings import`, whose acceptance is a round-trip property — import → load → render must
   reproduce the shell tree byte for byte. Check: `genarch-settings report` (row MIRROR) and
   `genarch-settings apply --dry-run` (the plan must be explainable line by line).
